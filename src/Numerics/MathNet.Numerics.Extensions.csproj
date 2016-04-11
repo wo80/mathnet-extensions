@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{2018F73F-E26C-459C-98BB-B0F443C54F59}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>MathNet.Numerics</RootNamespace>
+    <AssemblyName>MathNet.Numerics.Extensions</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\out\Debug\</OutputPath>
+    <IntermediateOutputPath>..\..\out\obj\Debug\</IntermediateOutputPath>
+    <BaseIntermediateOutputPath>..\..\out\obj\Debug\</BaseIntermediateOutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile>
+    </DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\out\Release\</OutputPath>
+    <IntermediateOutputPath>..\..\out\obj\Release\</IntermediateOutputPath>
+    <BaseIntermediateOutputPath>..\..\out\obj\Release\</BaseIntermediateOutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile>..\..\out\Release\MathNet.Numerics.Extensions.xml</DocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="MathNet.Numerics, Version=3.11.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\MathNet.Numerics.3.11.0\lib\net40\MathNet.Numerics.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Integration\AdaptiveGaussLobatto.cs" />
+    <Compile Include="Integration\AdaptiveMixedDasDash.cs" />
+    <Compile Include="LinearAlgebra\Complex\CreateSparse.cs" />
+    <Compile Include="LinearAlgebra\Complex\VectorHelper.cs" />
+    <Compile Include="LinearAlgebra\Double\CreateSparse.cs" />
+    <Compile Include="LinearAlgebra\Double\VectorHelper.cs" />
+    <Compile Include="LinearAlgebra\Storage\StorageExtensions.cs" />
+    <Compile Include="LinearAlgebra\VectorExtensions.cs" />
+    <Compile Include="Threading\CommonParallel.cs" />
+    <Compile Include="LinearAlgebra\Complex\DenseMatrixExtensions.cs" />
+    <Compile Include="LinearAlgebra\Complex\DenseVectorExtensions.cs" />
+    <Compile Include="LinearAlgebra\Complex\MatrixComparer.cs" />
+    <Compile Include="LinearAlgebra\Complex\ModifiedSparseRowStorage.cs" />
+    <Compile Include="LinearAlgebra\Complex\Solvers\PCG.cs" />
+    <Compile Include="LinearAlgebra\Complex\Solvers\SSORPreconditioner.cs" />
+    <Compile Include="LinearAlgebra\Double\DenseMatrixExtensions.cs" />
+    <Compile Include="LinearAlgebra\Double\MatrixComparer.cs" />
+    <Compile Include="LinearAlgebra\Double\ModifiedSparseRowStorage.cs" />
+    <Compile Include="LinearAlgebra\Solvers\IterationMonitor.cs" />
+    <Compile Include="LinearAlgebra\Storage\ModifiedSparseRowStorage.cs" />
+    <Compile Include="LinearAlgebra\Double\DenseVectorExtensions.cs" />
+    <Compile Include="LinearAlgebra\Double\Solvers\PCG.cs" />
+    <Compile Include="LinearAlgebra\Double\Solvers\SSORPreconditioner.cs" />
+    <Compile Include="LinearAlgebra\Helper.cs" />
+    <Compile Include="LinearAlgebra\Complex\SparseMatrixExtensions.cs" />
+    <Compile Include="LinearAlgebra\Complex\StorageConverter.cs" />
+    <Compile Include="LinearAlgebra\Double\SparseMatrixExtensions.cs" />
+    <Compile Include="LinearAlgebra\Double\StorageConverter.cs" />
+    <Compile Include="LinearAlgebra\Storage\CoordinateStorage.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

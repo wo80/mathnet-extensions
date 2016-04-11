@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{DAF07AA8-C5C9-4963-98F7-2C3285064DAD}</ProjectGuid>
+    <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <TestProjectType>UnitTest</TestProjectType>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>MathNet.Numerics.Extensions.UnitTests</RootNamespace>
+    <AssemblyName>MathNet.Numerics.Extensions.UnitTests</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\</SolutionDir>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>..\..\out\Release\</OutputPath>
+    <IntermediateOutputPath>..\..\out\obj\Release\</IntermediateOutputPath>
+    <BaseIntermediateOutputPath>..\..\out\obj\Release\</BaseIntermediateOutputPath>
+    <!-- Conditional Strong Name: NO -->
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <NoWarn>1591</NoWarn>
+    <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>5</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <OutputPath>..\..\out\Debug\</OutputPath>
+    <IntermediateOutputPath>..\..\out\obj\Debug\</IntermediateOutputPath>
+    <BaseIntermediateOutputPath>..\..\out\obj\Debug\</BaseIntermediateOutputPath>
+    <!-- Conditional Strong Name: NO -->
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <NoWarn>1591</NoWarn>
+    <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>5</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="MathNet.Numerics, Version=3.11.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\MathNet.Numerics.3.11.0\lib\net40\MathNet.Numerics.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="nunit.framework, Version=3.2.0.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NUnit.3.2.0\lib\net45\nunit.framework.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="LinearAlgebraTests\Complex\DenseMatrixTests.cs" />
+    <Compile Include="LinearAlgebraTests\Complex\Helper.cs" />
+    <Compile Include="LinearAlgebraTests\Complex\MatrixLoader.cs" />
+    <Compile Include="LinearAlgebraTests\Complex\SparseMatrixTests.cs" />
+    <Compile Include="LinearAlgebraTests\Double\DenseMatrixTests.cs" />
+    <Compile Include="LinearAlgebraTests\Double\Helper.cs" />
+    <Compile Include="LinearAlgebraTests\Double\MatrixLoader.cs" />
+    <Compile Include="LinearAlgebraTests\Double\SparseMatrixTests.cs" />
+    <Compile Include="LinearAlgebraTests\Util.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Numerics\MathNet.Numerics.Extensions.csproj">
+      <Project>{2018f73f-e26c-459c-98bb-b0f443c54f59}</Project>
+      <Name>MathNet.Numerics.Extensions</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
