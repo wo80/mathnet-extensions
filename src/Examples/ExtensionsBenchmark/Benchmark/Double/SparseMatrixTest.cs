@@ -170,7 +170,7 @@ namespace ExtensionsBenchmark.Benchmark.Double
                     temp.Multiply(2.0, x);
 
                     // Completely unusable for large sparse matrices.
-                    A.TransposeThisAndMultiply(x, x);
+                    A.TransposeThisAndMultiply(x, x); // Same as A.LeftMultiply(x, x)?
 
                     z.Multiply(0.1, z);
                     z.Add(x, z);
