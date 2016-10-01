@@ -52,6 +52,11 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Complex32\DenseMatrixVisualizer.cs" />
+    <Compile Include="Complex32\DenseStorageAdapter.cs" />
+    <Compile Include="Complex32\MathService.cs" />
+    <Compile Include="Complex32\SparseMatrixVisualizer.cs" />
+    <Compile Include="Complex32\SparseStorageAdapter.cs" />
     <Compile Include="Complex\DenseMatrixVisualizer.cs" />
     <Compile Include="Complex\DenseStorageAdapter.cs" />
     <Compile Include="Complex\MathService.cs" />
@@ -63,6 +68,11 @@
     <Compile Include="Services\IStorageInfoService.cs" />
     <Compile Include="Services\MatrixEntry.cs" />
     <Compile Include="Services\StorageInfo.cs" />
+    <Compile Include="Single\DenseMatrixVisualizer.cs" />
+    <Compile Include="Single\DenseStorageAdapter.cs" />
+    <Compile Include="Single\MathService.cs" />
+    <Compile Include="Single\SparseMatrixVisualizer.cs" />
+    <Compile Include="Single\SparseStorageAdapter.cs" />
     <Compile Include="UI\Controls\CustomTabControl.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -201,5 +211,6 @@
       <Name>MathNet.Numerics.Extensions</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

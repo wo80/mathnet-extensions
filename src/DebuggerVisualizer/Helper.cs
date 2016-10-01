@@ -24,7 +24,7 @@ namespace MathNet.MatrixDebuggerVisualizer
                 return Constants.SizeOfFloat;
             }
 
-            if (typeof(T) == typeof(Complex32))
+            if (typeof(T) == typeof(MathNet.Numerics.Complex32))
             {
                 return Constants.SizeOfComplex32;
             }
