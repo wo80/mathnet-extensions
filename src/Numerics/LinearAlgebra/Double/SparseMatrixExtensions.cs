@@ -735,8 +735,9 @@ namespace MathNet.Numerics.LinearAlgebra.Double
             // Copy int arrays into result data structure if required.
             if (!ReferenceEquals(matrix, result))
             {
-                Array.Copy(ai, bi, ap[nrows + 1]);
                 Array.Copy(ap, bp, nrows + 1);
+                Array.Copy(ai, bi, ap[nrows]);
+                Array.Copy(ax, bx, ap[nrows]);
             }
 
             // Get positions of diagonal elements in data structure.

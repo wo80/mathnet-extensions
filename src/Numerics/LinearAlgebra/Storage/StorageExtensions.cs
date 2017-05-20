@@ -421,9 +421,10 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         /// </summary>
         /// <param name="storage">The sparse storage.</param>
         /// <param name="func">Drop element a_{i,j} if func(i, j, aij) is false.</param>
+        /// <param name="sorted">Ensure that column indices will be sorted.</param>
         /// <returns>New number of entries in A.</returns>
         public static int Keep<T>(this SparseCompressedRowMatrixStorage<T> storage,
-            Func<int, int, T, bool> func)
+            Func<int, int, T, bool> func, bool sorted = true)
             where T : struct, IEquatable<T>, IFormattable
         {
             int rowCount = storage.RowCount;
@@ -456,6 +457,11 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             // Record new nonzero count.
             ap[rowCount] = nz;
 
+            if (sorted)
+            {
+                Helper.SortIndices(storage.RowCount, ax, ap, ai);
+            }
+            
             // Remove extra space.
             Array.Resize(ref storage.Values, nz);
             Array.Resize(ref storage.ColumnIndices, nz);

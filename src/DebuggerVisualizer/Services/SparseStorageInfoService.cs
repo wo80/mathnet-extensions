@@ -40,23 +40,23 @@ namespace MathNet.MatrixDebuggerVisualizer.Services
 
         public void Update(int level)
         {
-            if (currentLevel < level && level > 0)
+            if (currentLevel < level && currentLevel < 1)
             {
                 NonzerosInfo();
             }
 
-            if (currentLevel < level && level > 1)
+            if (currentLevel < level && currentLevel < 2)
             {
                 DiagonalInfo();
                 Bandwidth();
             }
 
-            if (currentLevel < level && level > 2)
+            if (currentLevel < level && currentLevel < 3)
             {
                 DiagonalDominant();
             }
 
-            if (currentLevel < level && level > 3)
+            if (currentLevel < level && currentLevel < 4)
             {
                 SymmetryInfo();
             }
@@ -109,8 +109,8 @@ namespace MathNet.MatrixDebuggerVisualizer.Services
 
             var info = this.StorageInfo;
 
-            info.LowerBandwidth = ml;
-            info.UpperBandwidth = mu;
+            info.LowerBandwidth = Math.Max(0, ml);
+            info.UpperBandwidth = Math.Max(0, mu);
             info.MaximumBandwidth = iband;
             info.AverageBandwidth = bndav;
         }
@@ -255,32 +255,35 @@ namespace MathNet.MatrixDebuggerVisualizer.Services
 
             var count = new int[n + S.ColumnCount];
 
-            for (i = 0; i < n; ++i)
+            if (nnz > 0)
             {
-                end = ap[i + 1];
-
-                for (k = ap[i]; k < end; k++)
+                for (i = 0; i < n; ++i)
                 {
-                    j = ai[k];
-                    dist += (double)Math.Abs(j - i);
-                    count[n + j - i]++;
+                    end = ap[i + 1];
+
+                    for (k = ap[i]; k < end; k++)
+                    {
+                        j = ai[k];
+                        dist += (double)Math.Abs(j - i);
+                        count[n + j - i]++;
+                    }
                 }
-            }
 
-            dist /= nnz;
+                dist /= nnz;
 
-            for (i = 0; i < n; i++)
-            {
-                end = ap[i + 1];
-
-                for (k = ap[i]; k < end; k++)
+                for (i = 0; i < n; i++)
                 {
-                    t = dist - (double)Math.Abs(ai[k] - i);
-                    std += t * t;
-                }
-            }
+                    end = ap[i + 1];
 
-            std = Math.Sqrt(std / (double)(nnz));
+                    for (k = ap[i]; k < end; k++)
+                    {
+                        t = dist - (double)Math.Abs(ai[k] - i);
+                        std += t * t;
+                    }
+                }
+
+                std = Math.Sqrt(std / (double)(nnz));
+            }
 
             var info = this.StorageInfo;
 
@@ -323,6 +326,12 @@ namespace MathNet.MatrixDebuggerVisualizer.Services
             var ai = S.ColumnIndices;
 
             int nnz = ap[n] - ap[0];
+
+            if (nnz == 0)
+            {
+                return 0;
+            }
+
             int iacc = dist[n];
 
             int band = 0;

@@ -323,6 +323,29 @@ namespace MathNet.Numerics.Extensions.UnitTests.LinearAlgebraTests.Double
             Assert.IsTrue(MatrixComparer.Equals(B, C, EPS));
         }
 
+        [Test]
+        public void TestAddDiagonalMatrixNew()
+        {
+            var diag = DenseVector.Create(10, 1.0);
+
+            var A = CreateSparse.Random(10, 10, 0.8);
+
+            A.FastLowerTriangle();
+            A.SetDiagonal(diag);
+
+            var empty = CreateSparse.Zeros(A.RowCount, A.ColumnCount, A.NonZerosCount);
+
+            // Add diagonal and save to new matrix.
+            A.FastAddDiagonalMatrix(diag.Negate().ToArray(), empty);
+
+            var d = empty.FastDiagonal();
+
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.AreEqual(d[i], 0.0);
+            }
+        }
+
         [TestCase(55)]
         [TestCase(57)]
         [TestCase(75)]
@@ -387,9 +410,5 @@ namespace MathNet.Numerics.Extensions.UnitTests.LinearAlgebraTests.Double
                 Assert.IsTrue(item.Item1 != item.Item2);
             }
         }
-
-        #region Implementation
-
-        #endregion
     }
 }

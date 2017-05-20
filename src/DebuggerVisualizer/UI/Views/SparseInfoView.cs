@@ -199,8 +199,10 @@ namespace MathNet.MatrixDebuggerVisualizer.UI.Views
 
             int imatch = info.ElementsInSymmetry;
 
+            int nv = info.ValueCount;
+
             lbNumSym.Text = imatch.ToString();
-            lbNumSymPcnt.Text = string.Format("{0:0.0} %", 100 * imatch / (double)info.ValueCount);
+            lbNumSymPcnt.Text = string.Format("{0:0.0} %", nv > 0 ? 100 * imatch / (double)nv : 0.0);
             lbFrobSym.Text = info.FrobeniusNormSymPart.ToString("0.0");
             lbFrobNonSym.Text = info.FrobeniusNormNonSymPart.ToString("0.0");
         }
