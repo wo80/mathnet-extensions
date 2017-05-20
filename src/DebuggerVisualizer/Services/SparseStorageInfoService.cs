@@ -40,28 +40,34 @@ namespace MathNet.MatrixDebuggerVisualizer.Services
 
         public void Update(int level)
         {
-            if (currentLevel < level && currentLevel < 1)
+            if (level > currentLevel)
             {
                 NonzerosInfo();
+
+                currentLevel = 1;
             }
 
-            if (currentLevel < level && currentLevel < 2)
+            if (level > currentLevel)
             {
                 DiagonalInfo();
                 Bandwidth();
+
+                currentLevel = 2;
             }
 
-            if (currentLevel < level && currentLevel < 3)
+            if (level > currentLevel)
             {
                 DiagonalDominant();
+
+                currentLevel = 3;
             }
 
-            if (currentLevel < level && currentLevel < 4)
+            if (level > currentLevel)
             {
                 SymmetryInfo();
-            }
 
-            currentLevel = level;
+                currentLevel = 4;
+            }
         }
 
         /// <summary>
