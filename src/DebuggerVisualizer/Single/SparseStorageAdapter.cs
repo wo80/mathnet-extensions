@@ -115,14 +115,11 @@ namespace MathNet.MatrixDebuggerVisualizer.Single
                 {
                     col = ai[j];
 
-                    if (col >= colStart)
+                    // We could break on (col > colEnd) since columns are always sorted.
+
+                    if (col >= colStart && col <= colEnd)
                     {
                         yield return new MatrixEntry(i, ai[j], ax[j]);
-                    }
-
-                    if (col > colEnd)
-                    {
-                        break;
                     }
                 }
             }

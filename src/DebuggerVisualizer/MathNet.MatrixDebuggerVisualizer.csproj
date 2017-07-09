@@ -140,6 +140,12 @@
     <Compile Include="UI\Views\SparseStorageView.Designer.cs">
       <DependentUpon>SparseStorageView.cs</DependentUpon>
     </Compile>
+    <Compile Include="UI\Views\SparseSubMatrixView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Views\SparseSubMatrixView.Designer.cs">
+      <DependentUpon>SparseSubMatrixView.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="UI\DenseMatrixVisualizerForm.resx">
@@ -166,6 +172,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Views\SparseStorageView.resx">
       <DependentUpon>SparseStorageView.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Views\SparseSubMatrixView.resx">
+      <DependentUpon>SparseSubMatrixView.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

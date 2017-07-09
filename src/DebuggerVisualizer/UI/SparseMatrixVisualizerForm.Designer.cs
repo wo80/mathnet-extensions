@@ -35,10 +35,13 @@
             this.infoView = new MathNet.MatrixDebuggerVisualizer.UI.Views.SparseInfoView();
             this.tabPage3 = new System.Windows.Forms.TabPage();
             this.spyView = new MathNet.MatrixDebuggerVisualizer.UI.Views.SparseSpyView();
+            this.tabPage4 = new System.Windows.Forms.TabPage();
+            this.denseView = new MathNet.MatrixDebuggerVisualizer.UI.Views.SparseSubMatrixView();
             this.tabControl.SuspendLayout();
             this.tabPage1.SuspendLayout();
             this.tabPage2.SuspendLayout();
             this.tabPage3.SuspendLayout();
+            this.tabPage4.SuspendLayout();
             this.SuspendLayout();
             // 
             // tabControl
@@ -46,6 +49,7 @@
             this.tabControl.Controls.Add(this.tabPage1);
             this.tabControl.Controls.Add(this.tabPage2);
             this.tabControl.Controls.Add(this.tabPage3);
+            this.tabControl.Controls.Add(this.tabPage4);
             this.tabControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabControl.Location = new System.Drawing.Point(0, 0);
             this.tabControl.Name = "tabControl";
@@ -118,6 +122,27 @@
             this.spyView.StorageAdapter = null;
             this.spyView.TabIndex = 0;
             // 
+            // tabPage4
+            // 
+            this.tabPage4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(41)))), ((int)(((byte)(57)))), ((int)(((byte)(85)))));
+            this.tabPage4.Controls.Add(this.denseView);
+            this.tabPage4.Location = new System.Drawing.Point(4, 29);
+            this.tabPage4.Name = "tabPage4";
+            this.tabPage4.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage4.Size = new System.Drawing.Size(684, 490);
+            this.tabPage4.TabIndex = 3;
+            this.tabPage4.Text = "Dense";
+            // 
+            // denseView
+            // 
+            this.denseView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.denseView.Font = new System.Drawing.Font("Segoe UI", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.denseView.Location = new System.Drawing.Point(3, 3);
+            this.denseView.Name = "denseView";
+            this.denseView.Size = new System.Drawing.Size(678, 484);
+            this.denseView.StorageAdapter = null;
+            this.denseView.TabIndex = 0;
+            // 
             // SparseMatrixVisualizerForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -133,6 +158,7 @@
             this.tabPage1.ResumeLayout(false);
             this.tabPage2.ResumeLayout(false);
             this.tabPage3.ResumeLayout(false);
+            this.tabPage4.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -146,5 +172,7 @@
         private Views.SparseInfoView infoView;
         private Views.SparseStorageView storageView;
         private Views.SparseSpyView spyView;
+        private System.Windows.Forms.TabPage tabPage4;
+        private Views.SparseSubMatrixView denseView;
     }
 }

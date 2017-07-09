@@ -18,6 +18,7 @@ namespace MathNet.MatrixDebuggerVisualizer.UI
             storageView.StorageAdapter = adapter;
             infoView.StorageAdapter = adapter;
             spyView.StorageAdapter = adapter;
+            denseView.StorageAdapter = adapter;
 
             // Since TabIndexChanged doesn't fire on load, initialize view manually.
             storageView.ActivateView();
