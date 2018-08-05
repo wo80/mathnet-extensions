@@ -785,58 +785,9 @@ namespace MathNet.Numerics.OdeSolvers
 
                 // Final preparation for dense output
                 //if (iout == 2 || _event)
-                {
-                    //    Save the first function evaluations
-                    for (j = 0; j < nrd; ++j)
-                    {
-                        i = icomp[j];
-                        r[j] = x[i];
-                        ydiff = xout[i] - x[i];
-                        r[j + nrd] = ydiff;
-                        bspl = dt * dxdt[i] - ydiff;
-                        r[j + nrd * 2] = bspl;
-                        r[j + nrd * 3] = ydiff - dt * k4[i] - bspl;
-                        r[j + nrd * 4] = dxdt[i] * d41 + k6[i] * d46 + k7[i] * d47 + k8[i] * d48 + k9[i] * d49 + k10[i] * d410 + k2[i] * d411 + k3[i] * d412;
-                        r[j + nrd * 5] = dxdt[i] * d51 + k6[i] * d56 + k7[i] * d57 + k8[i] * d58 + k9[i] * d59 + k10[i] * d510 + k2[i] * d511 + k3[i] * d512;
-                        r[j + nrd * 6] = dxdt[i] * d61 + k6[i] * d66 + k7[i] * d67 + k8[i] * d68 + k9[i] * d69 + k10[i] * d610 + k2[i] * d611 + k3[i] * d612;
-                        r[j + nrd * 7] = dxdt[i] * d71 + k6[i] * d76 + k7[i] * d77 + k8[i] * d78 + k9[i] * d79 + k10[i] * d710 + k2[i] * d711 + k3[i] * d712;
-                    }
-
-                    // The next three function evaluations
-
-                    for (i = 0; i < n; ++i)
-                    {
-                        xtemp[i] = x[i] + dt * (dxdt[i] * a141 + k7[i] * a147 + k8[i] * a148 + k9[i] * a149 + k10[i] * a1410 + k2[i] * a1411 + k3[i] * a1412 + k4[i] * a1413);
-                    }
-
-                    fcn(t + dt * c14, xtemp, k10);
-
-                    for (i = 0; i < n; ++i)
-                    {
-                        xtemp[i] = x[i] + dt * (dxdt[i] * a151 + k6[i] * a156 + k7[i] * a157 + k8[i] * a158 + k2[i] * a1511 + k3[i] * a1512 + k4[i] * a1513 + k10[i] * a1514);
-                    }
-
-                    fcn(t + dt * c15, xtemp, k2);
-
-                    for (i = 0; i < n; ++i)
-                    {
-                        xtemp[i] = x[i] + dt * (dxdt[i] * a161 + k6[i] * a166 + k7[i] * a167 + k8[i] * a168 + k9[i] * a169 + k4[i] * a1613 + k10[i] * a1614 + k2[i] * a1615);
-                    }
-
-                    fcn(t + dt * c16, xtemp, k3);
-                    nfcn += 3;
-
-                    // Final preparation
-                    for (j = 0; j < nrd; ++j)
-                    {
-                        i = icomp[j];
-                        r[j + (nrd << 2)] = dt * (r[j + (nrd << 2)] + k4[i] * d413 + k10[i] * d414 + k2[i] * d415 + k3[i] * d416);
-                        r[j + nrd * 5] = dt * (r[j + nrd * 5] + k4[i] * d513 + k10[i] * d514 + k2[i] * d515 + k3[i] * d516);
-                        r[j + nrd * 6] = dt * (r[j + nrd * 6] + k4[i] * d613 + k10[i] * d614 + k2[i] * d615 + k3[i] * d616);
-                        r[j + nrd * 7] = dt * (r[j + nrd * 7] + k4[i] * d713 + k10[i] * d714 + k2[i] * d715 + k3[i] * d716);
-                    }
-                    condo_1.hout = dt;
-                }
+                PrepareInterpolation(t, dt, x, nrd, icomp);
+                condo_1.hout = dt;
+                nfcn += 3;
 
                 for (i = 0; i < n; ++i)
                 {
@@ -875,6 +826,61 @@ namespace MathNet.Numerics.OdeSolvers
             }
             dt = hnew;
             goto L1;
+        }
+
+        private void PrepareInterpolation(double t, double dt, double[] x, int nrd, int[] icomp)
+        {
+            int i;
+            
+            for (int j = 0; j < nrd; ++j)
+            {
+                i = icomp[j];
+
+                double dx = xout[i] - x[i];
+                double bspl = dt * dxdt[i] - dx;
+
+                r[j] = x[i];
+                r[j + nrd] = dx;
+                r[j + nrd * 2] = bspl;
+                r[j + nrd * 3] = dx - dt * k4[i] - bspl;
+                r[j + nrd * 4] = dxdt[i] * d41 + k6[i] * d46 + k7[i] * d47 + k8[i] * d48 + k9[i] * d49 + k10[i] * d410 + k2[i] * d411 + k3[i] * d412;
+                r[j + nrd * 5] = dxdt[i] * d51 + k6[i] * d56 + k7[i] * d57 + k8[i] * d58 + k9[i] * d59 + k10[i] * d510 + k2[i] * d511 + k3[i] * d512;
+                r[j + nrd * 6] = dxdt[i] * d61 + k6[i] * d66 + k7[i] * d67 + k8[i] * d68 + k9[i] * d69 + k10[i] * d610 + k2[i] * d611 + k3[i] * d612;
+                r[j + nrd * 7] = dxdt[i] * d71 + k6[i] * d76 + k7[i] * d77 + k8[i] * d78 + k9[i] * d79 + k10[i] * d710 + k2[i] * d711 + k3[i] * d712;
+            }
+
+            // The next three function evaluations
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a141 + k7[i] * a147 + k8[i] * a148 + k9[i] * a149 + k10[i] * a1410 + k2[i] * a1411 + k3[i] * a1412 + k4[i] * a1413);
+            }
+
+            fcn(t + dt * c14, xtemp, k10);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a151 + k6[i] * a156 + k7[i] * a157 + k8[i] * a158 + k2[i] * a1511 + k3[i] * a1512 + k4[i] * a1513 + k10[i] * a1514);
+            }
+
+            fcn(t + dt * c15, xtemp, k2);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a161 + k6[i] * a166 + k7[i] * a167 + k8[i] * a168 + k9[i] * a169 + k4[i] * a1613 + k10[i] * a1614 + k2[i] * a1615);
+            }
+
+            fcn(t + dt * c16, xtemp, k3);
+
+            // Final preparation
+            for (int j = 0; j < nrd; ++j)
+            {
+                i = icomp[j];
+                r[j + nrd * 4] = dt * (r[j + nrd * 4] + k4[i] * d413 + k10[i] * d414 + k2[i] * d415 + k3[i] * d416);
+                r[j + nrd * 5] = dt * (r[j + nrd * 5] + k4[i] * d513 + k10[i] * d514 + k2[i] * d515 + k3[i] * d516);
+                r[j + nrd * 6] = dt * (r[j + nrd * 6] + k4[i] * d613 + k10[i] * d614 + k2[i] * d615 + k3[i] * d616);
+                r[j + nrd * 7] = dt * (r[j + nrd * 7] + k4[i] * d713 + k10[i] * d714 + k2[i] * d715 + k3[i] * d716);
+            }
         }
 
         private void Step(double t, double dt, double[] x)

@@ -3,7 +3,7 @@ namespace MathNet.Numerics.OdeSolvers
 {
     using System;
     using System.Diagnostics;
-    
+
     public class DormandPrince5
     {
         #region Runge-Kutta coefficients
@@ -266,7 +266,7 @@ namespace MathNet.Numerics.OdeSolvers
             double beta, safe;
             double hmax;
             int nmax;
-            
+
             int nstiff, nrdens, iprint;
             double uround;
 
@@ -565,15 +565,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             Step(t, dt, x);
             nfcn += 6;
-            
-            //if (iout >= 2)
-            {
-                for (j = 0; j < nrd; ++j)
-                {
-                    i = icomp[j];
-                    r[nrd * 4 + j] = dt * (d1 * dxdt[i] + d3 * k3[i] + d4 * k4[i] + d5 * k5[i] + d6 * k6[i] + d7 * dxdtnew[i]);
-                }
-            }
 
             // Error estimation
             err = Error(dt, x, itol);
@@ -636,20 +627,9 @@ namespace MathNet.Numerics.OdeSolvers
                         }
                     }
                 }
-                
+
                 //if (iout >= 2)
-                {
-                    for (j = 0; j < nrd; ++j)
-                    {
-                        i = icomp[j];
-                        ydiff = xout[i] - x[i];
-                        bspl = dt * dxdt[i] - ydiff;
-                        r[j] = x[i];
-                        r[nrd + j] = ydiff;
-                        r[nrd * 2 + j] = bspl;
-                        r[nrd * 3 + j] = -(dt) * dxdtnew[i] + ydiff - bspl;
-                    }
-                }
+                PrepareInterpolation(dt, x, nrd, icomp);
 
                 for (i = 0; i < n; ++i)
                 {
@@ -658,7 +638,7 @@ namespace MathNet.Numerics.OdeSolvers
                 }
                 condo_1.xold = t;
                 t = t + dt;
-                
+
                 // Normal exit
                 if (last)
                 {
@@ -688,6 +668,23 @@ namespace MathNet.Numerics.OdeSolvers
             }
             dt = hnew;
             goto L1;
+        }
+
+        private void PrepareInterpolation(double dt, double[] x, int nrd, int[] icomp)
+        {
+            for (int j = 0; j < nrd; ++j)
+            {
+                int i = icomp[j];
+
+                double dx = xout[i] - x[i];
+                double bspl = dt * dxdt[i] - dx;
+
+                r[j] = x[i];
+                r[nrd + j] = dx;
+                r[nrd * 2 + j] = bspl;
+                r[nrd * 3 + j] = -(dt) * dxdtnew[i] + dx - bspl;
+                r[nrd * 4 + j] = dt * (d1 * dxdt[i] + d3 * k3[i] + d4 * k4[i] + d5 * k5[i] + d6 * k6[i] + d7 * dxdtnew[i]);
+            }
         }
 
         private void Step(double t, double dt, double[] x)
