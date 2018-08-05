@@ -730,7 +730,11 @@ namespace MathNet.Numerics.OdeSolvers
                 solout(naccpt + 1, condo8_1.xold, t, x, n, r, icomp, nrd, rpar, ipar, irtrn, ref xout);
                 if (irtrn < 0)
                 {
-                    goto L79;
+                    if (iprint > 0)
+                    {
+                        Debug.WriteLine("Exit of DOP853 at X=" + t);
+                    }
+                    return 2;
                 }
             }
 
@@ -738,12 +742,24 @@ namespace MathNet.Numerics.OdeSolvers
             L1:
             if (nstep > nmax)
             {
-                goto L78;
+                if (iprint > 0)
+                {
+                    Debug.WriteLine("Exit of DOP853 at X=" + t);
+                    Console.WriteLine(" More than NMAX =" + nmax + "steps are needed");
+                }
+                return -2;
             }
+
             if (Math.Abs(dt) * 0.1 <= Math.Abs(t) * uround)
             {
-                goto L77;
+                if (iprint > 0)
+                {
+                    Debug.WriteLine("Exit of DOP853 at X=" + t);
+                    Console.WriteLine(" Step size too small, H=" + dt);
+                }
+                return -3;
             }
+
             if ((t + dt * 1.01 - xend) * posneg > 0.0)
             {
                 dt = xend - t;
@@ -933,7 +949,7 @@ namespace MathNet.Numerics.OdeSolvers
                             }
                             if (iprint <= 0)
                             {
-                                goto L76;
+                                return -4;
                             }
                         }
                     }
@@ -1015,7 +1031,11 @@ namespace MathNet.Numerics.OdeSolvers
                     solout(naccpt + 1, condo8_1.xold, t, x, n, r, icomp, nrd, rpar, ipar, irtrn, ref xout);
                     if (irtrn < 0)
                     {
-                        goto L79;
+                        if (iprint > 0)
+                        {
+                            Debug.WriteLine("Exit of DOP853 at X=" + t);
+                        }
+                        return 2;
                     }
                 }
 
@@ -1049,33 +1069,6 @@ namespace MathNet.Numerics.OdeSolvers
             }
             dt = hnew;
             goto L1;
-
-            // Fail exit
-            L76:
-            return -4;
-
-            L77:
-            if (iprint > 0)
-            {
-                Debug.WriteLine("Exit of DOP853 at X=" + t);
-                Console.WriteLine(" Step size too small, H=" + dt);
-            }
-            return -3;
-
-            L78:
-            if (iprint > 0)
-            {
-                Debug.WriteLine("Exit of DOP853 at X=" + t);
-                Console.WriteLine(" More than NMAX =" + nmax + "steps are needed");
-            }
-            return -2;
-
-            L79:
-            if (iprint > 0)
-            {
-                Debug.WriteLine("Exit of DOP853 at X=" + t);
-            }
-            return 2;
         }
 
         /* ---------------------------------------------------------- */
