@@ -492,8 +492,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             /* Local variables */
             int i, j;
-            double yd0, fac, err, fac11;
-            int iord;
+            double err, fac, fac11;
             bool last;
             double hnew, bspl, facc1, facc2, expo1, hlamb, ydiff;
             int iasti;
@@ -502,7 +501,6 @@ namespace MathNet.Numerics.OdeSolvers
             int irtrn = 0;
             double stnum, facold;
             bool reject;
-
             double posneg;
             int nonsti = 0;
 
@@ -520,11 +518,12 @@ namespace MathNet.Numerics.OdeSolvers
             iasti = 0;
             fcn(t, x, dxdt);
             hmax = Math.Abs(hmax);
-            iord = 5;
+
             if (dt == 0.0)
             {
-                dt = Initialize(fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
+                dt = Initialize(t, x, xend, posneg, dxdt, hmax, itol);
             }
+
             nfcn += 2;
             reject = false;
             condo_1.xold = t;
@@ -643,8 +642,7 @@ namespace MathNet.Numerics.OdeSolvers
                     for (j = 0; j < nrd; ++j)
                     {
                         i = icomp[j];
-                        yd0 = x[i];
-                        ydiff = xout[i] - yd0;
+                        ydiff = xout[i] - x[i];
                         bspl = dt * dxdt[i] - ydiff;
                         r[j] = x[i];
                         r[nrd + j] = ydiff;
@@ -772,17 +770,19 @@ namespace MathNet.Numerics.OdeSolvers
         /* ---------------------------------------------------------- */
         /* ----  Computation of an initial step size guess */
         /* ---------------------------------------------------------- */
-        double Initialize(Action<double, double[], double[]> fcn, double x, double[] y,
-            double xend, double posneg, double[] f0, double[] f1,
-            double[] y1, int iord, double hmax, int itol)
+        double Initialize(double x, double[] y, double xend, double posneg,
+            double[] y1, double hmax, int itol)
         {
             /* System generated locals */
             double d__1;
 
             /* Local variables */
             double h;
-            int i;
+            int i, iord = 5;
             double h1, sk, dnf, dny, der2, der12, atoli, rtoli;
+
+            double[] f0 = k2;
+            double[] f1 = k3;
 
             // Compute a first guess for explicit euler as
             //   H = 0.01 * NORM (Y0) / NORM (F0)
@@ -885,7 +885,7 @@ namespace MathNet.Numerics.OdeSolvers
         /*     with the output-subroutine for DOPRI5. It provides an */
         /*     approximation to the II-th component of the solution at X. */
         /* ---------------------------------------------------------- */
-        public double contd5_(int ii, double x, double[] con, int[] icomp, int nd)
+        public double Interpolate(int ii, double x, double[] con, int[] icomp, int nd)
         {
             // Compute place of II-th component
 

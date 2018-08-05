@@ -631,14 +631,11 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Core integrator for DOP853 */
         /*     Parameters same as in DOP853 with workspace added */
         /* ---------------------------------------------------------- */
-        int dp86co_(double t, double[] x, double xend, double hmax, ref double dt,
-            int itol, int iprint,
+        int dp86co_(double t, double[] x, double xend, double hmax, ref double dt, int itol, int iprint,
             int nmax, double uround,
             int nstiff, double safe, double beta,
-            double fac1, double fac2,
-            int[] icomp, int nrd,
-            ref int nfcn, ref int nstep,
-            ref int naccpt, ref int nrejct)
+            double fac1, double fac2, int[] icomp,
+            int nrd, ref int nfcn, ref int nstep, ref int naccpt, ref int nrejct)
         {
             /* System generated locals */
             double d__1;
@@ -646,13 +643,11 @@ namespace MathNet.Numerics.OdeSolvers
             /* Local variables */
             int i, j;
             double err, fac, fac11;
-            int iord;
             bool last;
-            double hnew, bspl, facc1, facc2, expo1, hlamb, ydiff, atoli;
+            double hnew, bspl, facc1, facc2, expo1, hlamb, ydiff;
             int iasti;
 
             double stden;
-            double rtoli;
             int irtrn = 0;
             double stnum, facold;
             bool reject;
@@ -668,18 +663,17 @@ namespace MathNet.Numerics.OdeSolvers
             posneg = d_sign(1.0, xend - t);
 
             // Initial preparations
-            atoli = atol[0];
-            rtoli = rtol[0];
             last = false;
             hlamb = 0.0;
             iasti = 0;
             fcn(t, x, dxdt);
             hmax = Math.Abs(hmax);
-            iord = 8;
+
             if (dt == 0.0)
             {
-                dt = Initialize(fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
+                dt = Initialize(t, x, xend, posneg, dxdt, hmax, itol);
             }
+
             nfcn += 2;
             reject = false;
             condo_1.xold = t;
@@ -893,78 +887,66 @@ namespace MathNet.Numerics.OdeSolvers
             }
 
             fcn(t + c2 * dt, xtemp, k2);
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (a31 * dxdt[i] + a32 * k2[i]);
             }
 
             fcn(t + c3 * dt, xtemp, k3);
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (a41 * dxdt[i] + a43 * k3[i]);
             }
 
             fcn(t + dt * c4, xtemp, k4);
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (dxdt[i] * a51 + k3[i] * a53 + k4[i] * a54);
             }
 
             fcn(t + dt * c5, xtemp, k5);
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (dxdt[i] * a61 + k4[i] * a64 + k5[i] * a65);
             }
 
             fcn(t + dt * c6, xtemp, k6);
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (dxdt[i] * a71 + k4[i] * a74 + k5[i] * a75 + k6[i] * a76);
             }
 
             fcn(t + dt * c7, xtemp, k7);
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (dxdt[i] * a81 + k4[i] * a84 + k5[i] * a85 + k6[i] * a86 + k7[i] * a87);
             }
 
             fcn(t + dt * c8, xtemp, k8);
-
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (dxdt[i] * a91 + k4[i] * a94 + k5[i] * a95 + k6[i] * a96 + k7[i] * a97 + k8[i] * a98);
             }
 
             fcn(t + dt * c9, xtemp, k9);
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (dxdt[i] * a101 + k4[i] * a104 + k5[i] * a105 + k6[i] * a106 + k7[i] * a107 + k8[i] * a108 + k9[i] * a109);
             }
 
             fcn(t + dt * c10, xtemp, k10);
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (dxdt[i] * a111 + k4[i] * a114 + k5[i] * a115 + k6[i] * a116 + k7[i] * a117 + k8[i] * a118 + k9[i] * a119 + k10[i] * a1110);
             }
 
             fcn(t + dt * c11, xtemp, k2);
-
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (dxdt[i] * a121 + k4[i] * a124 + k5[i] * a125 + k6[i] * a126 + k7[i] * a127 + k8[i] * a128 + k9[i] * a129 + k10[i] * a1210 + k2[i] * a122);
             }
 
             fcn(t + dt, xtemp, k3);
-
             for (i = 0; i < n; ++i)
             {
                 k4[i] = dxdt[i] * b1 + k6[i] * b6 + k7[i] * b7 + k8[i] * b8 + k9[i] * b9 + k10[i] * b10 + k2[i] * b11 + k3[i] * b12;
@@ -1024,17 +1006,19 @@ namespace MathNet.Numerics.OdeSolvers
         /* ---------------------------------------------------------- */
         /* ----  Computation of an initial step size guess */
         /* ---------------------------------------------------------- */
-        double Initialize(Action<double, double[], double[]> fcn, double x, double[] y,
-            double xend, double posneg, double[] f0, double[] f1,
-            double[] y1, int iord, double hmax, int itol)
+        double Initialize(double x, double[] y, double xend, double posneg,
+            double[] y1, double hmax, int itol)
         {
             /* System generated locals */
             double d__1;
 
             /* Local variables */
             double h;
-            int i;
+            int i, iord = 8;
             double h1, sk, dnf, dny, der2, der12, atoli, rtoli;
+
+            double[] f0 = k2;
+            double[] f1 = k3;
 
             // Compute a first guess for explicit euler as
             //   H = 0.01 * NORM (Y0) / NORM (F0)
@@ -1137,7 +1121,7 @@ namespace MathNet.Numerics.OdeSolvers
         /*     with the output-subroutine for DOP853. It provides an */
         /*     approximation to the II-th component of the solution at X. */
         /* ---------------------------------------------------------- */
-        public double contd8_(int ii, double x, double[] con, int[] icomp, int nd)
+        public double Interpolate(int ii, double x, double[] con, int[] icomp, int nd)
         {
             // Compute place of II-th component
 
