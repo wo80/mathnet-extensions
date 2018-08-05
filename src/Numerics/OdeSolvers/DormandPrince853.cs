@@ -209,7 +209,7 @@ namespace MathNet.Numerics.OdeSolvers
             public double xold, hout;
         }
 
-        condo8_ condo8_1 = new condo8_();//		double xold, hout;
+        condo8_ condo8_1 = new condo8_();
 
         /* ----------------------------------------------------------
          *     NUMERICAL SOLUTION OF A SYSTEM OF FIRST 0RDER
@@ -403,11 +403,8 @@ namespace MathNet.Numerics.OdeSolvers
          * ----------------------------------------------------------------------- */
         public int dop853_(int n, U_fp fcn, double x, double[] y, double xend,
             double[] rtol, double[] atol, int itol, S_fp solout, int iout, double[] work, int lwork,
-            int[] iwork, int liwork, double[] rpar, int[] ipar, out int idid)
+            int[] iwork, int liwork, double[] rpar, int[] ipar)
         {
-            /* System generated locals */
-            int i1;
-
             /* Local variables */
             double h;
             int i;
@@ -427,7 +424,8 @@ namespace MathNet.Numerics.OdeSolvers
             naccpt = 0;
             nrejct = 0;
             arret = false;
-            /* -------- IPRINT FOR MONITORING THE PRINTING */
+
+            // IPRINT for monitoring the printing
             if (iwork[2] == 0)
             {
                 iprint = 6;
@@ -436,7 +434,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 iprint = iwork[2];
             }
-            /* -------- NMAX , THE MAXIMAL NUMBER OF STEPS ----- */
+
+            // NMAX the maximal number of steps
             if (iwork[0] == 0)
             {
                 nmax = 100000;
@@ -448,12 +447,13 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     if (iprint > 0)
                     {
-                        Console.WriteLine(" WRONG INPUT IWORK(1)=" + iwork[0]);
+                        Console.WriteLine(" Wrong input IWORK(1)=" + iwork[0]);
                     }
                     arret = true;
                 }
             }
-            /* -------- METH   COEFFICIENTS OF THE METHOD */
+
+            // METH coefficients of the method
             if (iwork[1] == 0)
             {
                 meth = 1;
@@ -465,12 +465,13 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     if (iprint > 0)
                     {
-                        Console.WriteLine(" CURIOUS INPUT IWORK(2)=" + iwork[1]);
+                        Console.WriteLine(" Curious input IWORK(2)=" + iwork[1]);
                     }
                     arret = true;
                 }
             }
-            /* -------- NSTIFF   PARAMETER FOR STIFFNESS DETECTION */
+
+            // NSTIFF parameter for stiffness detection
             nstiff = iwork[3];
             if (nstiff == 0)
             {
@@ -480,13 +481,14 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 nstiff = nmax + 10;
             }
-            /* -------- NRDENS   NUMBER OF DENSE OUTPUT COMPONENTS */
+
+            // NRDENS number of dense output components
             nrdens = iwork[4];
             if (nrdens < 0 || nrdens > n)
             {
                 if (iprint > 0)
                 {
-                    Console.WriteLine(" CURIOUS INPUT IWORK(5)=" + iwork[4]);
+                    Console.WriteLine(" Curious input IWORK(5)=" + iwork[4]);
                 }
                 arret = true;
             }
@@ -496,7 +498,7 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     if (iprint > 0)
                     {
-                        Console.WriteLine(" WARNING: PUT IOUT=2 OR IOUT=3 FOR DENSE OUTPUT ");
+                        Console.WriteLine(" WARNING: put IOUT=2 or IOUT=3 for dense output ");
                     }
                 }
                 if (nrdens == n)
@@ -507,7 +509,8 @@ namespace MathNet.Numerics.OdeSolvers
                     }
                 }
             }
-            /* -------- UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0 */
+
+            // UROUND smallest number satisfying 1.0+UROUND>1.0
             if (work[0] == 0.0)
             {
                 uround = 2.3e-16;
@@ -519,12 +522,13 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     if (iprint > 0)
                     {
-                        Console.WriteLine(" WHICH MACHINE DO YOU HAVE? YOUR UROUND WAS:" + work[0]);
+                        Console.WriteLine(" Which machine do you have? Your UROUND was:" + work[0]);
                     }
                     arret = true;
                 }
             }
-            /* -------  SAFETY FACTOR ------------- */
+
+            //  safety factor
             if (work[1] == 0.0)
             {
                 safe = 0.9;
@@ -536,12 +540,13 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     if (iprint > 0)
                     {
-                        Console.WriteLine(" CURIOUS INPUT FOR SAFETY FACTOR WORK(2)=" + work[1]);
+                        Console.WriteLine(" Curious input for safety factor WORK(2)=" + work[1]);
                     }
                     arret = true;
                 }
             }
-            /* -------  FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION */
+
+            //  FAC1,FAC2 parameters for step size selection
             if (work[2] == 0.0)
             {
                 fac1 = 0.333;
@@ -558,7 +563,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 fac2 = work[3];
             }
-            /* --------- BETA FOR STEP CONTROL STABILIZATION ----------- */
+
+            // BETA for step control stabilization
             if (work[4] == 0.0)
             {
                 beta = 0.0;
@@ -576,13 +582,14 @@ namespace MathNet.Numerics.OdeSolvers
                     {
                         if (iprint > 0)
                         {
-                            Console.WriteLine(" CURIOUS INPUT FOR BETA: WORK(5)=" + work[4]);
+                            Console.WriteLine(" Curious input for BETA: WORK(5)=" + work[4]);
                         }
                         arret = true;
                     }
                 }
             }
-            /* -------- MAXIMAL STEP SIZE */
+
+            // Maximal step size
             if (work[5] == 0.0)
             {
                 hmax = xend - x;
@@ -591,9 +598,11 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 hmax = work[5];
             }
-            /* -------- INITIAL STEP SIZE */
+
+            // Initial step size
             h = work[6];
-            /* ------- PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK ----- */
+
+            // Prepare the entry-points for the arrays in work
             xtemp = new double[n];
             dxdt = new double[n];
             k2 = new double[n];
@@ -612,13 +621,13 @@ namespace MathNet.Numerics.OdeSolvers
                 icomp[i] = iwork[20 + i];
             }
 
-            /* ------ TOTAL STORAGE REQUIREMENT ----------- */
+            // Total storage requirement
             istore = 21 + 12 * n + (nrdens << 3) - 1;
             if (istore > lwork)
             {
                 if (iprint > 0)
                 {
-                    Console.WriteLine(" INSUFFICIENT STORAGE FOR WORK, MIN. LWORK=" + istore);
+                    Console.WriteLine(" Insufficient storage for WORK, MIN. LWORK=" + istore);
                 }
                 //arret = true;
             }
@@ -628,21 +637,20 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 if (iprint > 0)
                 {
-                    Console.WriteLine(" INSUFFICIENT STORAGE FOR IWORK, MIN. LIWORK=" + istore);
+                    Console.WriteLine(" Insufficient storage for IWORK, MIN. LIWORK=" + istore);
                 }
                 //arret = true;
             }
 
-            /* -------- WHEN A FAIL HAS OCCURED, WE RETURN WITH IDID=-1 */
+            // When a fail has occured, we return with IDID=-1
             if (arret)
             {
-                idid = -1;
-                return 0;
+                return -1;
             }
 
-            /* -------- CALL TO CORE INTEGRATOR ------------ */
-            dp86co_(n, fcn, x, y, xend, hmax, ref h, rtol, atol,
-                itol, iprint, solout, iout, out idid, nmax, uround, meth,
+            // Call to core integrator
+            int idid = dp86co_(n, fcn, x, y, xend, hmax, ref h, rtol, atol,
+                itol, iprint, solout, iout, nmax, uround, meth,
                 nstiff, safe, beta, fac1, fac2,
                 icomp, nrdens, rpar, ipar,
                 ref nfcn, ref nstep, ref naccpt, ref nrejct);
@@ -652,16 +660,17 @@ namespace MathNet.Numerics.OdeSolvers
             iwork[17] = nstep;
             iwork[18] = naccpt;
             iwork[19] = nrejct;
-            /* ----------- RETURN ----------- */
-            return 0;
+
+            return idid;
         }
 
-        /*  ----- ... AND HERE IS THE CORE INTEGRATOR  ---------- */
-
-        /* Subroutine */
+        /* ---------------------------------------------------------- */
+        /*     Core integrator for DOP853 */
+        /*     Parameters same as in DOP853 with workspace added */
+        /* ---------------------------------------------------------- */
         int dp86co_(int n, U_fp fcn, double t, double[] x, double xend, double hmax, ref double dt,
             double[] rtol, double[] atol, int itol, int iprint, S_fp solout,
-            int iout, out int idid, int nmax, double uround,
+            int iout, int nmax, double uround,
             int meth, int nstiff, double safe, double beta,
             double fac1, double fac2,
             int[] icomp, int nrd,
@@ -689,10 +698,6 @@ namespace MathNet.Numerics.OdeSolvers
             double posneg;
             int nonsti = 0;
 
-            /* ---------------------------------------------------------- */
-            /*     CORE INTEGRATOR FOR DOP853 */
-            /*     PARAMETERS SAME AS IN DOP853 WITH WORKSPACE ADDED */
-            /* ---------------------------------------------------------- */
 
             /* Function Body */
             facold = 1e-4;
@@ -700,7 +705,8 @@ namespace MathNet.Numerics.OdeSolvers
             facc1 = 1.0 / fac1;
             facc2 = 1.0 / fac2;
             posneg = d_sign(1.0, xend - t);
-            /* --- INITIAL PREPARATIONS */
+
+            // Initial preparations
             atoli = atol[0];
             rtoli = rtol[0];
             last = false;
@@ -727,7 +733,8 @@ namespace MathNet.Numerics.OdeSolvers
                     goto L79;
                 }
             }
-            /* --- BASIC INTEGRATION STEP */
+
+            // Basic integration step
             L1:
             if (nstep > nmax)
             {
@@ -743,7 +750,8 @@ namespace MathNet.Numerics.OdeSolvers
                 last = true;
             }
             ++(nstep);
-            /* --- THE TWELVE STAGES */
+
+            // The twelve stages
             if (irtrn >= 2)
             {
                 fcn(n, t, x, dxdt, rpar, ipar);
@@ -751,7 +759,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L22: */
                 xtemp[i] = x[i] + dt * a21 * dxdt[i];
             }
 
@@ -759,7 +766,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L23: */
                 xtemp[i] = x[i] + dt * (a31 * dxdt[i] + a32 * k2[i]);
             }
 
@@ -767,7 +773,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L24: */
                 xtemp[i] = x[i] + dt * (a41 * dxdt[i] + a43 * k3[i]);
             }
 
@@ -775,7 +780,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L25: */
                 xtemp[i] = x[i] + dt * (dxdt[i] * a51 + k3[i] * a53 + k4[i] * a54);
             }
 
@@ -783,7 +787,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L26: */
                 xtemp[i] = x[i] + dt * (dxdt[i] * a61 + k4[i] * a64 + k5[i] * a65);
             }
 
@@ -791,7 +794,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L27: */
                 xtemp[i] = x[i] + dt * (dxdt[i] * a71 + k4[i] * a74 + k5[i] * a75 + k6[i] * a76);
             }
 
@@ -799,7 +801,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L28: */
                 xtemp[i] = x[i] + dt * (dxdt[i] * a81 + k4[i] * a84 + k5[i] * a85 + k6[i] * a86 + k7[i] * a87);
             }
 
@@ -808,7 +809,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L29: */
                 xtemp[i] = x[i] + dt * (dxdt[i] * a91 + k4[i] * a94 + k5[i] * a95 + k6[i] * a96 + k7[i] * a97 + k8[i] * a98);
             }
 
@@ -816,7 +816,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L30: */
                 xtemp[i] = x[i] + dt * (dxdt[i] * a101 + k4[i] * a104 + k5[i] * a105 + k6[i] * a106 + k7[i] * a107 + k8[i] * a108 + k9[i] * a109);
             }
 
@@ -824,7 +823,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L31: */
                 xtemp[i] = x[i] + dt * (dxdt[i] * a111 + k4[i] * a114 + k5[i] * a115 + k6[i] * a116 + k7[i] * a117 + k8[i] * a118 + k9[i] * a119 + k10[i] * a1110);
             }
 
@@ -834,7 +832,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                /* L32: */
                 xtemp[i] = x[i] + dt * (dxdt[i] * a121 + k4[i] * a124 + k5[i] * a125 + k6[i] * a126 + k7[i] * a127 + k8[i] * a128 + k9[i] * a129 + k10[i] * a1210 + k2[i] * a122);
             }
 
@@ -844,10 +841,10 @@ namespace MathNet.Numerics.OdeSolvers
             for (i = 0; i < n; ++i)
             {
                 k4[i] = dxdt[i] * b1 + k6[i] * b6 + k7[i] * b7 + k8[i] * b8 + k9[i] * b9 + k10[i] * b10 + k2[i] * b11 + k3[i] * b12;
-                /* L35: */
                 k5[i] = x[i] + dt * k4[i];
             }
-            /* --- ERROR ESTIMATION */
+
+            // Error estimation
             err = 0.0;
             err2 = 0.0;
 
@@ -861,7 +858,6 @@ namespace MathNet.Numerics.OdeSolvers
                     d__1 = erri / sk;
                     err2 += d__1 * d__1;
                     erri = dxdt[i] * e1 + k6[i] * e6 + k7[i] * e7 + k8[i] * e8 + k9[i] * e9 + k10[i] * e10 + k2[i] * e11 + k3[i] * e12;
-                    /* L41: */
                     /* Computing 2nd power */
                     d__1 = erri / sk;
                     err += d__1 * d__1;
@@ -877,7 +873,6 @@ namespace MathNet.Numerics.OdeSolvers
                     d__1 = erri / sk;
                     err2 += d__1 * d__1;
                     erri = dxdt[i] * e1 + k6[i] * e6 + k7[i] * e7 + k8[i] * e8 + k9[i] * e9 + k10[i] * e10 + k2[i] * e11 + k3[i] * e12;
-                    /* L42: */
                     /* Computing 2nd power */
                     d__1 = erri / sk;
                     err += d__1 * d__1;
@@ -889,21 +884,25 @@ namespace MathNet.Numerics.OdeSolvers
                 deno = 1.0;
             }
             err = Math.Abs(dt) * err * Math.Sqrt(1.0 / (n * deno));
-            /* --- COMPUTATION OF HNEW */
+
+            // Computation of HNEW
             fac11 = Math.Pow(err, expo1);
-            /* --- LUND-STABILIZATION */
+
+            // LUND-stabilization
             fac = fac11 / Math.Pow(facold, beta);
-            /* --- WE REQUIRE  FAC1 <= HNEW/H <= FAC2 */
+
+            // We require  FAC1 <= HNEW/H <= FAC2
             fac = Math.Max(facc2, Math.Min(facc1, fac / safe));
             hnew = dt / fac;
             if (err <= 1.0)
             {
-                /* --- STEP IS ACCEPTED */
+                // Step is accepted
                 facold = Math.Max(err, 1e-4);
                 ++(naccpt);
                 fcn(n, xph, k5, k4, rpar, ipar);
                 ++(nfcn);
-                /* ------- STIFFNESS DETECTION */
+
+                // Stiffness detection
                 if (naccpt % nstiff == 0 || iasti > 0)
                 {
                     stnum = 0.0;
@@ -917,7 +916,6 @@ namespace MathNet.Numerics.OdeSolvers
                         /* Computing 2nd power */
                         d__1 = k5[i] - xtemp[i];
                         stden += d__1 * d__1;
-                        /* L64: */
                     }
                     if (stden > 0.0)
                     {
@@ -931,7 +929,7 @@ namespace MathNet.Numerics.OdeSolvers
                         {
                             if (iprint > 0)
                             {
-                                Console.WriteLine(" THE PROBLEM SEEMS TO BECOME STIFF AT X = " + t);
+                                Console.WriteLine(" The problem seems to become stiff at X = " + t);
                             }
                             if (iprint <= 0)
                             {
@@ -949,11 +947,11 @@ namespace MathNet.Numerics.OdeSolvers
                     }
                 }
 
-                /* ------- FINAL PREPARATION FOR DENSE OUTPUT */
+                // Final preparation for dense output
                 _event = iout == 3 && xout <= xph;
                 if (iout == 2 || _event)
                 {
-                    /* ----    SAVE THE FIRST FUNCTION EVALUATIONS */
+                    //    Save the first function evaluations
                     for (j = 0; j < nrd; ++j)
                     {
                         i = icomp[j];
@@ -967,13 +965,12 @@ namespace MathNet.Numerics.OdeSolvers
                         r[j + nrd * 5] = dxdt[i] * d51 + k6[i] * d56 + k7[i] * d57 + k8[i] * d58 + k9[i] * d59 + k10[i] * d510 + k2[i] * d511 + k3[i] * d512;
                         r[j + nrd * 6] = dxdt[i] * d61 + k6[i] * d66 + k7[i] * d67 + k8[i] * d68 + k9[i] * d69 + k10[i] * d610 + k2[i] * d611 + k3[i] * d612;
                         r[j + nrd * 7] = dxdt[i] * d71 + k6[i] * d76 + k7[i] * d77 + k8[i] * d78 + k9[i] * d79 + k10[i] * d710 + k2[i] * d711 + k3[i] * d712;
-                        /* L62: */
                     }
-                    /* ---     THE NEXT THREE FUNCTION EVALUATIONS */
-                    
+
+                    // The next three function evaluations
+
                     for (i = 0; i < n; ++i)
                     {
-                        /* L51: */
                         xtemp[i] = x[i] + dt * (dxdt[i] * a141 + k7[i] * a147 + k8[i] * a148 + k9[i] * a149 + k10[i] * a1410 + k2[i] * a1411 + k3[i] * a1412 + k4[i] * a1413);
                     }
 
@@ -981,7 +978,6 @@ namespace MathNet.Numerics.OdeSolvers
 
                     for (i = 0; i < n; ++i)
                     {
-                        /* L52: */
                         xtemp[i] = x[i] + dt * (dxdt[i] * a151 + k6[i] * a156 + k7[i] * a157 + k8[i] * a158 + k2[i] * a1511 + k3[i] * a1512 + k4[i] * a1513 + k10[i] * a1514);
                     }
 
@@ -989,13 +985,13 @@ namespace MathNet.Numerics.OdeSolvers
 
                     for (i = 0; i < n; ++i)
                     {
-                        /* L53: */
                         xtemp[i] = x[i] + dt * (dxdt[i] * a161 + k6[i] * a166 + k7[i] * a167 + k8[i] * a168 + k9[i] * a169 + k4[i] * a1613 + k10[i] * a1614 + k2[i] * a1615);
                     }
 
                     fcn(n, t + dt * c16, xtemp, k3, rpar, ipar);
                     nfcn += 3;
-                    /* ---     FINAL PREPARATION */
+
+                    // Final preparation
                     for (j = 0; j < nrd; ++j)
                     {
                         i = icomp[j];
@@ -1003,7 +999,6 @@ namespace MathNet.Numerics.OdeSolvers
                         r[j + nrd * 5] = dt * (r[j + nrd * 5] + k4[i] * d513 + k10[i] * d514 + k2[i] * d515 + k3[i] * d516);
                         r[j + nrd * 6] = dt * (r[j + nrd * 6] + k4[i] * d613 + k10[i] * d614 + k2[i] * d615 + k3[i] * d616);
                         r[j + nrd * 7] = dt * (r[j + nrd * 7] + k4[i] * d713 + k10[i] * d714 + k2[i] * d715 + k3[i] * d716);
-                        /* L63: */
                     }
                     condo8_1.hout = dt;
                 }
@@ -1011,7 +1006,6 @@ namespace MathNet.Numerics.OdeSolvers
                 for (i = 0; i < n; ++i)
                 {
                     dxdt[i] = k4[i];
-                    /* L67: */
                     x[i] = k5[i];
                 }
                 condo8_1.xold = t;
@@ -1024,12 +1018,12 @@ namespace MathNet.Numerics.OdeSolvers
                         goto L79;
                     }
                 }
-                /* ------- NORMAL EXIT */
+
+                // Normal exit
                 if (last)
                 {
                     dt = hnew;
-                    idid = 1;
-                    return 0;
+                    return 1;
                 }
                 if (Math.Abs(hnew) > hmax)
                 {
@@ -1044,7 +1038,7 @@ namespace MathNet.Numerics.OdeSolvers
             }
             else
             {
-                /* --- STEP IS REJECTED */
+                // Step is rejected
                 hnew = dt / Math.Min(facc1, fac11 / safe);
                 reject = true;
                 if (naccpt >= 1)
@@ -1056,40 +1050,36 @@ namespace MathNet.Numerics.OdeSolvers
             dt = hnew;
             goto L1;
 
-            /* --- FAIL EXIT */
+            // Fail exit
             L76:
-            idid = -4;
-            return 0;
+            return -4;
 
             L77:
             if (iprint > 0)
             {
-                Debug.WriteLine("EXIT OF DOP853 AT X=" + t);
-                Console.WriteLine(" STEP SIZE TOO SMALL, H=" + dt);
+                Debug.WriteLine("Exit of DOP853 at X=" + t);
+                Console.WriteLine(" Step size too small, H=" + dt);
             }
-            idid = -3;
-            return 0;
+            return -3;
 
             L78:
             if (iprint > 0)
             {
-                Debug.WriteLine("EXIT OF DOP853 AT X=" + t);
-                Console.WriteLine(" MORE THAN NMAX =" + nmax + "STEPS ARE NEEDED");
+                Debug.WriteLine("Exit of DOP853 at X=" + t);
+                Console.WriteLine(" More than NMAX =" + nmax + "steps are needed");
             }
-            idid = -2;
-            return 0;
+            return -2;
 
             L79:
             if (iprint > 0)
             {
-                Debug.WriteLine("EXIT OF DOP853 AT X=" + t);
+                Debug.WriteLine("Exit of DOP853 at X=" + t);
             }
-            idid = 2;
-            return 0;
+            return 2;
         }
 
         /* ---------------------------------------------------------- */
-        /* ----  COMPUTATION OF AN INITIAL STEP SIZE GUESS */
+        /* ----  Computation of an initial step size guess */
         /* ---------------------------------------------------------- */
         double hinit_(int n, U_fp fcn, double x, double[] y,
             double xend, double posneg, double[] f0, double[] f1,
@@ -1104,10 +1094,10 @@ namespace MathNet.Numerics.OdeSolvers
             int i;
             double h1, sk, dnf, dny, der2, der12, atoli, rtoli;
 
-            /* ---- COMPUTE A FIRST GUESS FOR EXPLICIT EULER AS */
-            /* ----   H = 0.01 * NORM (Y0) / NORM (F0) */
-            /* ---- THE INCREMENT FOR EXPLICIT EULER IS SMALL */
-            /* ---- COMPARED TO THE SOLUTION */
+            // Compute a first guess for explicit euler as
+            //   H = 0.01 * NORM (Y0) / NORM (F0)
+            // The increment for explicit euler is small
+            // compared to the solution
 
             /* Function Body */
             dnf = 0.0;
@@ -1122,7 +1112,6 @@ namespace MathNet.Numerics.OdeSolvers
                     /* Computing 2nd power */
                     d__1 = f0[i] / sk;
                     dnf += d__1 * d__1;
-                    /* L10: */
                     /* Computing 2nd power */
                     d__1 = y[i] / sk;
                     dny += d__1 * d__1;
@@ -1136,7 +1125,6 @@ namespace MathNet.Numerics.OdeSolvers
                     /* Computing 2nd power */
                     d__1 = f0[i] / sk;
                     dnf += d__1 * d__1;
-                    /* L11: */
                     /* Computing 2nd power */
                     d__1 = y[i] / sk;
                     dny += d__1 * d__1;
@@ -1152,14 +1140,17 @@ namespace MathNet.Numerics.OdeSolvers
             }
             h = Math.Min(h, hmax);
             h = d_sign(h, posneg);
-            /* ---- PERFORM AN EXPLICIT EULER STEP */
+
+            // Perform an explicit euler step
             for (i = 0; i < n; ++i)
             {
                 /* L12: */
                 y1[i] = y[i] + h * f0[i];
             }
+
             fcn(n, x + h, y1, f1, rpar, ipar);
-            /* ---- ESTIMATE THE SECOND DERIVATIVE OF THE SOLUTION */
+
+            // Estimate the second derivative of the solution
             der2 = 0.0;
             if (itol == 0)
             {
@@ -1177,15 +1168,14 @@ namespace MathNet.Numerics.OdeSolvers
                 for (i = 0; i < n; ++i)
                 {
                     sk = atol[i] + rtol[i] * Math.Abs(y[i]);
-                    /* L16: */
                     /* Computing 2nd power */
                     d__1 = (f1[i] - f0[i]) / sk;
                     der2 += d__1 * d__1;
                 }
             }
             der2 = Math.Sqrt(der2) / h;
-            /* ---- STEP SIZE IS COMPUTED SUCH THAT */
-            /* ----  H**IORD * MAX ( NORM (F0), NORM (DER2)) = 0.01 */
+            // Step size is computed such that
+            //  H**IORD * MAX ( NORM (F0), NORM (DER2)) = 0.01
             der12 = Math.Max(Math.Abs(der2), Math.Sqrt(dnf));
             if (der12 <= 1e-15)
             {
@@ -1200,13 +1190,13 @@ namespace MathNet.Numerics.OdeSolvers
         }
 
         /* ---------------------------------------------------------- */
-        /*     THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT IN CONNECTION */
-        /*     WITH THE OUTPUT-SUBROUTINE FOR DOP853. IT PROVIDES AN */
-        /*     APPROXIMATION TO THE II-TH COMPONENT OF THE SOLUTION AT X. */
+        /*     This function can be used for coninuous output in connection */
+        /*     with the output-subroutine for DOP853. It provides an */
+        /*     approximation to the II-th component of the solution at X. */
         /* ---------------------------------------------------------- */
         public double contd8_(int ii, double x, double[] con, int[] icomp, int nd)
         {
-            /* ----- COMPUTE PLACE OF II-TH COMPONENT */
+            // Compute place of II-th component
 
             int i = -1;
 
@@ -1220,11 +1210,11 @@ namespace MathNet.Numerics.OdeSolvers
 
             if (i < 0)
             {
-                Console.WriteLine(" NO DENSE OUTPUT AVAILABLE FOR COMP. " + ii);
+                Console.WriteLine(" No dense output available for comp. " + ii);
                 return 0.0;
             }
 
-            double s = (x - condo8_1.xold) / condo8_1.hout; // condo8_2.h
+            double s = (x - condo8_1.xold) / condo8_1.hout;
             double s1 = 1.0 - s;
             double conpar = con[i + (nd << 2)] + s * (con[i + nd * 5] + s1 * (con[i + nd * 6] + s * con[i + nd * 7]));
 
