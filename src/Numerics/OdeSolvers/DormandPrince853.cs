@@ -193,6 +193,10 @@ namespace MathNet.Numerics.OdeSolvers
 
         #endregion
 
+        double[] dxdt, xtemp;
+        double[] k2, k3, k4, k5, k6, k7, k8, k9, k10;
+        double[] r;
+
         double d_sign(double a, double b)
         {
 
@@ -590,18 +594,18 @@ namespace MathNet.Numerics.OdeSolvers
             /* -------- INITIAL STEP SIZE */
             h = work[6];
             /* ------- PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK ----- */
-            double[] y1 = new double[n];
-            double[] k1 = new double[n];
-            double[] k2 = new double[n];
-            double[] k3 = new double[n];
-            double[] k4 = new double[n];
-            double[] k5 = new double[n];
-            double[] k6 = new double[n];
-            double[] k7 = new double[n];
-            double[] k8 = new double[n];
-            double[] k9 = new double[n];
-            double[] k10 = new double[n];
-            double[] cont = new double[nrdens << 3];
+            xtemp = new double[n];
+            dxdt = new double[n];
+            k2 = new double[n];
+            k3 = new double[n];
+            k4 = new double[n];
+            k5 = new double[n];
+            k6 = new double[n];
+            k7 = new double[n];
+            k8 = new double[n];
+            k9 = new double[n];
+            k10 = new double[n];
+            r = new double[nrdens << 3];
             int[] icomp = new int[nrdens];
             for (i = 0; i < nrdens; i++)
             {
@@ -639,9 +643,7 @@ namespace MathNet.Numerics.OdeSolvers
             /* -------- CALL TO CORE INTEGRATOR ------------ */
             dp86co_(n, fcn, x, y, xend, hmax, ref h, rtol, atol,
                 itol, iprint, solout, iout, out idid, nmax, uround, meth,
-                nstiff, safe, beta, fac1, fac2, k1, k2,
-                k3, k4, k5, k6, k7,
-                k8, k9, k10, y1, cont,
+                nstiff, safe, beta, fac1, fac2,
                 icomp, nrdens, rpar, ipar,
                 ref nfcn, ref nstep, ref naccpt, ref nrejct);
 
@@ -657,14 +659,12 @@ namespace MathNet.Numerics.OdeSolvers
         /*  ----- ... AND HERE IS THE CORE INTEGRATOR  ---------- */
 
         /* Subroutine */
-        int dp86co_(int n, U_fp fcn, double x, double[] y, double xend, double hmax, ref double h,
+        int dp86co_(int n, U_fp fcn, double t, double[] x, double xend, double hmax, ref double dt,
             double[] rtol, double[] atol, int itol, int iprint, S_fp solout,
             int iout, out int idid, int nmax, double uround,
             int meth, int nstiff, double safe, double beta,
-            double fac1, double fac2, double[] k1, double[] k2,
-            double[] k3, double[] k4, double[] k5, double[] k6,
-            double[] k7, double[] k8, double[] k9, double[] k10,
-            double[] y1, double[] cont, int[] icomp, int nrd,
+            double fac1, double fac2,
+            int[] icomp, int nrd,
             double[] rpar, int[] ipar, ref int nfcn, ref int nstep,
             ref int naccpt, ref int nrejct)
         {
@@ -699,29 +699,29 @@ namespace MathNet.Numerics.OdeSolvers
             expo1 = 0.125 - beta * 0.2;
             facc1 = 1.0 / fac1;
             facc2 = 1.0 / fac2;
-            posneg = d_sign(1.0, xend - x);
+            posneg = d_sign(1.0, xend - t);
             /* --- INITIAL PREPARATIONS */
             atoli = atol[0];
             rtoli = rtol[0];
             last = false;
             hlamb = 0.0;
             iasti = 0;
-            fcn(n, x, y, k1, rpar, ipar);
+            fcn(n, t, x, dxdt, rpar, ipar);
             hmax = Math.Abs(hmax);
             iord = 8;
-            if (h == 0.0)
+            if (dt == 0.0)
             {
-                h = hinit_(n, fcn, x, y, xend, posneg, k1, k2,
+                dt = hinit_(n, fcn, t, x, xend, posneg, dxdt, k2,
                     k3, iord, hmax, atol, rtol, itol, rpar, ipar);
             }
             nfcn += 2;
             reject = false;
-            condo8_1.xold = x;
+            condo8_1.xold = t;
             if (iout != 0)
             {
                 irtrn = 1;
                 condo8_1.hout = 1.0;
-                solout(naccpt + 1, condo8_1.xold, x, y, n, cont, icomp, nrd, rpar, ipar, irtrn, ref xout);
+                solout(naccpt + 1, condo8_1.xold, t, x, n, r, icomp, nrd, rpar, ipar, irtrn, ref xout);
                 if (irtrn < 0)
                 {
                     goto L79;
@@ -733,119 +733,119 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 goto L78;
             }
-            if (Math.Abs(h) * 0.1 <= Math.Abs(x) * uround)
+            if (Math.Abs(dt) * 0.1 <= Math.Abs(t) * uround)
             {
                 goto L77;
             }
-            if ((x + h * 1.01 - xend) * posneg > 0.0)
+            if ((t + dt * 1.01 - xend) * posneg > 0.0)
             {
-                h = xend - x;
+                dt = xend - t;
                 last = true;
             }
             ++(nstep);
             /* --- THE TWELVE STAGES */
             if (irtrn >= 2)
             {
-                fcn(n, x, y, k1, rpar, ipar);
+                fcn(n, t, x, dxdt, rpar, ipar);
             }
 
             for (i = 0; i < n; ++i)
             {
                 /* L22: */
-                y1[i] = y[i] + h * a21 * k1[i];
+                xtemp[i] = x[i] + dt * a21 * dxdt[i];
             }
 
-            fcn(n, x + c2 * h, y1, k2, rpar, ipar);
+            fcn(n, t + c2 * dt, xtemp, k2, rpar, ipar);
 
             for (i = 0; i < n; ++i)
             {
                 /* L23: */
-                y1[i] = y[i] + h * (a31 * k1[i] + a32 * k2[i]);
+                xtemp[i] = x[i] + dt * (a31 * dxdt[i] + a32 * k2[i]);
             }
 
-            fcn(n, x + c3 * h, y1, k3, rpar, ipar);
+            fcn(n, t + c3 * dt, xtemp, k3, rpar, ipar);
 
             for (i = 0; i < n; ++i)
             {
                 /* L24: */
-                y1[i] = y[i] + h * (a41 * k1[i] + a43 * k3[i]);
+                xtemp[i] = x[i] + dt * (a41 * dxdt[i] + a43 * k3[i]);
             }
 
-            fcn(n, x + h * c4, y1, k4, rpar, ipar);
+            fcn(n, t + dt * c4, xtemp, k4, rpar, ipar);
 
             for (i = 0; i < n; ++i)
             {
                 /* L25: */
-                y1[i] = y[i] + h * (k1[i] * a51 + k3[i] * a53 + k4[i] * a54);
+                xtemp[i] = x[i] + dt * (dxdt[i] * a51 + k3[i] * a53 + k4[i] * a54);
             }
 
-            fcn(n, x + h * c5, y1, k5, rpar, ipar);
+            fcn(n, t + dt * c5, xtemp, k5, rpar, ipar);
 
             for (i = 0; i < n; ++i)
             {
                 /* L26: */
-                y1[i] = y[i] + h * (k1[i] * a61 + k4[i] * a64 + k5[i] * a65);
+                xtemp[i] = x[i] + dt * (dxdt[i] * a61 + k4[i] * a64 + k5[i] * a65);
             }
 
-            fcn(n, x + h * c6, y1, k6, rpar, ipar);
+            fcn(n, t + dt * c6, xtemp, k6, rpar, ipar);
 
             for (i = 0; i < n; ++i)
             {
                 /* L27: */
-                y1[i] = y[i] + h * (k1[i] * a71 + k4[i] * a74 + k5[i] * a75 + k6[i] * a76);
+                xtemp[i] = x[i] + dt * (dxdt[i] * a71 + k4[i] * a74 + k5[i] * a75 + k6[i] * a76);
             }
 
-            fcn(n, x + h * c7, y1, k7, rpar, ipar);
+            fcn(n, t + dt * c7, xtemp, k7, rpar, ipar);
 
             for (i = 0; i < n; ++i)
             {
                 /* L28: */
-                y1[i] = y[i] + h * (k1[i] * a81 + k4[i] * a84 + k5[i] * a85 + k6[i] * a86 + k7[i] * a87);
+                xtemp[i] = x[i] + dt * (dxdt[i] * a81 + k4[i] * a84 + k5[i] * a85 + k6[i] * a86 + k7[i] * a87);
             }
 
-            fcn(n, x + h * c8, y1, k8, rpar, ipar);
+            fcn(n, t + dt * c8, xtemp, k8, rpar, ipar);
 
 
             for (i = 0; i < n; ++i)
             {
                 /* L29: */
-                y1[i] = y[i] + h * (k1[i] * a91 + k4[i] * a94 + k5[i] * a95 + k6[i] * a96 + k7[i] * a97 + k8[i] * a98);
+                xtemp[i] = x[i] + dt * (dxdt[i] * a91 + k4[i] * a94 + k5[i] * a95 + k6[i] * a96 + k7[i] * a97 + k8[i] * a98);
             }
 
-            fcn(n, x + h * c9, y1, k9, rpar, ipar);
+            fcn(n, t + dt * c9, xtemp, k9, rpar, ipar);
 
             for (i = 0; i < n; ++i)
             {
                 /* L30: */
-                y1[i] = y[i] + h * (k1[i] * a101 + k4[i] * a104 + k5[i] * a105 + k6[i] * a106 + k7[i] * a107 + k8[i] * a108 + k9[i] * a109);
+                xtemp[i] = x[i] + dt * (dxdt[i] * a101 + k4[i] * a104 + k5[i] * a105 + k6[i] * a106 + k7[i] * a107 + k8[i] * a108 + k9[i] * a109);
             }
 
-            fcn(n, x + h * c10, y1, k10, rpar, ipar);
+            fcn(n, t + dt * c10, xtemp, k10, rpar, ipar);
 
             for (i = 0; i < n; ++i)
             {
                 /* L31: */
-                y1[i] = y[i] + h * (k1[i] * a111 + k4[i] * a114 + k5[i] * a115 + k6[i] * a116 + k7[i] * a117 + k8[i] * a118 + k9[i] * a119 + k10[i] * a1110);
+                xtemp[i] = x[i] + dt * (dxdt[i] * a111 + k4[i] * a114 + k5[i] * a115 + k6[i] * a116 + k7[i] * a117 + k8[i] * a118 + k9[i] * a119 + k10[i] * a1110);
             }
 
-            fcn(n, x + h * c11, y1, k2, rpar, ipar);
+            fcn(n, t + dt * c11, xtemp, k2, rpar, ipar);
 
-            xph = x + h;
+            xph = t + dt;
 
             for (i = 0; i < n; ++i)
             {
                 /* L32: */
-                y1[i] = y[i] + h * (k1[i] * a121 + k4[i] * a124 + k5[i] * a125 + k6[i] * a126 + k7[i] * a127 + k8[i] * a128 + k9[i] * a129 + k10[i] * a1210 + k2[i] * a122);
+                xtemp[i] = x[i] + dt * (dxdt[i] * a121 + k4[i] * a124 + k5[i] * a125 + k6[i] * a126 + k7[i] * a127 + k8[i] * a128 + k9[i] * a129 + k10[i] * a1210 + k2[i] * a122);
             }
 
-            fcn(n, xph, y1, k3, rpar, ipar);
+            fcn(n, xph, xtemp, k3, rpar, ipar);
             nfcn += 11;
 
             for (i = 0; i < n; ++i)
             {
-                k4[i] = k1[i] * b1 + k6[i] * b6 + k7[i] * b7 + k8[i] * b8 + k9[i] * b9 + k10[i] * b10 + k2[i] * b11 + k3[i] * b12;
+                k4[i] = dxdt[i] * b1 + k6[i] * b6 + k7[i] * b7 + k8[i] * b8 + k9[i] * b9 + k10[i] * b10 + k2[i] * b11 + k3[i] * b12;
                 /* L35: */
-                k5[i] = y[i] + h * k4[i];
+                k5[i] = x[i] + dt * k4[i];
             }
             /* --- ERROR ESTIMATION */
             err = 0.0;
@@ -855,12 +855,12 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 for (i = 0; i < n; ++i)
                 {
-                    sk = atoli + rtoli * Math.Max(Math.Abs(y[i]), Math.Abs(k5[i]));
-                    erri = k4[i] - k1[i] * bh1 - k9[i] * bh2 - k3[i] * bh3;
+                    sk = atoli + rtoli * Math.Max(Math.Abs(x[i]), Math.Abs(k5[i]));
+                    erri = k4[i] - dxdt[i] * bh1 - k9[i] * bh2 - k3[i] * bh3;
                     /* Computing 2nd power */
                     d__1 = erri / sk;
                     err2 += d__1 * d__1;
-                    erri = k1[i] * e1 + k6[i] * e6 + k7[i] * e7 + k8[i] * e8 + k9[i] * e9 + k10[i] * e10 + k2[i] * e11 + k3[i] * e12;
+                    erri = dxdt[i] * e1 + k6[i] * e6 + k7[i] * e7 + k8[i] * e8 + k9[i] * e9 + k10[i] * e10 + k2[i] * e11 + k3[i] * e12;
                     /* L41: */
                     /* Computing 2nd power */
                     d__1 = erri / sk;
@@ -871,12 +871,12 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 for (i = 0; i < n; ++i)
                 {
-                    sk = atol[i] + rtol[i] * Math.Max(Math.Abs(y[i]), Math.Abs(k5[i]));
-                    erri = k4[i] - k1[i] * bh1 - k9[i] * bh2 - k3[i] * bh3;
+                    sk = atol[i] + rtol[i] * Math.Max(Math.Abs(x[i]), Math.Abs(k5[i]));
+                    erri = k4[i] - dxdt[i] * bh1 - k9[i] * bh2 - k3[i] * bh3;
                     /* Computing 2nd power */
                     d__1 = erri / sk;
                     err2 += d__1 * d__1;
-                    erri = k1[i] * e1 + k6[i] * e6 + k7[i] * e7 + k8[i] * e8 + k9[i] * e9 + k10[i] * e10 + k2[i] * e11 + k3[i] * e12;
+                    erri = dxdt[i] * e1 + k6[i] * e6 + k7[i] * e7 + k8[i] * e8 + k9[i] * e9 + k10[i] * e10 + k2[i] * e11 + k3[i] * e12;
                     /* L42: */
                     /* Computing 2nd power */
                     d__1 = erri / sk;
@@ -888,14 +888,14 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 deno = 1.0;
             }
-            err = Math.Abs(h) * err * Math.Sqrt(1.0 / (n * deno));
+            err = Math.Abs(dt) * err * Math.Sqrt(1.0 / (n * deno));
             /* --- COMPUTATION OF HNEW */
             fac11 = Math.Pow(err, expo1);
             /* --- LUND-STABILIZATION */
             fac = fac11 / Math.Pow(facold, beta);
             /* --- WE REQUIRE  FAC1 <= HNEW/H <= FAC2 */
             fac = Math.Max(facc2, Math.Min(facc1, fac / safe));
-            hnew = h / fac;
+            hnew = dt / fac;
             if (err <= 1.0)
             {
                 /* --- STEP IS ACCEPTED */
@@ -915,13 +915,13 @@ namespace MathNet.Numerics.OdeSolvers
                         d__1 = k4[i] - k3[i];
                         stnum += d__1 * d__1;
                         /* Computing 2nd power */
-                        d__1 = k5[i] - y1[i];
+                        d__1 = k5[i] - xtemp[i];
                         stden += d__1 * d__1;
                         /* L64: */
                     }
                     if (stden > 0.0)
                     {
-                        hlamb = Math.Abs(h) * Math.Sqrt(stnum / stden);
+                        hlamb = Math.Abs(dt) * Math.Sqrt(stnum / stden);
                     }
                     if (hlamb > 6.1)
                     {
@@ -931,7 +931,7 @@ namespace MathNet.Numerics.OdeSolvers
                         {
                             if (iprint > 0)
                             {
-                                Console.WriteLine(" THE PROBLEM SEEMS TO BECOME STIFF AT X = " + x);
+                                Console.WriteLine(" THE PROBLEM SEEMS TO BECOME STIFF AT X = " + t);
                             }
                             if (iprint <= 0)
                             {
@@ -957,16 +957,16 @@ namespace MathNet.Numerics.OdeSolvers
                     for (j = 0; j < nrd; ++j)
                     {
                         i = icomp[j];
-                        cont[j] = y[i];
-                        ydiff = k5[i] - y[i];
-                        cont[j + nrd] = ydiff;
-                        bspl = h * k1[i] - ydiff;
-                        cont[j + nrd * 2] = bspl;
-                        cont[j + nrd * 3] = ydiff - h * k4[i] - bspl;
-                        cont[j + nrd * 4] = k1[i] * d41 + k6[i] * d46 + k7[i] * d47 + k8[i] * d48 + k9[i] * d49 + k10[i] * d410 + k2[i] * d411 + k3[i] * d412;
-                        cont[j + nrd * 5] = k1[i] * d51 + k6[i] * d56 + k7[i] * d57 + k8[i] * d58 + k9[i] * d59 + k10[i] * d510 + k2[i] * d511 + k3[i] * d512;
-                        cont[j + nrd * 6] = k1[i] * d61 + k6[i] * d66 + k7[i] * d67 + k8[i] * d68 + k9[i] * d69 + k10[i] * d610 + k2[i] * d611 + k3[i] * d612;
-                        cont[j + nrd * 7] = k1[i] * d71 + k6[i] * d76 + k7[i] * d77 + k8[i] * d78 + k9[i] * d79 + k10[i] * d710 + k2[i] * d711 + k3[i] * d712;
+                        r[j] = x[i];
+                        ydiff = k5[i] - x[i];
+                        r[j + nrd] = ydiff;
+                        bspl = dt * dxdt[i] - ydiff;
+                        r[j + nrd * 2] = bspl;
+                        r[j + nrd * 3] = ydiff - dt * k4[i] - bspl;
+                        r[j + nrd * 4] = dxdt[i] * d41 + k6[i] * d46 + k7[i] * d47 + k8[i] * d48 + k9[i] * d49 + k10[i] * d410 + k2[i] * d411 + k3[i] * d412;
+                        r[j + nrd * 5] = dxdt[i] * d51 + k6[i] * d56 + k7[i] * d57 + k8[i] * d58 + k9[i] * d59 + k10[i] * d510 + k2[i] * d511 + k3[i] * d512;
+                        r[j + nrd * 6] = dxdt[i] * d61 + k6[i] * d66 + k7[i] * d67 + k8[i] * d68 + k9[i] * d69 + k10[i] * d610 + k2[i] * d611 + k3[i] * d612;
+                        r[j + nrd * 7] = dxdt[i] * d71 + k6[i] * d76 + k7[i] * d77 + k8[i] * d78 + k9[i] * d79 + k10[i] * d710 + k2[i] * d711 + k3[i] * d712;
                         /* L62: */
                     }
                     /* ---     THE NEXT THREE FUNCTION EVALUATIONS */
@@ -974,51 +974,51 @@ namespace MathNet.Numerics.OdeSolvers
                     for (i = 0; i < n; ++i)
                     {
                         /* L51: */
-                        y1[i] = y[i] + h * (k1[i] * a141 + k7[i] * a147 + k8[i] * a148 + k9[i] * a149 + k10[i] * a1410 + k2[i] * a1411 + k3[i] * a1412 + k4[i] * a1413);
+                        xtemp[i] = x[i] + dt * (dxdt[i] * a141 + k7[i] * a147 + k8[i] * a148 + k9[i] * a149 + k10[i] * a1410 + k2[i] * a1411 + k3[i] * a1412 + k4[i] * a1413);
                     }
 
-                    fcn(n, x + h * c14, y1, k10, rpar, ipar);
+                    fcn(n, t + dt * c14, xtemp, k10, rpar, ipar);
 
                     for (i = 0; i < n; ++i)
                     {
                         /* L52: */
-                        y1[i] = y[i] + h * (k1[i] * a151 + k6[i] * a156 + k7[i] * a157 + k8[i] * a158 + k2[i] * a1511 + k3[i] * a1512 + k4[i] * a1513 + k10[i] * a1514);
+                        xtemp[i] = x[i] + dt * (dxdt[i] * a151 + k6[i] * a156 + k7[i] * a157 + k8[i] * a158 + k2[i] * a1511 + k3[i] * a1512 + k4[i] * a1513 + k10[i] * a1514);
                     }
 
-                    fcn(n, x + h * c15, y1, k2, rpar, ipar);
+                    fcn(n, t + dt * c15, xtemp, k2, rpar, ipar);
 
                     for (i = 0; i < n; ++i)
                     {
                         /* L53: */
-                        y1[i] = y[i] + h * (k1[i] * a161 + k6[i] * a166 + k7[i] * a167 + k8[i] * a168 + k9[i] * a169 + k4[i] * a1613 + k10[i] * a1614 + k2[i] * a1615);
+                        xtemp[i] = x[i] + dt * (dxdt[i] * a161 + k6[i] * a166 + k7[i] * a167 + k8[i] * a168 + k9[i] * a169 + k4[i] * a1613 + k10[i] * a1614 + k2[i] * a1615);
                     }
 
-                    fcn(n, x + h * c16, y1, k3, rpar, ipar);
+                    fcn(n, t + dt * c16, xtemp, k3, rpar, ipar);
                     nfcn += 3;
                     /* ---     FINAL PREPARATION */
                     for (j = 0; j < nrd; ++j)
                     {
                         i = icomp[j];
-                        cont[j + (nrd << 2)] = h * (cont[j + (nrd << 2)] + k4[i] * d413 + k10[i] * d414 + k2[i] * d415 + k3[i] * d416);
-                        cont[j + nrd * 5] = h * (cont[j + nrd * 5] + k4[i] * d513 + k10[i] * d514 + k2[i] * d515 + k3[i] * d516);
-                        cont[j + nrd * 6] = h * (cont[j + nrd * 6] + k4[i] * d613 + k10[i] * d614 + k2[i] * d615 + k3[i] * d616);
-                        cont[j + nrd * 7] = h * (cont[j + nrd * 7] + k4[i] * d713 + k10[i] * d714 + k2[i] * d715 + k3[i] * d716);
+                        r[j + (nrd << 2)] = dt * (r[j + (nrd << 2)] + k4[i] * d413 + k10[i] * d414 + k2[i] * d415 + k3[i] * d416);
+                        r[j + nrd * 5] = dt * (r[j + nrd * 5] + k4[i] * d513 + k10[i] * d514 + k2[i] * d515 + k3[i] * d516);
+                        r[j + nrd * 6] = dt * (r[j + nrd * 6] + k4[i] * d613 + k10[i] * d614 + k2[i] * d615 + k3[i] * d616);
+                        r[j + nrd * 7] = dt * (r[j + nrd * 7] + k4[i] * d713 + k10[i] * d714 + k2[i] * d715 + k3[i] * d716);
                         /* L63: */
                     }
-                    condo8_1.hout = h;
+                    condo8_1.hout = dt;
                 }
 
                 for (i = 0; i < n; ++i)
                 {
-                    k1[i] = k4[i];
+                    dxdt[i] = k4[i];
                     /* L67: */
-                    y[i] = k5[i];
+                    x[i] = k5[i];
                 }
-                condo8_1.xold = x;
-                x = xph;
+                condo8_1.xold = t;
+                t = xph;
                 if (iout == 1 || iout == 2 || _event)
                 {
-                    solout(naccpt + 1, condo8_1.xold, x, y, n, cont, icomp, nrd, rpar, ipar, irtrn, ref xout);
+                    solout(naccpt + 1, condo8_1.xold, t, x, n, r, icomp, nrd, rpar, ipar, irtrn, ref xout);
                     if (irtrn < 0)
                     {
                         goto L79;
@@ -1027,7 +1027,7 @@ namespace MathNet.Numerics.OdeSolvers
                 /* ------- NORMAL EXIT */
                 if (last)
                 {
-                    h = hnew;
+                    dt = hnew;
                     idid = 1;
                     return 0;
                 }
@@ -1038,14 +1038,14 @@ namespace MathNet.Numerics.OdeSolvers
                 if (reject)
                 {
                     /* Computing MIN */
-                    hnew = posneg * Math.Min(Math.Abs(hnew), Math.Abs(h));
+                    hnew = posneg * Math.Min(Math.Abs(hnew), Math.Abs(dt));
                 }
                 reject = false;
             }
             else
             {
                 /* --- STEP IS REJECTED */
-                hnew = h / Math.Min(facc1, fac11 / safe);
+                hnew = dt / Math.Min(facc1, fac11 / safe);
                 reject = true;
                 if (naccpt >= 1)
                 {
@@ -1053,7 +1053,7 @@ namespace MathNet.Numerics.OdeSolvers
                 }
                 last = false;
             }
-            h = hnew;
+            dt = hnew;
             goto L1;
 
             /* --- FAIL EXIT */
@@ -1064,8 +1064,8 @@ namespace MathNet.Numerics.OdeSolvers
             L77:
             if (iprint > 0)
             {
-                Debug.WriteLine("EXIT OF DOP853 AT X=" + x);
-                Console.WriteLine(" STEP SIZE TOO SMALL, H=" + h);
+                Debug.WriteLine("EXIT OF DOP853 AT X=" + t);
+                Console.WriteLine(" STEP SIZE TOO SMALL, H=" + dt);
             }
             idid = -3;
             return 0;
@@ -1073,7 +1073,7 @@ namespace MathNet.Numerics.OdeSolvers
             L78:
             if (iprint > 0)
             {
-                Debug.WriteLine("EXIT OF DOP853 AT X=" + x);
+                Debug.WriteLine("EXIT OF DOP853 AT X=" + t);
                 Console.WriteLine(" MORE THAN NMAX =" + nmax + "STEPS ARE NEEDED");
             }
             idid = -2;
@@ -1082,7 +1082,7 @@ namespace MathNet.Numerics.OdeSolvers
             L79:
             if (iprint > 0)
             {
-                Debug.WriteLine("EXIT OF DOP853 AT X=" + x);
+                Debug.WriteLine("EXIT OF DOP853 AT X=" + t);
             }
             idid = 2;
             return 0;
