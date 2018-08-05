@@ -53,7 +53,9 @@ namespace MathNet.Numerics.OdeSolvers
 
         int n;
 
-        double[] dxdt, xtemp, xerr;
+        Action<double, double[], double[]> fcn;
+
+        double[] dxdt, dxdtnew, xout, xtemp, xerr;
         double[] k2, k3, k4, k5, k6;
         double[] r;
 
@@ -277,6 +279,7 @@ namespace MathNet.Numerics.OdeSolvers
             bool arret = false;
 
             this.n = y.Length;
+            this.fcn = fcn;
 
             // IPRINT for monitoring the printing
             if (iwork[2] == 0)
@@ -431,15 +434,16 @@ namespace MathNet.Numerics.OdeSolvers
             h = work[6];
 
             // Prepare the entry-points for the arrays in work
+            xout = new double[n];
             xtemp = new double[n];
             xerr = new double[n];
             dxdt = new double[n];
+            dxdtnew = new double[n];
             k2 = new double[n];
             k3 = new double[n];
             k4 = new double[n];
             k5 = new double[n];
             k6 = new double[n];
-            double[] ysti = new double[n];
             r = new double[5 * nrdens];
             int[] icomp = new int[nrdens];
             for (int i = 0; i < nrdens; i++)
@@ -457,10 +461,10 @@ namespace MathNet.Numerics.OdeSolvers
             this.atol = atol;
 
             // Call to core integrator
-            int idid = dopcor_(fcn, x, y, xend, hmax, ref h,
+            int idid = dopcor_(x, y, xend, hmax, ref h,
                 itol, iprint, nmax, uround,
                 nstiff, safe, beta, fac1, fac2,
-                ysti, icomp, nrdens,
+                icomp, nrdens,
                 ref nfcn, ref nstep, ref naccpt, ref nrejct);
 
             work[6] = h;
@@ -476,11 +480,11 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Core integrator for DOPRI5 */
         /*     Parameters same as in DOPRI5 with workspace added */
         /* ---------------------------------------------------------- */
-        int dopcor_(Action<double, double[], double[]> fcn, double t, double[] x,
+        int dopcor_(double t, double[] x,
             double xend, double hmax, ref double dt, int itol, int iprint,
             int nmax, double uround,
             int nstiff, double safe, double beta,
-            double fac1, double fac2, double[] ysti, int[] icomp,
+            double fac1, double fac2, int[] icomp,
             int nrd, ref int nfcn, ref int nstep, ref int naccpt, ref int nrejct)
         {
             /* System generated locals */
@@ -519,7 +523,7 @@ namespace MathNet.Numerics.OdeSolvers
             iord = 5;
             if (dt == 0.0)
             {
-                dt = hinit_(fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
+                dt = Initialize(fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
             }
             nfcn += 2;
             reject = false;
@@ -560,64 +564,17 @@ namespace MathNet.Numerics.OdeSolvers
                 fcn(t, x, dxdt);
             }
 
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * a21 * dxdt[i];
-            }
-
-            fcn(t + c2 * dt, xtemp, k2);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (a31 * dxdt[i] + a32 * k2[i]);
-            }
-
-            fcn(t + c3 * dt, xtemp, k3);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (a41 * dxdt[i] + a42 * k2[i] + a43 * k3[i]);
-            }
-
-            fcn(t + c4 * dt, xtemp, k4);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (a51 * dxdt[i] + a52 * k2[i] + a53 * k3[i] + a54 * k4[i]);
-            }
-
-            fcn(t + c5 * dt, xtemp, k5);
-
-            for (i = 0; i < n; ++i)
-            {
-                ysti[i] = x[i] + dt * (a61 * dxdt[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i]);
-            }
-
-            double th = t + dt;
-            fcn(th, ysti, k6);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (a71 * dxdt[i] + a73 * k3[i] + a74 * k4[i] + a75 * k5[i] + a76 * k6[i]);
-            }
-
-            fcn(th, xtemp, k2);
-
+            Step(t, dt, x);
+            nfcn += 6;
+            
             //if (iout >= 2)
             {
                 for (j = 0; j < nrd; ++j)
                 {
                     i = icomp[j];
-                    r[nrd * 4 + j] = dt * (d1 * dxdt[i] + d3 * k3[i] + d4 * k4[i] + d5 * k5[i] + d6 * k6[i] + d7 * k2[i]);
+                    r[nrd * 4 + j] = dt * (d1 * dxdt[i] + d3 * k3[i] + d4 * k4[i] + d5 * k5[i] + d6 * k6[i] + d7 * dxdtnew[i]);
                 }
             }
-
-            for (i = 0; i < n; ++i)
-            {
-                xerr[i] = dt * (e1 * dxdt[i] + e3 * k3[i] + e4 * k4[i] + e5 * k5[i] + e6 * k6[i] + e7 * k2[i]);
-            }
-
-            nfcn += 6;
 
             // Error estimation
             err = Error(dt, x, itol);
@@ -645,10 +602,10 @@ namespace MathNet.Numerics.OdeSolvers
                     for (i = 0; i < n; ++i)
                     {
                         /* Computing 2nd power */
-                        d__1 = k2[i] - k6[i];
+                        d__1 = dxdtnew[i] - k6[i];
                         stnum += d__1 * d__1;
                         /* Computing 2nd power */
-                        d__1 = xtemp[i] - ysti[i];
+                        d__1 = xout[i] - xtemp[i];
                         stden += d__1 * d__1;
                     }
                     if (stden > 0.0)
@@ -687,23 +644,22 @@ namespace MathNet.Numerics.OdeSolvers
                     {
                         i = icomp[j];
                         yd0 = x[i];
-                        ydiff = xtemp[i] - yd0;
+                        ydiff = xout[i] - yd0;
                         bspl = dt * dxdt[i] - ydiff;
                         r[j] = x[i];
                         r[nrd + j] = ydiff;
                         r[nrd * 2 + j] = bspl;
-                        r[nrd * 3 + j] = -(dt) * k2[i] + ydiff - bspl;
-                        /* L43: */
+                        r[nrd * 3 + j] = -(dt) * dxdtnew[i] + ydiff - bspl;
                     }
                 }
 
                 for (i = 0; i < n; ++i)
                 {
-                    dxdt[i] = k2[i];
-                    x[i] = xtemp[i];
+                    dxdt[i] = dxdtnew[i];
+                    x[i] = xout[i];
                 }
                 condo_1.xold = t;
-                t = th;
+                t = t + dt;
                 
                 // Normal exit
                 if (last)
@@ -734,6 +690,53 @@ namespace MathNet.Numerics.OdeSolvers
             }
             dt = hnew;
             goto L1;
+        }
+
+        private void Step(double t, double dt, double[] x)
+        {
+            int i;
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * a21 * dxdt[i];
+            }
+
+            fcn(t + c2 * dt, xtemp, k2);
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (a31 * dxdt[i] + a32 * k2[i]);
+            }
+
+            fcn(t + c3 * dt, xtemp, k3);
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (a41 * dxdt[i] + a42 * k2[i] + a43 * k3[i]);
+            }
+
+            fcn(t + c4 * dt, xtemp, k4);
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (a51 * dxdt[i] + a52 * k2[i] + a53 * k3[i] + a54 * k4[i]);
+            }
+
+            fcn(t + c5 * dt, xtemp, k5);
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (a61 * dxdt[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i]);
+            }
+
+            double th = t + dt;
+            fcn(th, xtemp, k6);
+            for (i = 0; i < n; ++i)
+            {
+                xout[i] = x[i] + dt * (a71 * dxdt[i] + a73 * k3[i] + a74 * k4[i] + a75 * k5[i] + a76 * k6[i]);
+            }
+
+            fcn(th, xout, dxdtnew);
+            for (i = 0; i < n; ++i)
+            {
+                xerr[i] = dt * (e1 * dxdt[i] + e3 * k3[i] + e4 * k4[i] + e5 * k5[i] + e6 * k6[i] + e7 * dxdtnew[i]);
+            }
         }
 
         double Error(double dt, double[] x, int itol)
@@ -769,7 +772,7 @@ namespace MathNet.Numerics.OdeSolvers
         /* ---------------------------------------------------------- */
         /* ----  Computation of an initial step size guess */
         /* ---------------------------------------------------------- */
-        double hinit_(Action<double, double[], double[]> fcn, double x, double[] y,
+        double Initialize(Action<double, double[], double[]> fcn, double x, double[] y,
             double xend, double posneg, double[] f0, double[] f1,
             double[] y1, int iord, double hmax, int itol)
         {

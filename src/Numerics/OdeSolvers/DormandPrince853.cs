@@ -192,6 +192,8 @@ namespace MathNet.Numerics.OdeSolvers
 
         int n;
 
+        Action<double, double[], double[]> fcn;
+
         double[] dxdt, xout, xtemp, xerr, xerr2;
         double[] k2, k3, k4, k5, k6, k7, k8, k9, k10;
         double[] r;
@@ -424,6 +426,7 @@ namespace MathNet.Numerics.OdeSolvers
             bool arret = false;
 
             this.n = y.Length;
+            this.fcn = fcn;
 
             // IPRINT for monitoring the printing
             if (iwork[2] == 0)
@@ -609,7 +612,7 @@ namespace MathNet.Numerics.OdeSolvers
             this.atol = atol;
 
             // Call to core integrator
-            int idid = dp86co_(fcn, x, y, xend, hmax, ref h,
+            int idid = dp86co_(x, y, xend, hmax, ref h,
                 itol, iprint, nmax, uround,
                 nstiff, safe, beta, fac1, fac2,
                 icomp, nrdens,
@@ -628,7 +631,7 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Core integrator for DOP853 */
         /*     Parameters same as in DOP853 with workspace added */
         /* ---------------------------------------------------------- */
-        int dp86co_(Action<double, double[], double[]> fcn, double t, double[] x, double xend, double hmax, ref double dt,
+        int dp86co_(double t, double[] x, double xend, double hmax, ref double dt,
             int itol, int iprint,
             int nmax, double uround,
             int nstiff, double safe, double beta,
@@ -675,7 +678,7 @@ namespace MathNet.Numerics.OdeSolvers
             iord = 8;
             if (dt == 0.0)
             {
-                dt = hinit_(fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
+                dt = Initialize(fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
             }
             nfcn += 2;
             reject = false;
@@ -716,98 +719,10 @@ namespace MathNet.Numerics.OdeSolvers
                 fcn(t, x, dxdt);
             }
 
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * a21 * dxdt[i];
-            }
-
-            fcn(t + c2 * dt, xtemp, k2);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (a31 * dxdt[i] + a32 * k2[i]);
-            }
-
-            fcn(t + c3 * dt, xtemp, k3);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (a41 * dxdt[i] + a43 * k3[i]);
-            }
-
-            fcn(t + dt * c4, xtemp, k4);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (dxdt[i] * a51 + k3[i] * a53 + k4[i] * a54);
-            }
-
-            fcn(t + dt * c5, xtemp, k5);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (dxdt[i] * a61 + k4[i] * a64 + k5[i] * a65);
-            }
-
-            fcn(t + dt * c6, xtemp, k6);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (dxdt[i] * a71 + k4[i] * a74 + k5[i] * a75 + k6[i] * a76);
-            }
-
-            fcn(t + dt * c7, xtemp, k7);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (dxdt[i] * a81 + k4[i] * a84 + k5[i] * a85 + k6[i] * a86 + k7[i] * a87);
-            }
-
-            fcn(t + dt * c8, xtemp, k8);
-
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (dxdt[i] * a91 + k4[i] * a94 + k5[i] * a95 + k6[i] * a96 + k7[i] * a97 + k8[i] * a98);
-            }
-
-            fcn(t + dt * c9, xtemp, k9);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (dxdt[i] * a101 + k4[i] * a104 + k5[i] * a105 + k6[i] * a106 + k7[i] * a107 + k8[i] * a108 + k9[i] * a109);
-            }
-
-            fcn(t + dt * c10, xtemp, k10);
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (dxdt[i] * a111 + k4[i] * a114 + k5[i] * a115 + k6[i] * a116 + k7[i] * a117 + k8[i] * a118 + k9[i] * a119 + k10[i] * a1110);
-            }
-
-            fcn(t + dt * c11, xtemp, k2);
-
-            double th = t + dt;
-
-            for (i = 0; i < n; ++i)
-            {
-                xtemp[i] = x[i] + dt * (dxdt[i] * a121 + k4[i] * a124 + k5[i] * a125 + k6[i] * a126 + k7[i] * a127 + k8[i] * a128 + k9[i] * a129 + k10[i] * a1210 + k2[i] * a122);
-            }
-
-            fcn(th, xtemp, k3);
+            Step(t, dt, x);
             nfcn += 11;
 
-            for (i = 0; i < n; ++i)
-            {
-                k4[i] = dxdt[i] * b1 + k6[i] * b6 + k7[i] * b7 + k8[i] * b8 + k9[i] * b9 + k10[i] * b10 + k2[i] * b11 + k3[i] * b12;
-                xout[i] = x[i] + dt * k4[i];
-            }
-
-            for (i = 0; i < n; ++i)
-            {
-                xerr[i] = dxdt[i] * e1 + k6[i] * e6 + k7[i] * e7 + k8[i] * e8 + k9[i] * e9 + k10[i] * e10 + k2[i] * e11 + k3[i] * e12;
-                xerr2[i] = k4[i] - dxdt[i] * bh1 - k9[i] * bh2 - k3[i] * bh3;
-            }
+            double th = t + dt;
 
             // Error estimation
             err = Error(dt, x, itol);
@@ -968,6 +883,101 @@ namespace MathNet.Numerics.OdeSolvers
             goto L1;
         }
 
+        private void Step(double t, double dt, double[] x)
+        {
+            int i;
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * a21 * dxdt[i];
+            }
+
+            fcn(t + c2 * dt, xtemp, k2);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (a31 * dxdt[i] + a32 * k2[i]);
+            }
+
+            fcn(t + c3 * dt, xtemp, k3);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (a41 * dxdt[i] + a43 * k3[i]);
+            }
+
+            fcn(t + dt * c4, xtemp, k4);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a51 + k3[i] * a53 + k4[i] * a54);
+            }
+
+            fcn(t + dt * c5, xtemp, k5);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a61 + k4[i] * a64 + k5[i] * a65);
+            }
+
+            fcn(t + dt * c6, xtemp, k6);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a71 + k4[i] * a74 + k5[i] * a75 + k6[i] * a76);
+            }
+
+            fcn(t + dt * c7, xtemp, k7);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a81 + k4[i] * a84 + k5[i] * a85 + k6[i] * a86 + k7[i] * a87);
+            }
+
+            fcn(t + dt * c8, xtemp, k8);
+
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a91 + k4[i] * a94 + k5[i] * a95 + k6[i] * a96 + k7[i] * a97 + k8[i] * a98);
+            }
+
+            fcn(t + dt * c9, xtemp, k9);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a101 + k4[i] * a104 + k5[i] * a105 + k6[i] * a106 + k7[i] * a107 + k8[i] * a108 + k9[i] * a109);
+            }
+
+            fcn(t + dt * c10, xtemp, k10);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a111 + k4[i] * a114 + k5[i] * a115 + k6[i] * a116 + k7[i] * a117 + k8[i] * a118 + k9[i] * a119 + k10[i] * a1110);
+            }
+
+            fcn(t + dt * c11, xtemp, k2);
+
+            for (i = 0; i < n; ++i)
+            {
+                xtemp[i] = x[i] + dt * (dxdt[i] * a121 + k4[i] * a124 + k5[i] * a125 + k6[i] * a126 + k7[i] * a127 + k8[i] * a128 + k9[i] * a129 + k10[i] * a1210 + k2[i] * a122);
+            }
+
+            fcn(t + dt, xtemp, k3);
+
+            for (i = 0; i < n; ++i)
+            {
+                k4[i] = dxdt[i] * b1 + k6[i] * b6 + k7[i] * b7 + k8[i] * b8 + k9[i] * b9 + k10[i] * b10 + k2[i] * b11 + k3[i] * b12;
+                xout[i] = x[i] + dt * k4[i];
+            }
+
+            for (i = 0; i < n; ++i)
+            {
+                xerr[i] = dxdt[i] * e1 + k6[i] * e6 + k7[i] * e7 + k8[i] * e8 + k9[i] * e9 + k10[i] * e10 + k2[i] * e11 + k3[i] * e12;
+                xerr2[i] = k4[i] - dxdt[i] * bh1 - k9[i] * bh2 - k3[i] * bh3;
+            }
+        }
+
         private double Error(double dt, double[] x, int itol)
         {
             double err = 0.0, err2 = 0.0, sk, deno, temp;
@@ -1014,7 +1024,7 @@ namespace MathNet.Numerics.OdeSolvers
         /* ---------------------------------------------------------- */
         /* ----  Computation of an initial step size guess */
         /* ---------------------------------------------------------- */
-        double hinit_(Action<double, double[], double[]> fcn, double x, double[] y,
+        double Initialize(Action<double, double[], double[]> fcn, double x, double[] y,
             double xend, double posneg, double[] f0, double[] f1,
             double[] y1, int iord, double hmax, int itol)
         {
