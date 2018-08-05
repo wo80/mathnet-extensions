@@ -3,12 +3,9 @@ namespace MathNet.Numerics.OdeSolvers
 {
     using System;
     using System.Diagnostics;
-
+    
     public class DormandPrince5
     {
-        public delegate void U_fp(double t, double[] x, double[] x_out);
-        public delegate void S_fp(int i, double t_old, double t, double[] x, double[] cont, int[] icomp, int nrd, ref int irtrn);
-
         #region Runge-Kutta coefficients
 
         private const double c2 = 0.2;
@@ -53,6 +50,8 @@ namespace MathNet.Numerics.OdeSolvers
         private const double d7 = 2.3824689317781438;
 
         #endregion
+
+        int n;
 
         double[] dxdt, xtemp;
         double[] k2, k3, k4, k5, k6;
@@ -256,8 +255,8 @@ namespace MathNet.Numerics.OdeSolvers
          *   IWORK(20)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
          *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
          * ----------------------------------------------------------------------- */
-        public int dopri5_(int n, U_fp fcn, double x, double[] y, double xend, double[] rtol, double[] atol,
-                int itol, S_fp solout, int iout, double[] work, int[] iwork)
+        public int dopri5_(Action<double, double[], double[]> fcn, double x, double[] y, double xend, double[] rtol, double[] atol,
+                int itol, double[] work, int[] iwork)
         {
             /* Local variables */
             double h;
@@ -276,6 +275,8 @@ namespace MathNet.Numerics.OdeSolvers
             int nrejct = 0;
 
             bool arret = false;
+
+            this.n = y.Length;
 
             // IPRINT for monitoring the printing
             if (iwork[2] == 0)
@@ -328,13 +329,6 @@ namespace MathNet.Numerics.OdeSolvers
             }
             else
             {
-                if (nrdens > 0 && iout < 2)
-                {
-                    if (iprint > 0)
-                    {
-                        Console.WriteLine(" WARNING: put IOUT=2 for dense output ");
-                    }
-                }
                 if (nrdens == n)
                 {
                     for (int i = 0; i < nrdens; ++i)
@@ -462,8 +456,8 @@ namespace MathNet.Numerics.OdeSolvers
             this.atol = atol;
 
             // Call to core integrator
-            int idid = dopcor_(n, fcn, x, y, xend, hmax, ref h,
-                itol, iprint, solout, iout, nmax, uround,
+            int idid = dopcor_(fcn, x, y, xend, hmax, ref h,
+                itol, iprint, nmax, uround,
                 nstiff, safe, beta, fac1, fac2,
                 ysti, icomp, nrdens,
                 ref nfcn, ref nstep, ref naccpt, ref nrejct);
@@ -481,9 +475,9 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Core integrator for DOPRI5 */
         /*     Parameters same as in DOPRI5 with workspace added */
         /* ---------------------------------------------------------- */
-        int dopcor_(int n, U_fp fcn, double t, double[] x,
-            double xend, double hmax, ref double dt, int itol, int iprint, S_fp solout,
-            int iout, int nmax, double uround,
+        int dopcor_(Action<double, double[], double[]> fcn, double t, double[] x,
+            double xend, double hmax, ref double dt, int itol, int iprint,
+            int nmax, double uround,
             int nstiff, double safe, double beta,
             double fac1, double fac2, double[] ysti, int[] icomp,
             int nrd, ref int nfcn, ref int nstep, ref int naccpt, ref int nrejct)
@@ -500,7 +494,7 @@ namespace MathNet.Numerics.OdeSolvers
             int iasti;
 
             double stden, rtoli;
-            int irtrn;
+            int irtrn = 0;
             double stnum, facold;
             bool reject;
 
@@ -526,30 +520,11 @@ namespace MathNet.Numerics.OdeSolvers
             iord = 5;
             if (dt == 0.0)
             {
-                dt = hinit_(n, fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
+                dt = hinit_(fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
             }
             nfcn += 2;
             reject = false;
             condo_1.xold = t;
-            if (iout != 0)
-            {
-                irtrn = 1;
-                condo_1.hout = dt;
-
-                solout(naccpt + 1, condo_1.xold, t, x, r, icomp, nrd, ref irtrn);
-                if (irtrn < 0)
-                {
-                    if (iprint > 0)
-                    {
-                        Debug.WriteLine("Exit of DOPRI5 at X=" + t);
-                    }
-                    return 2;
-                }
-            }
-            else
-            {
-                irtrn = 0;
-            }
 
             // Basic integration step
             L1:
@@ -629,7 +604,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             fcn(xph, xtemp, k2);
 
-            if (iout >= 2)
+            //if (iout >= 2)
             {
                 for (j = 0; j < nrd; ++j)
                 {
@@ -727,7 +702,8 @@ namespace MathNet.Numerics.OdeSolvers
                         }
                     }
                 }
-                if (iout >= 2)
+                
+                //if (iout >= 2)
                 {
                     for (j = 0; j < nrd; ++j)
                     {
@@ -742,6 +718,7 @@ namespace MathNet.Numerics.OdeSolvers
                         /* L43: */
                     }
                 }
+
                 for (i = 0; i < n; ++i)
                 {
                     dxdt[i] = k2[i];
@@ -749,19 +726,7 @@ namespace MathNet.Numerics.OdeSolvers
                 }
                 condo_1.xold = t;
                 t = xph;
-                if (iout != 0)
-                {
-                    condo_1.hout = dt;
-                    solout(naccpt + 1, condo_1.xold, t, x, r, icomp, nrd, ref irtrn);
-                    if (irtrn < 0)
-                    {
-                        if (iprint > 0)
-                        {
-                            Debug.WriteLine("Exit of DOPRI5 at X=" + t);
-                        }
-                        return 2;
-                    }
-                }
+                
                 // Normal exit
                 if (last)
                 {
@@ -796,7 +761,7 @@ namespace MathNet.Numerics.OdeSolvers
         /* ---------------------------------------------------------- */
         /* ----  Computation of an initial step size guess */
         /* ---------------------------------------------------------- */
-        double hinit_(int n, U_fp fcn, double x, double[] y,
+        double hinit_(Action<double, double[], double[]> fcn, double x, double[] y,
             double xend, double posneg, double[] f0, double[] f1,
             double[] y1, int iord, double hmax, int itol)
         {

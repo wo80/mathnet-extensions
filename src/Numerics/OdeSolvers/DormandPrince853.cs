@@ -6,9 +6,6 @@ namespace MathNet.Numerics.OdeSolvers
 
     public class DormandPrince853
     {
-        public delegate void U_fp(double t, double[] x, double[] x_out);
-        public delegate void S_fp(int i, double told, double t, double[] y, double[] con, int[] icomp, int nd, ref int irtrn, ref double xout);
-
         #region Runge-Kutta coefficients
 
         private const double c2 = 0.0526001519587677318785587544488;
@@ -192,6 +189,8 @@ namespace MathNet.Numerics.OdeSolvers
         private const double d716 = -149.72683625798562581422125276;
 
         #endregion
+
+        int n;
 
         double[] dxdt, xtemp;
         double[] k2, k3, k4, k5, k6, k7, k8, k9, k10;
@@ -403,8 +402,8 @@ namespace MathNet.Numerics.OdeSolvers
          *   IWORK(20)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
          *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
          * ----------------------------------------------------------------------- */
-        public int dop853_(int n, U_fp fcn, double x, double[] y, double xend, double[] rtol, double[] atol,
-            int itol, S_fp solout, int iout, double[] work, int[] iwork)
+        public int dop853_(Action<double, double[], double[]> fcn, double x, double[] y, double xend, double[] rtol, double[] atol,
+            int itol, double[] work, int[] iwork)
         {
             /* Local variables */
             double h;
@@ -423,6 +422,8 @@ namespace MathNet.Numerics.OdeSolvers
             int nrejct = 0;
 
             bool arret = false;
+
+            this.n = y.Length;
 
             // IPRINT for monitoring the printing
             if (iwork[2] == 0)
@@ -475,13 +476,6 @@ namespace MathNet.Numerics.OdeSolvers
             }
             else
             {
-                if (nrdens > 0 && iout < 2)
-                {
-                    if (iprint > 0)
-                    {
-                        Console.WriteLine(" WARNING: put IOUT=2 or IOUT=3 for dense output ");
-                    }
-                }
                 if (nrdens == n)
                 {
                     for (int i = 0; i < nrdens; ++i)
@@ -612,8 +606,8 @@ namespace MathNet.Numerics.OdeSolvers
             this.atol = atol;
 
             // Call to core integrator
-            int idid = dp86co_(n, fcn, x, y, xend, hmax, ref h,
-                itol, iprint, solout, iout, nmax, uround,
+            int idid = dp86co_(fcn, x, y, xend, hmax, ref h,
+                itol, iprint, nmax, uround,
                 nstiff, safe, beta, fac1, fac2,
                 icomp, nrdens,
                 ref nfcn, ref nstep, ref naccpt, ref nrejct);
@@ -631,9 +625,9 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Core integrator for DOP853 */
         /*     Parameters same as in DOP853 with workspace added */
         /* ---------------------------------------------------------- */
-        int dp86co_(int n, U_fp fcn, double t, double[] x, double xend, double hmax, ref double dt,
-            int itol, int iprint, S_fp solout,
-            int iout, int nmax, double uround,
+        int dp86co_(Action<double, double[], double[]> fcn, double t, double[] x, double xend, double hmax, ref double dt,
+            int itol, int iprint,
+            int nmax, double uround,
             int nstiff, double safe, double beta,
             double fac1, double fac2,
             int[] icomp, int nrd,
@@ -648,12 +642,10 @@ namespace MathNet.Numerics.OdeSolvers
             double xph, err, sk, fac, err2, fac11, deno;
             int iord;
             bool last;
-            double erri, hnew, bspl, facc1, facc2, xout = 0.0, expo1, hlamb, ydiff,
-                atoli;
+            double erri, hnew, bspl, facc1, facc2, expo1, hlamb, ydiff, atoli;
             int iasti;
 
             double stden;
-            bool _event;
             double rtoli;
             int irtrn = 0;
             double stnum, facold;
@@ -680,25 +672,11 @@ namespace MathNet.Numerics.OdeSolvers
             iord = 8;
             if (dt == 0.0)
             {
-                dt = hinit_(n, fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
+                dt = hinit_(fcn, t, x, xend, posneg, dxdt, k2, k3, iord, hmax, itol);
             }
             nfcn += 2;
             reject = false;
             condo_1.xold = t;
-            if (iout != 0)
-            {
-                irtrn = 1;
-                condo_1.hout = 1.0;
-                solout(naccpt + 1, condo_1.xold, t, x, r, icomp, nrd, ref irtrn, ref xout);
-                if (irtrn < 0)
-                {
-                    if (iprint > 0)
-                    {
-                        Debug.WriteLine("Exit of DOP853 at X=" + t);
-                    }
-                    return 2;
-                }
-            }
 
             // Basic integration step
             L1:
@@ -926,8 +904,7 @@ namespace MathNet.Numerics.OdeSolvers
                 }
 
                 // Final preparation for dense output
-                _event = iout == 3 && xout <= xph;
-                if (iout == 2 || _event)
+                //if (iout == 2 || _event)
                 {
                     //    Save the first function evaluations
                     for (j = 0; j < nrd; ++j)
@@ -988,18 +965,6 @@ namespace MathNet.Numerics.OdeSolvers
                 }
                 condo_1.xold = t;
                 t = xph;
-                if (iout == 1 || iout == 2 || _event)
-                {
-                    solout(naccpt + 1, condo_1.xold, t, x, r, icomp, nrd, ref irtrn, ref xout);
-                    if (irtrn < 0)
-                    {
-                        if (iprint > 0)
-                        {
-                            Debug.WriteLine("Exit of DOP853 at X=" + t);
-                        }
-                        return 2;
-                    }
-                }
 
                 // Normal exit
                 if (last)
@@ -1035,7 +1000,7 @@ namespace MathNet.Numerics.OdeSolvers
         /* ---------------------------------------------------------- */
         /* ----  Computation of an initial step size guess */
         /* ---------------------------------------------------------- */
-        double hinit_(int n, U_fp fcn, double x, double[] y,
+        double hinit_(Action<double, double[], double[]> fcn, double x, double[] y,
             double xend, double posneg, double[] f0, double[] f1,
             double[] y1, int iord, double hmax, int itol)
         {
