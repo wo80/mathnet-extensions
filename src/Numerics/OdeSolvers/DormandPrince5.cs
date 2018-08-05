@@ -55,6 +55,7 @@ namespace MathNet.Numerics.OdeSolvers
 
         Action<double, double[], double[]> fcn;
 
+        double told, dtold;
         double[] dxdt, dxdtnew, xout, xtemp, xerr;
         double[] k2, k3, k4, k5, k6;
         double[] r;
@@ -66,13 +67,6 @@ namespace MathNet.Numerics.OdeSolvers
             double x = Math.Abs(a);
             return b >= 0 ? x : -x;
         }
-
-        class condo_
-        {
-            public double xold, hout;
-        }
-
-        condo_ condo_1 = new condo_();
 
         /* ----------------------------------------------------------
          *     NUMERICAL SOLUTION OF A SYSTEM OF FIRST 0RDER
@@ -487,22 +481,18 @@ namespace MathNet.Numerics.OdeSolvers
             double fac1, double fac2, int[] icomp,
             int nrd, ref int nfcn, ref int nstep, ref int naccpt, ref int nrejct)
         {
-            /* System generated locals */
-            double d__1;
+            var stiff = new StiffnessChecker(3.25);
 
             /* Local variables */
-            int i, j;
+            int i;
             double err, fac, fac11;
             bool last;
-            double hnew, bspl, facc1, facc2, expo1, hlamb, ydiff;
-            int iasti;
-
-            double stden;
+            double hnew, facc1, facc2, expo1;
+            
             int irtrn = 0;
-            double stnum, facold;
+            double facold;
             bool reject;
             double posneg;
-            int nonsti = 0;
 
 
             /* Function Body */
@@ -514,8 +504,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             // Initial preparations
             last = false;
-            hlamb = 0.0;
-            iasti = 0;
             fcn(t, x, dxdt);
             hmax = Math.Abs(hmax);
 
@@ -526,7 +514,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             nfcn += 2;
             reject = false;
-            condo_1.xold = t;
+            told = t;
 
             // Basic integration step
             L1:
@@ -569,7 +557,7 @@ namespace MathNet.Numerics.OdeSolvers
             // Error estimation
             err = Error(dt, x, itol);
 
-            // Computation of hnew
+            // Computation of HNEW
             fac11 = Math.Pow(err, expo1);
 
             // LUND-stabilization
@@ -585,46 +573,15 @@ namespace MathNet.Numerics.OdeSolvers
                 ++(naccpt);
 
                 // Stiffness detection
-                if (naccpt % nstiff == 0 || iasti > 0)
+                if (!stiff.Check(naccpt, dt, dxdtnew, k6, xout, xtemp))
                 {
-                    stnum = 0.0;
-                    stden = 0.0;
-                    for (i = 0; i < n; ++i)
+                    if (iprint > 0)
                     {
-                        /* Computing 2nd power */
-                        d__1 = dxdtnew[i] - k6[i];
-                        stnum += d__1 * d__1;
-                        /* Computing 2nd power */
-                        d__1 = xout[i] - xtemp[i];
-                        stden += d__1 * d__1;
+                        Console.WriteLine(" The problem seems to become stiff at X = " + t);
                     }
-                    if (stden > 0.0)
+                    if (iprint <= 0)
                     {
-                        hlamb = dt * Math.Sqrt(stnum / stden);
-                    }
-                    if (hlamb > 3.25)
-                    {
-                        nonsti = 0;
-                        ++iasti;
-                        if (iasti == 15)
-                        {
-                            if (iprint > 0)
-                            {
-                                Console.WriteLine(" The problem seems to become stiff at X = " + (t));
-                            }
-                            if (iprint <= 0)
-                            {
-                                return -4;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        ++nonsti;
-                        if (nonsti == 6)
-                        {
-                            iasti = 0;
-                        }
+                        return -4;
                     }
                 }
 
@@ -636,7 +593,7 @@ namespace MathNet.Numerics.OdeSolvers
                     dxdt[i] = dxdtnew[i];
                     x[i] = xout[i];
                 }
-                condo_1.xold = t;
+                told = t;
                 t = t + dt;
 
                 // Normal exit
@@ -882,7 +839,7 @@ namespace MathNet.Numerics.OdeSolvers
         /*     with the output-subroutine for DOPRI5. It provides an */
         /*     approximation to the II-th component of the solution at X. */
         /* ---------------------------------------------------------- */
-        public double Interpolate(int ii, double x, double[] con, int[] icomp, int nd)
+        public double Interpolate(int ii, double t, double[] con, int[] icomp, int nd)
         {
             // Compute place of II-th component
 
@@ -902,7 +859,7 @@ namespace MathNet.Numerics.OdeSolvers
                 return 0.0;
             }
 
-            double s = (x - condo_1.xold) / condo_1.hout;
+            double s = (t - told) / dtold;
             double s1 = 1.0 - s;
 
             return con[i] + s * (con[nd + i] + s1 * (con[2 * nd + i] + s * (con[3 * nd + i] + s1 * con[4 * nd + i])));

@@ -194,6 +194,7 @@ namespace MathNet.Numerics.OdeSolvers
 
         Action<double, double[], double[]> fcn;
 
+        double told, dtold;
         double[] dxdt, xout, xtemp, xerr, xerr2;
         double[] k2, k3, k4, k5, k6, k7, k8, k9, k10;
         double[] r;
@@ -206,13 +207,6 @@ namespace MathNet.Numerics.OdeSolvers
             double x = Math.Abs(a);
             return b >= 0 ? x : -x;
         }
-
-        class condo_
-        {
-            public double xold, hout;
-        }
-
-        condo_ condo_1 = new condo_();
 
         /* ----------------------------------------------------------
          *     NUMERICAL SOLUTION OF A SYSTEM OF FIRST 0RDER
@@ -612,7 +606,7 @@ namespace MathNet.Numerics.OdeSolvers
             this.atol = atol;
 
             // Call to core integrator
-            int idid = dp86co_(x, y, xend, hmax, ref h,
+            int idid = dopcor_(x, y, xend, hmax, ref h,
                 itol, iprint, nmax, uround,
                 nstiff, safe, beta, fac1, fac2,
                 icomp, nrdens,
@@ -631,28 +625,25 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Core integrator for DOP853 */
         /*     Parameters same as in DOP853 with workspace added */
         /* ---------------------------------------------------------- */
-        int dp86co_(double t, double[] x, double xend, double hmax, ref double dt, int itol, int iprint,
+        int dopcor_(double t, double[] x,
+            double xend, double hmax, ref double dt, int itol, int iprint,
             int nmax, double uround,
             int nstiff, double safe, double beta,
             double fac1, double fac2, int[] icomp,
             int nrd, ref int nfcn, ref int nstep, ref int naccpt, ref int nrejct)
         {
-            /* System generated locals */
-            double d__1;
+            var stiff = new StiffnessChecker(6.1);
 
             /* Local variables */
-            int i, j;
+            int i;
             double err, fac, fac11;
             bool last;
-            double hnew, bspl, facc1, facc2, expo1, hlamb, ydiff;
-            int iasti;
-
-            double stden;
+            double hnew, facc1, facc2, expo1;
+            
             int irtrn = 0;
-            double stnum, facold;
+            double facold;
             bool reject;
             double posneg;
-            int nonsti = 0;
 
 
             /* Function Body */
@@ -664,8 +655,6 @@ namespace MathNet.Numerics.OdeSolvers
 
             // Initial preparations
             last = false;
-            hlamb = 0.0;
-            iasti = 0;
             fcn(t, x, dxdt);
             hmax = Math.Abs(hmax);
 
@@ -676,7 +665,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             nfcn += 2;
             reject = false;
-            condo_1.xold = t;
+            told = t;
 
             // Basic integration step
             L1:
@@ -739,54 +728,22 @@ namespace MathNet.Numerics.OdeSolvers
                 ++(nfcn);
 
                 // Stiffness detection
-                if (naccpt % nstiff == 0 || iasti > 0)
+                if (!stiff.Check(naccpt, dt, k4, k3, xout, xtemp))
                 {
-                    stnum = 0.0;
-                    stden = 0.0;
-
-                    for (i = 0; i < n; ++i)
+                    if (iprint > 0)
                     {
-                        /* Computing 2nd power */
-                        d__1 = k4[i] - k3[i];
-                        stnum += d__1 * d__1;
-                        /* Computing 2nd power */
-                        d__1 = xout[i] - xtemp[i];
-                        stden += d__1 * d__1;
+                        Console.WriteLine(" The problem seems to become stiff at X = " + t);
                     }
-                    if (stden > 0.0)
+                    if (iprint <= 0)
                     {
-                        hlamb = Math.Abs(dt) * Math.Sqrt(stnum / stden);
-                    }
-                    if (hlamb > 6.1)
-                    {
-                        nonsti = 0;
-                        ++iasti;
-                        if (iasti == 15)
-                        {
-                            if (iprint > 0)
-                            {
-                                Console.WriteLine(" The problem seems to become stiff at X = " + t);
-                            }
-                            if (iprint <= 0)
-                            {
-                                return -4;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        ++nonsti;
-                        if (nonsti == 6)
-                        {
-                            iasti = 0;
-                        }
+                        return -4;
                     }
                 }
 
                 // Final preparation for dense output
                 //if (iout == 2 || _event)
                 PrepareInterpolation(t, dt, x, nrd, icomp);
-                condo_1.hout = dt;
+                dtold = dt;
                 nfcn += 3;
 
                 for (i = 0; i < n; ++i)
@@ -794,7 +751,7 @@ namespace MathNet.Numerics.OdeSolvers
                     dxdt[i] = k4[i];
                     x[i] = xout[i];
                 }
-                condo_1.xold = t;
+                told = t;
                 t = th;
 
                 // Normal exit
@@ -1127,7 +1084,7 @@ namespace MathNet.Numerics.OdeSolvers
         /*     with the output-subroutine for DOP853. It provides an */
         /*     approximation to the II-th component of the solution at X. */
         /* ---------------------------------------------------------- */
-        public double Interpolate(int ii, double x, double[] con, int[] icomp, int nd)
+        public double Interpolate(int ii, double t, double[] con, int[] icomp, int nd)
         {
             // Compute place of II-th component
 
@@ -1147,7 +1104,7 @@ namespace MathNet.Numerics.OdeSolvers
                 return 0.0;
             }
 
-            double s = (x - condo_1.xold) / condo_1.hout;
+            double s = (t - told) / dtold;
             double s1 = 1.0 - s;
             double conpar = con[4 * nd + i] + s * (con[5 * nd + i] + s1 * (con[6 * nd + i] + s * con[7 * nd + i]));
 
