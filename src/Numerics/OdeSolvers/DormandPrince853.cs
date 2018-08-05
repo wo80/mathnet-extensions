@@ -629,28 +629,24 @@ namespace MathNet.Numerics.OdeSolvers
             double xend, double hmax, ref double dt, int itol, int iprint,
             int nmax, double uround,
             int nstiff, double safe, double beta,
-            double fac1, double fac2, int[] icomp,
+            double minscale, double maxscale, int[] icomp,
             int nrd, ref int nfcn, ref int nstep, ref int naccpt, ref int nrejct)
         {
             var stiff = new StiffnessChecker(6.1);
 
             /* Local variables */
-            int i;
-            double err, fac, fac11;
             bool last;
-            double hnew, facc1, facc2, expo1;
+            double hnew, scale, alpha;
             
             int irtrn = 0;
-            double facold;
+            double errold;
             bool reject;
             double posneg;
 
 
             /* Function Body */
-            facold = 1e-4;
-            expo1 = 0.125 - beta * 0.2;
-            facc1 = 1.0 / fac1;
-            facc2 = 1.0 / fac2;
+            errold = 1e-4;
+            alpha = 0.125 - beta * 0.2;
             posneg = d_sign(1.0, xend - t);
 
             // Initial preparations
@@ -708,21 +704,21 @@ namespace MathNet.Numerics.OdeSolvers
             double th = t + dt;
 
             // Error estimation
-            err = Error(dt, x, itol);
+            double err = Error(dt, x, itol);
 
             // Computation of HNEW
-            fac11 = Math.Pow(err, expo1);
-
-            // LUND-stabilization
-            fac = fac11 / Math.Pow(facold, beta);
-
-            // We require  FAC1 <= HNEW/H <= FAC2
-            fac = Math.Max(facc2, Math.Min(facc1, fac / safe));
-            hnew = dt / fac;
             if (err <= 1.0)
             {
+                // LUND-stabilization
+                scale = safe * Math.Pow(errold, beta) / Math.Pow(err, alpha);
+
+                // We require  FAC1 <= HNEW/H <= FAC2
+                scale = Math.Min(maxscale, Math.Max(minscale, scale));
+
+                hnew = scale * dt;
+
                 // Step is accepted
-                facold = Math.Max(err, 1e-4);
+                errold = Math.Max(err, 1e-4);
                 ++(naccpt);
                 fcn(th, xout, k4);
                 ++(nfcn);
@@ -746,7 +742,7 @@ namespace MathNet.Numerics.OdeSolvers
                 dtold = dt;
                 nfcn += 3;
 
-                for (i = 0; i < n; ++i)
+                for (int i = 0; i < n; ++i)
                 {
                     dxdt[i] = k4[i];
                     x[i] = xout[i];
@@ -773,7 +769,7 @@ namespace MathNet.Numerics.OdeSolvers
             else
             {
                 // Step is rejected
-                hnew = dt / Math.Min(facc1, fac11 / safe);
+                hnew = Math.Max(minscale, safe / Math.Pow(err, alpha)) * dt;
                 reject = true;
                 if (naccpt >= 1)
                 {
