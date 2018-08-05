@@ -53,7 +53,7 @@ namespace MathNet.Numerics.OdeSolvers
 
         int n;
 
-        double[] dxdt, xtemp;
+        double[] dxdt, xtemp, xerr;
         double[] k2, k3, k4, k5, k6;
         double[] r;
 
@@ -432,6 +432,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             // Prepare the entry-points for the arrays in work
             xtemp = new double[n];
+            xerr = new double[n];
             dxdt = new double[n];
             k2 = new double[n];
             k3 = new double[n];
@@ -487,13 +488,13 @@ namespace MathNet.Numerics.OdeSolvers
 
             /* Local variables */
             int i, j;
-            double sk, yd0, fac, err, xph, fac11;
+            double yd0, fac, err, fac11;
             int iord;
             bool last;
-            double hnew, bspl, facc1, facc2, expo1, hlamb, ydiff, atoli;
+            double hnew, bspl, facc1, facc2, expo1, hlamb, ydiff;
             int iasti;
 
-            double stden, rtoli;
+            double stden;
             int irtrn = 0;
             double stnum, facold;
             bool reject;
@@ -510,8 +511,6 @@ namespace MathNet.Numerics.OdeSolvers
             posneg = d_sign(1.0, xend - t);
 
             // Initial preparations
-            atoli = atol[0];
-            rtoli = rtol[0];
             last = false;
             hlamb = 0.0;
             iasti = 0;
@@ -594,15 +593,15 @@ namespace MathNet.Numerics.OdeSolvers
                 ysti[i] = x[i] + dt * (a61 * dxdt[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i]);
             }
 
-            xph = t + dt;
-            fcn(xph, ysti, k6);
+            double th = t + dt;
+            fcn(th, ysti, k6);
 
             for (i = 0; i < n; ++i)
             {
                 xtemp[i] = x[i] + dt * (a71 * dxdt[i] + a73 * k3[i] + a74 * k4[i] + a75 * k5[i] + a76 * k6[i]);
             }
 
-            fcn(xph, xtemp, k2);
+            fcn(th, xtemp, k2);
 
             //if (iout >= 2)
             {
@@ -615,34 +614,13 @@ namespace MathNet.Numerics.OdeSolvers
 
             for (i = 0; i < n; ++i)
             {
-                k4[i] = (e1 * dxdt[i] + e3 * k3[i] + e4 * k4[i] + e5 * k5[i] + e6 * k6[i] + e7 * k2[i]) * dt;
+                xerr[i] = dt * (e1 * dxdt[i] + e3 * k3[i] + e4 * k4[i] + e5 * k5[i] + e6 * k6[i] + e7 * k2[i]);
             }
 
             nfcn += 6;
 
             // Error estimation
-            err = 0.0;
-            if (itol == 0)
-            {
-                for (i = 0; i < n; ++i)
-                {
-                    sk = atoli + rtoli * Math.Max(Math.Abs(x[i]), Math.Abs(xtemp[i]));
-                    /* Computing 2nd power */
-                    d__1 = k4[i] / sk;
-                    err += d__1 * d__1;
-                }
-            }
-            else
-            {
-                for (i = 0; i < n; ++i)
-                {
-                    sk = atol[i] + rtol[i] * Math.Max(Math.Abs(x[i]), Math.Abs(xtemp[i]));
-                    /* Computing 2nd power */
-                    d__1 = k4[i] / sk;
-                    err += d__1 * d__1;
-                }
-            }
-            err = Math.Sqrt(err / n);
+            err = Error(dt, x, itol);
 
             // Computation of hnew
             fac11 = Math.Pow(err, expo1);
@@ -725,7 +703,7 @@ namespace MathNet.Numerics.OdeSolvers
                     x[i] = xtemp[i];
                 }
                 condo_1.xold = t;
-                t = xph;
+                t = th;
                 
                 // Normal exit
                 if (last)
@@ -756,6 +734,36 @@ namespace MathNet.Numerics.OdeSolvers
             }
             dt = hnew;
             goto L1;
+        }
+
+        double Error(double dt, double[] x, int itol)
+        {
+            double err = 0.0, sk, temp;
+            if (itol == 0)
+            {
+                double atoli = atol[0];
+                double rtoli = rtol[0];
+
+                for (int i = 0; i < n; ++i)
+                {
+                    sk = atoli + rtoli * Math.Max(Math.Abs(x[i]), Math.Abs(xtemp[i]));
+                    /* Computing 2nd power */
+                    temp = xerr[i] / sk;
+                    err += temp * temp;
+                }
+            }
+            else
+            {
+                for (int i = 0; i < n; ++i)
+                {
+                    sk = atol[i] + rtol[i] * Math.Max(Math.Abs(x[i]), Math.Abs(xtemp[i]));
+                    /* Computing 2nd power */
+                    temp = xerr[i] / sk;
+                    err += temp * temp;
+                }
+            }
+
+            return Math.Sqrt(err / n);
         }
 
         /* ---------------------------------------------------------- */
