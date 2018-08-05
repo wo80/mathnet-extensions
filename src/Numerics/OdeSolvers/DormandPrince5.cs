@@ -8,14 +8,14 @@ namespace MathNet.Numerics.OdeSolvers
     {
         public delegate void U_fp(int n, double x, double[] y, double[] y_out, double[] rpar, int[] ipar);
         public delegate void S_fp(int i, double x_old, double x, double[] y, int n, double[] cont, int[] icomp, int nrd, double[] rpar, int[] ipar, int irtrn);
+        
+        #region Runge-Kutta coefficients
 
-        /* ---------------------------------------------------------- */
-        /*     RUNGE-KUTTA COEFFICIENTS OF DORMAND AND PRINCE (1980) */
-        /* ---------------------------------------------------------- */
         private const double c2 = 0.2;
         private const double c3 = 0.3;
         private const double c4 = 0.8;
         private const double c5 = 0.88888888888888884;
+
         private const double a21 = 0.2;
         private const double a31 = 0.074999999999999997;
         private const double a32 = 0.22500000000000001;
@@ -36,12 +36,14 @@ namespace MathNet.Numerics.OdeSolvers
         private const double a74 = 0.65104166666666663;
         private const double a75 = -0.322376179245283;
         private const double a76 = 0.13095238095238096;
+
         private const double e1 = 0.0012326388888888888;
         private const double e3 = -0.0042527702905061394;
         private const double e4 = 0.036979166666666667;
         private const double e5 = -0.05086379716981132;
         private const double e6 = 0.041904761904761903;
         private const double e7 = -0.025000000000000001;
+
         // ---- DENSE OUTPUT OF SHAMPINE (1986) private const double /
         private const double d1 = -1.1270175653862835;
         private const double d3 = 2.675424484351598;
@@ -49,7 +51,9 @@ namespace MathNet.Numerics.OdeSolvers
         private const double d5 = 3.5219323679207912;
         private const double d6 = -1.7672812570757455;
         private const double d7 = 2.3824689317781438;
-        
+
+        #endregion
+
         double d_sign(double a, double b)
         {
             double x = Math.Abs(a);
