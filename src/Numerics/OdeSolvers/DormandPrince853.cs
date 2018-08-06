@@ -632,25 +632,14 @@ namespace MathNet.Numerics.OdeSolvers
             double minscale, double maxscale, int[] icomp,
             int nrd, ref int nfcn, ref int nstep, ref int naccpt, ref int nrejct)
         {
+            var controller = new ErrorController(8, minscale, maxscale, hmax, safe, beta);
             var stiff = new StiffnessChecker(6.1);
-
-            /* Local variables */
-            bool last;
-            double hnew, scale, alpha;
             
             int irtrn = 0;
-            double errold;
-            bool reject;
-            double posneg;
-
-
-            /* Function Body */
-            errold = 1e-4;
-            alpha = 0.125 - beta * 0.2;
-            posneg = d_sign(1.0, xend - t);
+            double posneg = d_sign(1.0, xend - t);
 
             // Initial preparations
-            last = false;
+            bool last = false;
             fcn(t, x, dxdt);
             hmax = Math.Abs(hmax);
 
@@ -660,8 +649,6 @@ namespace MathNet.Numerics.OdeSolvers
             }
 
             nfcn += 2;
-            reject = false;
-            told = t;
 
             // Basic integration step
             L1:
@@ -691,9 +678,8 @@ namespace MathNet.Numerics.OdeSolvers
                 last = true;
             }
             ++(nstep);
-
-            // The twelve stages
-            if (irtrn >= 2)
+            
+            if (irtrn > 1)
             {
                 fcn(t, x, dxdt);
             }
@@ -706,25 +692,19 @@ namespace MathNet.Numerics.OdeSolvers
             // Error estimation
             double err = Error(dt, x, itol);
 
+            dtold = dt;
+            told = t;
+
             // Computation of HNEW
-            if (err <= 1.0)
+            if (controller.Success(err, posneg, ref dt))
             {
-                // LUND-stabilization
-                scale = safe * Math.Pow(errold, beta) / Math.Pow(err, alpha);
+                ++naccpt;
 
-                // We require  FAC1 <= HNEW/H <= FAC2
-                scale = Math.Min(maxscale, Math.Max(minscale, scale));
-
-                hnew = scale * dt;
-
-                // Step is accepted
-                errold = Math.Max(err, 1e-4);
-                ++(naccpt);
                 fcn(th, xout, k4);
-                ++(nfcn);
+                ++nfcn;
 
                 // Stiffness detection
-                if (!stiff.Check(naccpt, dt, k4, k3, xout, xtemp))
+                if (!stiff.Check(naccpt, dtold, k4, k3, xout, xtemp))
                 {
                     if (iprint > 0)
                     {
@@ -735,49 +715,34 @@ namespace MathNet.Numerics.OdeSolvers
                         return -4;
                     }
                 }
-
-                // Final preparation for dense output
-                //if (iout == 2 || _event)
-                PrepareInterpolation(t, dt, x, nrd, icomp);
-                dtold = dt;
-                nfcn += 3;
+                
+                //if (dense)
+                {
+                    PrepareInterpolation(t, dtold, x, nrd, icomp);
+                    nfcn += 3;
+                }
 
                 for (int i = 0; i < n; ++i)
                 {
                     dxdt[i] = k4[i];
                     x[i] = xout[i];
                 }
-                told = t;
                 t = th;
 
                 // Normal exit
                 if (last)
                 {
-                    dt = hnew;
                     return 1;
                 }
-                if (Math.Abs(hnew) > hmax)
-                {
-                    hnew = posneg * hmax;
-                }
-                if (reject)
-                {
-                    hnew = posneg * Math.Min(Math.Abs(hnew), Math.Abs(dt));
-                }
-                reject = false;
             }
             else
             {
-                // Step is rejected
-                hnew = Math.Max(minscale, safe / Math.Pow(err, alpha)) * dt;
-                reject = true;
-                if (naccpt >= 1)
+                if (naccpt > 0)
                 {
-                    ++(nrejct);
+                    ++nrejct;
                 }
                 last = false;
             }
-            dt = hnew;
             goto L1;
         }
 
