@@ -203,7 +203,6 @@ namespace MathNet.Numerics.OdeSolvers
 
         double d_sign(double a, double b)
         {
-
             double x = Math.Abs(a);
             return b >= 0 ? x : -x;
         }
@@ -412,7 +411,6 @@ namespace MathNet.Numerics.OdeSolvers
             double uround;
 
             /* Function Body */
-            int nfcn = 0;
             int nstep = 0;
 
             bool arret = false;
@@ -599,11 +597,9 @@ namespace MathNet.Numerics.OdeSolvers
             int idid = dopcor_(x, y, xend, hmax, ref h,
                 itol, iprint, nmax, uround,
                 controller, stiff,
-                icomp, nrdens,
-                ref nfcn, ref nstep);
+                icomp, nrdens, ref nstep);
 
             work[6] = h;
-            iwork[16] = nfcn;
             iwork[17] = nstep;
             iwork[18] = controller.Accepted;
             iwork[19] = controller.Rejected;
@@ -616,13 +612,13 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Parameters same as in DOP853 with workspace added */
         /* ---------------------------------------------------------- */
         int dopcor_(double t, double[] x,
-            double xend, double hmax, ref double dt, int itol, int iprint,
+            double tend, double hmax, ref double dt, int itol, int iprint,
             int nmax, double uround,
             ErrorController controller, StiffnessChecker stiff,
-            int[] icomp, int nrd, ref int nfcn, ref int nstep)
+            int[] icomp, int nrd, ref int nstep)
         {
             int irtrn = 0;
-            double posneg = d_sign(1.0, xend - t);
+            double posneg = d_sign(1.0, tend - t);
 
             // Initial preparations
             bool last = false;
@@ -631,11 +627,9 @@ namespace MathNet.Numerics.OdeSolvers
 
             if (dt == 0.0)
             {
-                dt = Initialize(t, x, xend, posneg, dxdt, hmax, itol);
+                dt = AdaptiveIntegrator.Initialize(fcn, 8, t, x, tend, posneg, k2, k3, dxdt, hmax, rtol, atol, itol);
             }
-
-            nfcn += 2;
-
+            
             // Basic integration step
             L1:
             if (nstep > nmax)
@@ -658,9 +652,9 @@ namespace MathNet.Numerics.OdeSolvers
                 return -3;
             }
 
-            if ((t + dt * 1.01 - xend) * posneg > 0.0)
+            if ((t + dt * 1.01 - tend) * posneg > 0.0)
             {
-                dt = xend - t;
+                dt = tend - t;
                 last = true;
             }
             ++(nstep);
@@ -671,7 +665,6 @@ namespace MathNet.Numerics.OdeSolvers
             }
 
             Step(t, dt, x);
-            nfcn += 11;
 
             double th = t + dt;
 
@@ -685,7 +678,6 @@ namespace MathNet.Numerics.OdeSolvers
             if (controller.Success(err, posneg, ref dt))
             {
                 fcn(th, xout, k4);
-                ++nfcn;
 
                 // Stiffness detection
                 if (!stiff.Check(controller.Accepted, dtold, k4, k3, xout, xtemp))
@@ -703,7 +695,6 @@ namespace MathNet.Numerics.OdeSolvers
                 //if (dense)
                 {
                     PrepareInterpolation(t, dtold, x, nrd, icomp);
-                    nfcn += 3;
                 }
 
                 for (int i = 0; i < n; ++i)
@@ -906,120 +897,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             return Math.Abs(dt) * err * Math.Sqrt(1.0 / (n * deno));
         }
-
-        /* ---------------------------------------------------------- */
-        /* ----  Computation of an initial step size guess */
-        /* ---------------------------------------------------------- */
-        double Initialize(double x, double[] y, double xend, double posneg,
-            double[] y1, double hmax, int itol)
-        {
-            /* System generated locals */
-            double d__1;
-
-            /* Local variables */
-            double h;
-            int i, iord = 8;
-            double h1, sk, dnf, dny, der2, der12, atoli, rtoli;
-
-            double[] f0 = k2;
-            double[] f1 = k3;
-
-            // Compute a first guess for explicit euler as
-            //   H = 0.01 * NORM (Y0) / NORM (F0)
-            // The increment for explicit euler is small
-            // compared to the solution
-
-            /* Function Body */
-            dnf = 0.0;
-            dny = 0.0;
-            atoli = atol[0];
-            rtoli = rtol[0];
-            if (itol == 0)
-            {
-                for (i = 0; i < n; ++i)
-                {
-                    sk = atoli + rtoli * Math.Abs(y[i]);
-                    /* Computing 2nd power */
-                    d__1 = f0[i] / sk;
-                    dnf += d__1 * d__1;
-                    /* Computing 2nd power */
-                    d__1 = y[i] / sk;
-                    dny += d__1 * d__1;
-                }
-            }
-            else
-            {
-                for (i = 0; i < n; ++i)
-                {
-                    sk = atol[i] + rtol[i] * Math.Abs(y[i]);
-                    /* Computing 2nd power */
-                    d__1 = f0[i] / sk;
-                    dnf += d__1 * d__1;
-                    /* Computing 2nd power */
-                    d__1 = y[i] / sk;
-                    dny += d__1 * d__1;
-                }
-            }
-            if (dnf <= 1e-10 || dny <= 1e-10)
-            {
-                h = 1e-6;
-            }
-            else
-            {
-                h = Math.Sqrt(dny / dnf) * 0.01;
-            }
-            h = Math.Min(h, hmax);
-            h = d_sign(h, posneg);
-
-            // Perform an explicit euler step
-            for (i = 0; i < n; ++i)
-            {
-                y1[i] = y[i] + h * f0[i];
-            }
-
-            fcn(x + h, y1, f1);
-
-            // Estimate the second derivative of the solution
-            der2 = 0.0;
-            if (itol == 0)
-            {
-                for (i = 0; i < n; ++i)
-                {
-                    sk = atoli + rtoli * Math.Abs(y[i]);
-                    /* Computing 2nd power */
-                    d__1 = (f1[i] - f0[i]) / sk;
-                    der2 += d__1 * d__1;
-                }
-            }
-            else
-            {
-                for (i = 0; i < n; ++i)
-                {
-                    sk = atol[i] + rtol[i] * Math.Abs(y[i]);
-                    /* Computing 2nd power */
-                    d__1 = (f1[i] - f0[i]) / sk;
-                    der2 += d__1 * d__1;
-                }
-            }
-            der2 = Math.Sqrt(der2) / h;
-
-            // Step size is computed such that
-            //  H**IORD * MAX ( NORM (F0), NORM (DER2)) = 0.01
-            der12 = Math.Max(Math.Abs(der2), Math.Sqrt(dnf));
-            if (der12 <= 1e-15)
-            {
-                h1 = Math.Max(1e-6, Math.Abs(h) * 0.001);
-            }
-            else
-            {
-                h1 = Math.Pow(0.01 / der12, 1.0 / iord);
-            }
-
-            h = Math.Min(Math.Min(Math.Abs(h) * 100, h1), hmax);
-
-            return d_sign(h, posneg);
-        }
-
+        
         /* ---------------------------------------------------------- */
         /*     This function can be used for continuous output in connection */
         /*     with the output-subroutine for DOP853. It provides an */
