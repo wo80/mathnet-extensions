@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 namespace MathNet.Numerics.OdeSolvers
 {
+    using System;
+
     class StiffnessChecker
     {
         double dist;
@@ -14,6 +11,14 @@ namespace MathNet.Numerics.OdeSolvers
 
         int nonsti = 0;
         int iasti = 0;
+
+        bool enabled;
+
+        public bool Enabled
+        {
+            get { return enabled; }
+            set { enabled = value; }
+        }
 
         /// <summary>
         /// 
@@ -32,11 +37,11 @@ namespace MathNet.Numerics.OdeSolvers
 
         public bool Check(int naccpt, double h, double[] ki, double[] kj, double[] yi, double[] yj)
         {
-            double hlamb = 0.0;
-
             // Stiffness detection
-            if (naccpt % nstiff == 0 || iasti > 0)
+            if (enabled && (naccpt % nstiff == 0 || iasti > 0))
             {
+                double hlamb = 0.0;
+
                 double temp, stnum = 0.0, stden = 0.0;
 
                 for (int i = 0; i < n; ++i)

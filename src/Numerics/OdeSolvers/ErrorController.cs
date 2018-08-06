@@ -20,11 +20,15 @@ namespace MathNet.Numerics.OdeSolvers
 
         bool rejected;
 
-        public double NextStepSize
-        {
-            get { return hnext; }
-        }
-        
+        int nrejected;
+        int naccepted;
+
+        public double NextStepSize { get { return hnext; } }
+
+        public int Rejected { get { return nrejected; } }
+
+        public int Accepted { get { return naccepted; } }
+
         public ErrorController(int order, double minscale, double maxscale, double hmax, double safe, double beta)
         {
             this.errold = 1.0e-4;
@@ -35,6 +39,14 @@ namespace MathNet.Numerics.OdeSolvers
             this.safe = safe;
             this.alpha = 1.0 / order - beta * 0.75;
             this.beta = beta;
+        }
+
+        public void Reset()
+        {
+            nrejected = 0;
+            naccepted = 0;
+
+            rejected = false;
         }
 
         public bool Success(double err, double posneg, ref double h)
@@ -67,6 +79,8 @@ namespace MathNet.Numerics.OdeSolvers
                 errold = Math.Max(err, 1e-4);
 
                 rejected = false;
+                
+                naccepted++;
             }
             else
             {
@@ -74,6 +88,11 @@ namespace MathNet.Numerics.OdeSolvers
                 hnext = h * Math.Max(minscale, safe / Math.Pow(err, alpha));
                 
                 rejected = true;
+
+                if (naccepted > 0)
+                {
+                    nrejected++;
+                }
             }
 
             h = hnext;

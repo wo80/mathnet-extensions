@@ -256,19 +256,17 @@ namespace MathNet.Numerics.OdeSolvers
         {
             /* Local variables */
             double h;
-            double fac1, fac2;
+            double minscale, maxscale;
             double beta, safe;
             double hmax;
             int nmax;
 
-            int nstiff, nrdens, iprint;
+            int nrdens, iprint;
             double uround;
 
             /* Function Body */
             int nfcn = 0;
             int nstep = 0;
-            int naccpt = 0;
-            int nrejct = 0;
 
             bool arret = false;
 
@@ -301,17 +299,6 @@ namespace MathNet.Numerics.OdeSolvers
                     }
                     arret = true;
                 }
-            }
-
-            // NSTIFF parameter for stiffness detection
-            nstiff = iwork[3];
-            if (nstiff == 0)
-            {
-                nstiff = 1000;
-            }
-            if (nstiff < 0)
-            {
-                nstiff = nmax + 10;
             }
 
             // NRDENS number of dense output components
@@ -374,19 +361,19 @@ namespace MathNet.Numerics.OdeSolvers
             // FAC1,FAC2 parameters for step size selection
             if (work[2] == 0.0)
             {
-                fac1 = 0.2;
+                minscale = 0.2;
             }
             else
             {
-                fac1 = work[2];
+                minscale = work[2];
             }
             if (work[3] == 0.0)
             {
-                fac2 = 10.0;
+                maxscale = 10.0;
             }
             else
             {
-                fac2 = work[3];
+                maxscale = work[3];
             }
 
             // BETA for step control stabilization
@@ -445,7 +432,7 @@ namespace MathNet.Numerics.OdeSolvers
                 icomp[i] = iwork[20 + i];
             }
 
-            // When a fail has occured, we return with idid=-1
+            // When a fail has occured, we return with IDID=-1
             if (arret)
             {
                 return -1;
@@ -453,19 +440,22 @@ namespace MathNet.Numerics.OdeSolvers
 
             this.rtol = rtol;
             this.atol = atol;
+            
+            var controller = new ErrorController(5, minscale, maxscale, hmax, safe, beta);
+            var stiff = new StiffnessChecker(3.25);
 
             // Call to core integrator
             int idid = dopcor_(x, y, xend, hmax, ref h,
                 itol, iprint, nmax, uround,
-                nstiff, safe, beta, fac1, fac2,
+                controller, stiff,
                 icomp, nrdens,
-                ref nfcn, ref nstep, ref naccpt, ref nrejct);
+                ref nfcn, ref nstep);
 
             work[6] = h;
             iwork[16] = nfcn;
             iwork[17] = nstep;
-            iwork[18] = naccpt;
-            iwork[19] = nrejct;
+            iwork[18] = controller.Accepted;
+            iwork[19] = controller.Rejected;
 
             return idid;
         }
@@ -477,13 +467,9 @@ namespace MathNet.Numerics.OdeSolvers
         int dopcor_(double t, double[] x,
             double xend, double hmax, ref double dt, int itol, int iprint,
             int nmax, double uround,
-            int nstiff, double safe, double beta,
-            double minscale, double maxscale, int[] icomp,
-            int nrd, ref int nfcn, ref int nstep, ref int naccpt, ref int nrejct)
+            ErrorController controller, StiffnessChecker stiff,
+            int[] icomp, int nrd, ref int nfcn, ref int nstep)
         {
-            var controller = new ErrorController(5, minscale, maxscale, hmax, safe, beta);
-            var stiff = new StiffnessChecker(3.25);
-            
             int irtrn = 0;
             double posneg = d_sign(1.0, xend - t);
 
@@ -545,10 +531,8 @@ namespace MathNet.Numerics.OdeSolvers
             // Computation of HNEW
             if (controller.Success(err, posneg, ref dt))
             {
-                ++naccpt;
-
                 // Stiffness detection
-                if (!stiff.Check(naccpt, dtold, dxdtnew, k6, xout, xtemp))
+                if (!stiff.Check(controller.Accepted, dtold, dxdtnew, k6, xout, xtemp))
                 {
                     if (iprint > 0)
                     {
@@ -581,10 +565,6 @@ namespace MathNet.Numerics.OdeSolvers
             }
             else
             {
-                if (naccpt > 0)
-                {
-                    ++nrejct;
-                }
                 last = false;
             }
             goto L1;
