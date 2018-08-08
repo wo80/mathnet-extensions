@@ -127,113 +127,27 @@ namespace MathNet.Numerics.OdeSolvers
          *                     THE CODE KEEPS THE LOCAL ERROR OF Y(I) BELOW
          *                     RTOL(I)*ABS(Y(I))+ATOL(I).
          *
-         *     IWORK       INTEGER WORKING SPACE OF LENGHT "LIWORK".
-         *                 IWORK(1),...,IWORK(20) SERVE AS PARAMETERS FOR THE CODE.
-         *                 FOR STANDARD USE, SET THEM TO ZERO BEFORE CALLING.
-         *                 "LIWORK" MUST BE AT LEAST NRDENS+21 .
-         *
-         *     RPAR, IPAR  REAL AND INTEGER PARAMETERS (OR PARAMETER ARRAYS) WHICH
-         *                 CAN BE USED FOR COMMUNICATION BETWEEN YOUR CALLING
-         *                 PROGRAM AND THE FCN, JAC, MAS, SOLOUT SUBROUTINES.
-         *
-         * -----------------------------------------------------------------------
-         *
-         *     SOPHISTICATED SETTING OF PARAMETERS
-         *     -----------------------------------
-         *              SEVERAL PARAMETERS (WORK(1),...,IWORK(1),...0) ALLOW
-         *              TO ADAPT THE CODE TO THE PROBLEM AND TO THE NEEDS OF
-         *              THE USER. FOR ZERO INPUT, THE CODE CHOOSES DEFAULT VALUES.
-         *
-         *    IWORK(1)  THIS IS THE MAXIMAL NUMBER OF ALLOWED STEPS.
-         *              THE DEFAULT VALUE (FOR IWORK(1)=0) IS 100000.
-         *
-         *    IWORK(5)  = NRDENS = NUMBER OF COMPONENTS, FOR WHICH DENSE OUTPUT
-         *              IS REQUIRED; DEFAULT VALUE IS IWORK(5)=0;
-         *              FOR   0 < NRDENS < N   THE COMPONENTS (FOR WHICH DENSE
-         *              OUTPUT IS REQUIRED) HAVE TO BE SPECIFIED IN
-         *              IWORK(21),...,IWORK(NRDENS+20);
-         *              FOR  NRDENS=N  THIS IS DONE BY THE CODE.
-         *
          * ----------------------------------------------------------------------
          *
          *     OUTPUT PARAMETERS
          *     -----------------
-         *     X           X-VALUE FOR WHICH THE SOLUTION HAS BEEN COMPUTED
-         *                 (AFTER SUCCESSFUL RETURN X=XEND).
+         *     t           t-VALUE FOR WHICH THE SOLUTION HAS BEEN COMPUTED
+         *                 (AFTER SUCCESSFUL RETURN t=tend).
          *
-         *     Y(N)        NUMERICAL SOLUTION AT X
+         *     x(N)        NUMERICAL SOLUTION AT t
          *
-         *     H           PREDICTED STEP SIZE OF THE LAST ACCEPTED STEP
-         *
-         *     IDID        REPORTS ON SUCCESSFULNESS UPON RETURN:
-         *                   IDID= 1  COMPUTATION SUCCESSFUL,
-         *                   IDID= 2  COMPUT. SUCCESSFUL (INTERRUPTED BY SOLOUT)
-         *                   IDID=-1  INPUT IS NOT CONSISTENT,
-         *                   IDID=-2  LARGER NMAX IS NEEDED,
-         *                   IDID=-3  STEP SIZE BECOMES TOO SMALL.
-         *                   IDID=-4  PROBLEM IS PROBABLY STIFF (INTERRUPTED).
-         *
-         *   IWORK(17)  NFCN    NUMBER OF FUNCTION EVALUATIONS
-         *   IWORK(18)  NSTEP   NUMBER OF COMPUTED STEPS
-         *   IWORK(19)  NACCPT  NUMBER OF ACCEPTED STEPS
-         *   IWORK(20)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
-         *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
+         *     NSTEP       NUMBER OF COMPUTED STEPS
          * ----------------------------------------------------------------------- */
         public int dopri5_(Action<double, double[], double[]> fcn, double t, double[] x, double tend,
-            double[] rtol, double[] atol, int itol, int[] iwork)
+            double[] rtol, double[] atol, int itol)
         {
-            /* Local variables */
-            int nmax;
-            int nrdens;
-
-            /* Function Body */
-            int nstep = 0;
-
-            bool arret = false;
-
             this.n = x.Length;
             this.fcn = fcn;
-            
+
             int iprint = 1; // TODO: remove
 
             // NMAX the maximal number of steps
-            if (iwork[0] == 0)
-            {
-                nmax = 100000;
-            }
-            else
-            {
-                nmax = iwork[0];
-                if (nmax <= 0)
-                {
-                    if (iprint > 0)
-                    {
-                        Console.WriteLine(" Wrong input IWORK(1)=" + iwork[0]);
-                    }
-                    arret = true;
-                }
-            }
-
-            // NRDENS number of dense output components
-            nrdens = iwork[4];
-            if (nrdens < 0 || nrdens > n)
-            {
-                if (iprint > 0)
-                {
-                    Console.WriteLine(" Curious input IWORK(5)=" + iwork[4]);
-                }
-                arret = true;
-            }
-            else
-            {
-                if (nrdens == n)
-                {
-                    for (int i = 0; i < nrdens; ++i)
-                    {
-                        iwork[i + 20] = i;
-                    }
-                }
-            }
+            int nmax = 100000;
 
             // Initial step size
             double h = 0.0;
@@ -249,18 +163,7 @@ namespace MathNet.Numerics.OdeSolvers
             k4 = new double[n];
             k5 = new double[n];
             k6 = new double[n];
-            r = new double[5 * nrdens];
-            int[] icomp = new int[nrdens];
-            for (int i = 0; i < nrdens; i++)
-            {
-                icomp[i] = iwork[20 + i];
-            }
-
-            // When a fail has occured, we return with IDID=-1
-            if (arret)
-            {
-                return -1;
-            }
+            r = new double[5 * n];
 
             this.rtol = rtol;
             this.atol = atol;
@@ -275,24 +178,23 @@ namespace MathNet.Numerics.OdeSolvers
             }
 
             // Call to core integrator
-            int idid = dopcor_(t, x, tend, h,
-                itol, iprint, nmax, icomp, nrdens, ref nstep);
-            
-            iwork[17] = nstep;
-            iwork[18] = controller.Accepted;
-            iwork[19] = controller.Rejected;
+            int nstep = dopcor_(t, x, tend, h, itol, iprint, nmax);
 
-            return idid;
+            if (nstep >= nmax)
+            {
+                Console.WriteLine(" More than NMAX =" + nmax + " steps are needed");
+            }
+
+            return nstep;
         }
 
         /* ---------------------------------------------------------- */
         /*     Core integrator for DOPRI5 */
         /*     Parameters same as in DOPRI5 with workspace added */
         /* ---------------------------------------------------------- */
-        int dopcor_(double t, double[] x,
-            double tend, double dt, int itol, int iprint, int nmax, 
-            int[] icomp, int nrd, ref int nstep)
+        int dopcor_(double t, double[] x, double tend, double dt, int itol, int iprint, int nmax)
         {
+            int nstep = 0;
             int irtrn = 0;
             double posneg = d_sign(1.0, tend - t);
 
@@ -301,100 +203,87 @@ namespace MathNet.Numerics.OdeSolvers
 
             // Initial preparations
             bool last = false;
-            
+
             // Basic integration step
-            L1:
-            if (nstep > nmax)
+            while (nstep < nmax)
             {
-                if (iprint > 0)
+                if (Math.Abs(dt) * 0.1 <= Math.Abs(t) * uround)
                 {
-                    Debug.WriteLine("Exit of DOPRI5 at X=" + t);
-                    Console.WriteLine(" More than NMAX =" + nmax + " steps are needed");
+                    throw new NumericalBreakdownException("Step size too small, h=" + dt);
                 }
-                return -2;
-            }
 
-            if (Math.Abs(dt) * 0.1 <= Math.Abs(t) * uround)
-            {
-                throw new NumericalBreakdownException("Step size too small, h=" + dt);
-            }
-
-            if ((t + dt * 1.01 - tend) * posneg > 0.0)
-            {
-                dt = tend - t;
-                last = true;
-            }
-            ++(nstep);
-            
-            if (irtrn > 1)
-            {
-                fcn(t, x, dxdt);
-            }
-
-            Step(t, dt, x);
-
-            // Error estimation
-            double err = Error(dt, x, itol);
-
-            dtold = dt;
-            told = t;
-
-            // Computation of HNEW
-            if (controller.Success(err, posneg, ref dt))
-            {
-                // Stiffness detection
-                if (!stiff.Check(controller.Accepted, dtold, dxdtnew, k6, xout, xtemp))
+                if ((t + dt * 1.01 - tend) * posneg > 0.0)
                 {
-                    if (iprint > 0)
+                    dt = tend - t;
+                    last = true;
+                }
+
+                nstep++;
+
+                if (irtrn > 1)
+                {
+                    fcn(t, x, dxdt);
+                }
+
+                Step(t, dt, x);
+
+                // Error estimation
+                double err = Error(dt, x, itol);
+
+                dtold = dt;
+                told = t;
+
+                // Computation of HNEW
+                if (controller.Success(err, posneg, ref dt))
+                {
+                    // Stiffness detection
+                    if (!stiff.Check(controller.Accepted, dtold, dxdtnew, k6, xout, xtemp))
                     {
-                        Console.WriteLine(" The problem seems to become stiff at X = " + t);
+                        throw new Exception(" The problem seems to become stiff at t = " + t);
                     }
-                    if (iprint <= 0)
+
+                    //if (dense)
                     {
-                        return -4;
+                        PrepareInterpolation(dtold, x);
+                    }
+
+                    for (int i = 0; i < n; ++i)
+                    {
+                        dxdt[i] = dxdtnew[i];
+                        x[i] = xout[i];
+                    }
+
+                    t = t + dtold;
+
+                    // Normal exit
+                    if (last)
+                    {
+                        return nstep;
                     }
                 }
-
-                //if (dense)
+                else
                 {
-                    PrepareInterpolation(dtold, x, nrd, icomp);
-                }
-
-                for (int i = 0; i < n; ++i)
-                {
-                    dxdt[i] = dxdtnew[i];
-                    x[i] = xout[i];
-                }
-
-                t = t + dtold;
-
-                // Normal exit
-                if (last)
-                {
-                    return 1;
+                    last = false;
                 }
             }
-            else
-            {
-                last = false;
-            }
-            goto L1;
+
+            return nstep;
         }
 
-        private void PrepareInterpolation(double dt, double[] x, int nrd, int[] icomp)
+        private void PrepareInterpolation(double dt, double[] x)
         {
-            for (int j = 0; j < nrd; ++j)
-            {
-                int i = icomp[j];
+            int n = this.n;
 
+            for (int i = 0; i < n; ++i)
+            {
                 double dx = xout[i] - x[i];
                 double bspl = dt * dxdt[i] - dx;
 
-                r[j] = x[i];
-                r[nrd + j] = dx;
-                r[nrd * 2 + j] = bspl;
-                r[nrd * 3 + j] = -(dt) * dxdtnew[i] + dx - bspl;
-                r[nrd * 4 + j] = dt * (d1 * dxdt[i] + d3 * k3[i] + d4 * k4[i] + d5 * k5[i] + d6 * k6[i] + d7 * dxdtnew[i]);
+                r[i] = x[i];
+                r[n + i] = dx;
+                r[n * 2 + i] = bspl;
+                r[n * 3 + i] = -(dt) * dxdtnew[i] + dx - bspl;
+                r[n * 4 + i] = dt * (d1 * dxdt[i] + d3 * k3[i] + d4 * k4[i] + d5 * k5[i] + d6 * k6[i] + d7 * dxdtnew[i]);
             }
         }
 
@@ -478,32 +367,16 @@ namespace MathNet.Numerics.OdeSolvers
         /* ---------------------------------------------------------- */
         /*     This function can be used for continuous output in connection */
         /*     with the output-subroutine for DOPRI5. It provides an */
-        /*     approximation to the II-th component of the solution at X. */
+        /*     approximation to the i-th component of the solution at t. */
         /* ---------------------------------------------------------- */
-        public double Interpolate(int ii, double t, double[] con, int[] icomp, int nd)
+        public double Interpolate(int i, double t, double[] con)
         {
-            // Compute place of II-th component
-
-            int i = -1;
-
-            for (int j = 0; j < nd; ++j)
-            {
-                if (icomp[j] == ii)
-                {
-                    i = j;
-                }
-            }
-
-            if (i < 0)
-            {
-                Console.WriteLine(" No dense output available for comp. " + ii);
-                return 0.0;
-            }
-
+            int n = this.n;
+            
             double s = (t - told) / dtold;
             double s1 = 1.0 - s;
 
-            return con[i] + s * (con[nd + i] + s1 * (con[2 * nd + i] + s * (con[3 * nd + i] + s1 * con[4 * nd + i])));
+            return con[i] + s * (con[n + i] + s1 * (con[2 * n + i] + s * (con[3 * n + i] + s1 * con[4 * n + i])));
         }
     }
 }

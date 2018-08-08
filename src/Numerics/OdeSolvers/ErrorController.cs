@@ -22,8 +22,17 @@ namespace MathNet.Numerics.OdeSolvers
 
         public double NextStepSize { get { return hnext; } }
 
+        /// <summary>
+        /// Gets the number of rejected steps (due to error test).
+        /// </summary>
+        /// <remarks>
+        /// Step rejections in the first step are not counted.
+        /// </remarks>
         public int Rejected { get { return nrejected; } }
 
+        /// <summary>
+        /// Gets the number of accepted steps.
+        /// </summary>
         public int Accepted { get { return naccepted; } }
 
         /// <summary>
