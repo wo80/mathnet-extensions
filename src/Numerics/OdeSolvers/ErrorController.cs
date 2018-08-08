@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 namespace MathNet.Numerics.OdeSolvers
 {
-    class ErrorController
+    using System;
+
+    public class ErrorController : IErrorController
     {
         double minscale;
         double maxscale;
@@ -29,8 +26,41 @@ namespace MathNet.Numerics.OdeSolvers
 
         public int Accepted { get { return naccepted; } }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="order">The order of the Runge-Kutta integrator.</param>
+        /// <param name="minscale">Minimum scaling for step size selection (minscale &lt= hnew/hold).</param>
+        /// <param name="maxscale">Maximum scaling for step size selection (hnew/hold &lt= maxscale).</param>
+        /// <param name="hmax">Maximal step size (default tend - t).</param>
+        /// <param name="safe">Safety factor in step size prediction (default 0.9).</param>
+        /// <param name="beta">Stabilized step size control (default 0.0).</param>
+        /// <remarks>
+        /// The parameter "beta" is for stabilized step size control (see "Solving Ordinary Differential Equations",
+        /// Hairer & Wanner, section IV.2, PI step size control).
+        /// 
+        /// DOPRI5: larger values of beta(&lt;= 0.1) make the step size control more stable. DOPRI5 needs
+        ///    a larger beta than Higham & Hall (default 0.04).
+        ///    
+        /// DOPRI853: Positive values of beta (&lt;= 0.04) make the step size control more stable (default 0.0).
+        /// </remarks>
         public ErrorController(int order, double minscale, double maxscale, double hmax, double safe, double beta)
         {
+            if (safe >= 1.0 || safe <= 1e-4)
+            {
+                throw new ArgumentException("Curious input for safety factor.", nameof(safe));
+            }
+
+            if (beta > 0.2)
+            {
+                throw new ArgumentException("Curious input for beta.", nameof(beta));
+            }
+
+            if (beta < 0.0)
+            {
+                beta = 0.0;
+            }
+
             this.errold = 1.0e-4;
 
             this.minscale = minscale;
@@ -39,6 +69,7 @@ namespace MathNet.Numerics.OdeSolvers
             this.safe = safe;
             this.alpha = 1.0 / order - beta * 0.75;
             this.beta = beta;
+
         }
 
         public void Reset()
@@ -61,7 +92,7 @@ namespace MathNet.Numerics.OdeSolvers
                 scale = Math.Min(maxscale, Math.Max(minscale, scale));
 
                 hnext = scale * h;
-                
+
                 if (Math.Abs(hnext) > hmax)
                 {
                     hnext = posneg * hmax;
@@ -79,14 +110,14 @@ namespace MathNet.Numerics.OdeSolvers
                 errold = Math.Max(err, 1e-4);
 
                 rejected = false;
-                
+
                 naccepted++;
             }
             else
             {
                 // Step is rejected
                 hnext = h * Math.Max(minscale, safe / Math.Pow(err, alpha));
-                
+
                 rejected = true;
 
                 if (naccepted > 0)
@@ -96,7 +127,7 @@ namespace MathNet.Numerics.OdeSolvers
             }
 
             h = hnext;
-            
+
             return !rejected;
         }
     }

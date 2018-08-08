@@ -190,6 +190,9 @@ namespace MathNet.Numerics.OdeSolvers
 
         #endregion
 
+        IErrorController controller;
+        StiffnessChecker stiff;
+
         int n;
 
         Action<double, double[], double[]> fcn;
@@ -200,6 +203,12 @@ namespace MathNet.Numerics.OdeSolvers
         double[] r;
 
         double[] rtol, atol;
+
+        public DormandPrince853(IErrorController controller, StiffnessChecker stiff)
+        {
+            this.controller = controller;
+            this.stiff = stiff;
+        }
 
         double d_sign(double a, double b)
         {
@@ -257,61 +266,10 @@ namespace MathNet.Numerics.OdeSolvers
          *                     THE CODE KEEPS THE LOCAL ERROR OF Y(I) BELOW
          *                     RTOL(I)*ABS(Y(I))+ATOL(I).
          *
-         *     SOLOUT      NAME (EXTERNAL) OF SUBROUTINE PROVIDING THE
-         *                 NUMERICAL SOLUTION DURING INTEGRATION.
-         *                 IF IOUT.GE.1, IT IS CALLED DURING INTEGRATION.
-         *                 SUPPLY A DUMMY SUBROUTINE IF IOUT=0.
-         *                 IT MUST HAVE THE FORM
-         *                    SUBROUTINE SOLOUT (NR,XOLD,X,Y,N,CON,ICOMP,ND,
-         *                                       RPAR,IPAR,IRTRN,XOUT)
-         *                    DIMENSION Y(N),CON(8*ND),ICOMP(ND)
-         *                    ....
-         *                 SOLOUT FURNISHES THE SOLUTION "Y" AT THE NR-TH
-         *                    GRID-POINT "X" (THEREBY THE INITIAL VALUE IS
-         *                    THE FIRST GRID-POINT).
-         *                 "XOLD" IS THE PRECEEDING GRID-POINT.
-         *                 "IRTRN" SERVES TO INTERRUPT THE INTEGRATION. IF IRTRN
-         *                    IS SET <0, DOP853 WILL RETURN TO THE CALLING PROGRAM.
-         *                    IF THE NUMERICAL SOLUTION IS ALTERED IN SOLOUT,
-         *                    SET  IRTRN = 2
-         *                 "XOUT" CAN BE USED FOR EFFICIENT INTERMEDIATE OUTPUT
-         *                    IF ONE PUTS IOUT=3
-         *                    WHEN NR=1 DEFINE THE FIRST OUTPUT POINT XOUT IN SOLOUT.
-         *                      THE SUBROUTINE SOLOUT WILL BE CALLED ONLY WHEN
-         *                      XOUT IS IN THE INTERVAL [XOLD,X]; DURING THIS CALL
-         *                      A NEW VALUE FOR XOUT CAN BE DEFINED, ETC.
-         *
-         *          -----  CONTINUOUS OUTPUT: -----
-         *                 DURING CALLS TO "SOLOUT", A CONTINUOUS SOLUTION
-         *                 FOR THE INTERVAL [XOLD,X] IS AVAILABLE THROUGH
-         *                 THE FUNCTION
-         *                        >>>   CONTD8(I,S,CON,ICOMP,ND)   <<<
-         *                 WHICH PROVIDES AN APPROXIMATION TO THE I-TH
-         *                 COMPONENT OF THE SOLUTION AT THE POINT S. THE VALUE
-         *                 S SHOULD LIE IN THE INTERVAL [XOLD,X].
-         *
-         *     IOUT        SWITCH FOR CALLING THE SUBROUTINE SOLOUT:
-         *                    IOUT=0: SUBROUTINE IS NEVER CALLED
-         *                    IOUT=1: SUBROUTINE IS CALLED AFTER EVERY SUCCESSFUL STEP
-         *                    IOUT=2: DENSE OUTPUT IS PERFORMED AFTER EVERY SUCCESSFUL STEP
-         *                            (IN THIS CASE IWORK(5) MUST BE SPECIFIED)
-         *                    IOUT=3: DENSE OUTPUT IS PERFORMED IN STEPS DEFINED BY THE USER
-         *                            (SEE "XOUT" ABOVE)
-         *
-         *     WORK        ARRAY OF WORKING SPACE OF LENGTH "LWORK".
-         *                 WORK(1),...,WORK(20) SERVE AS PARAMETERS FOR THE CODE.
-         *                 FOR STANDARD USE, SET THEM TO ZERO BEFORE CALLING.
-         *                 "LWORK" MUST BE AT LEAST  11*N+8*NRDENS+21
-         *                 WHERE  NRDENS = IWORK(5)
-         *
-         *     LWORK       DECLARED LENGHT OF ARRAY "WORK".
-         *
          *     IWORK       INTEGER WORKING SPACE OF LENGHT "LIWORK".
          *                 IWORK(1),...,IWORK(20) SERVE AS PARAMETERS FOR THE CODE.
          *                 FOR STANDARD USE, SET THEM TO ZERO BEFORE CALLING.
          *                 "LIWORK" MUST BE AT LEAST NRDENS+21 .
-         *
-         *     LIWORK      DECLARED LENGHT OF ARRAY "IWORK".
          *
          *     RPAR, IPAR  REAL AND INTEGER PARAMETERS (OR PARAMETER ARRAYS) WHICH
          *                 CAN BE USED FOR COMMUNICATION BETWEEN YOUR CALLING
@@ -325,45 +283,8 @@ namespace MathNet.Numerics.OdeSolvers
          *              TO ADAPT THE CODE TO THE PROBLEM AND TO THE NEEDS OF
          *              THE USER. FOR ZERO INPUT, THE CODE CHOOSES DEFAULT VALUES.
          *
-         *    WORK(1)   UROUND, THE ROUNDING UNIT, DEFAULT 2.3D-16.
-         *
-         *    WORK(2)   THE SAFETY FACTOR IN STEP SIZE PREDICTION,
-         *              DEFAULT 0.9D0.
-         *
-         *    WORK(3), WORK(4)   PARAMETERS FOR STEP SIZE SELECTION
-         *              THE NEW STEP SIZE IS CHOSEN SUBJECT TO THE RESTRICTION
-         *                 WORK(3) <= HNEW/HOLD <= WORK(4)
-         *              DEFAULT VALUES: WORK(3)=0.333D0, WORK(4)=6.D0
-         *
-         *    WORK(5)   IS THE "BETA" FOR STABILIZED STEP SIZE CONTROL
-         *              (SEE SECTION IV.2). POSITIVE VALUES OF BETA ( <= 0.04 )
-         *              MAKE THE STEP SIZE CONTROL MORE STABLE.
-         *              NEGATIVE WORK(5) PROVOKE BETA=0.
-         *              DEFAULT 0.0D0.
-         *
-         *    WORK(6)   MAXIMAL STEP SIZE, DEFAULT XEND-X.
-         *
-         *    WORK(7)   INITIAL STEP SIZE, FOR WORK(7)=0.D0 AN INITIAL GUESS
-         *              IS COMPUTED WITH HELP OF THE FUNCTION HINIT
-         *
          *    IWORK(1)  THIS IS THE MAXIMAL NUMBER OF ALLOWED STEPS.
          *              THE DEFAULT VALUE (FOR IWORK(1)=0) IS 100000.
-         *
-         *    IWORK(2)  SWITCH FOR THE CHOICE OF THE COEFFICIENTS
-         *              IF IWORK(2).EQ.1  METHOD DOP853 OF DORMAND AND PRINCE
-         *              (SECTION II.6).
-         *              THE DEFAULT VALUE (FOR IWORK(2)=0) IS IWORK(2)=1.
-         *
-         *    IWORK(3)  SWITCH FOR PRINTING ERROR MESSAGES
-         *              IF IWORK(3).LT.0 NO MESSAGES ARE BEING PRINTED
-         *              IF IWORK(3).GT.0 MESSAGES ARE PRINTED WITH
-         *              WRITE (IWORK(3),*) ...
-         *              DEFAULT VALUE (FOR IWORK(3)=0) IS IWORK(3)=6
-         *
-         *    IWORK(4)  TEST FOR STIFFNESS IS ACTIVATED AFTER STEP NUMBER
-         *              J*IWORK(4) (J INTEGER), PROVIDED IWORK(4).GT.0.
-         *              FOR NEGATIVE IWORK(4) THE STIFFNESS TEST IS
-         *              NEVER ACTIVATED; DEFAULT VALUE IS IWORK(4)=1000
          *
          *    IWORK(5)  = NRDENS = NUMBER OF COMPONENTS, FOR WHICH DENSE OUTPUT
          *              IS REQUIRED; DEFAULT VALUE IS IWORK(5)=0;
@@ -397,36 +318,22 @@ namespace MathNet.Numerics.OdeSolvers
          *   IWORK(20)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
          *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
          * ----------------------------------------------------------------------- */
-        public int dop853_(Action<double, double[], double[]> fcn, double x, double[] y, double xend, double[] rtol, double[] atol,
-            int itol, double[] work, int[] iwork)
+        public int dop853_(Action<double, double[], double[]> fcn, double t, double[] x, double tend,
+            double[] rtol, double[] atol, int itol, int[] iwork)
         {
             /* Local variables */
-            double h;
-            double minscale, maxscale;
-            double beta, safe;
-            double hmax;
             int nmax;
-            
-            int nrdens, iprint;
-            double uround;
+            int nrdens;
 
             /* Function Body */
             int nstep = 0;
 
             bool arret = false;
 
-            this.n = y.Length;
+            this.n = x.Length;
             this.fcn = fcn;
 
-            // IPRINT for monitoring the printing
-            if (iwork[2] == 0)
-            {
-                iprint = 6;
-            }
-            else
-            {
-                iprint = iwork[2];
-            }
+            int iprint = 1; // TODO: remove
 
             // NMAX the maximal number of steps
             if (iwork[0] == 0)
@@ -467,97 +374,8 @@ namespace MathNet.Numerics.OdeSolvers
                 }
             }
 
-            // UROUND smallest number satisfying 1.0+UROUND>1.0
-            if (work[0] == 0.0)
-            {
-                uround = 2.3e-16;
-            }
-            else
-            {
-                uround = work[0];
-                if (uround <= 1e-35 || uround >= 1.0)
-                {
-                    if (iprint > 0)
-                    {
-                        Console.WriteLine(" Which machine do you have? Your UROUND was:" + work[0]);
-                    }
-                    arret = true;
-                }
-            }
-
-            // Safety factor
-            if (work[1] == 0.0)
-            {
-                safe = 0.9;
-            }
-            else
-            {
-                safe = work[1];
-                if (safe >= 1.0 || safe <= 1e-4)
-                {
-                    if (iprint > 0)
-                    {
-                        Console.WriteLine(" Curious input for safety factor WORK(2)=" + work[1]);
-                    }
-                    arret = true;
-                }
-            }
-
-            //  FAC1,FAC2 parameters for step size selection
-            if (work[2] == 0.0)
-            {
-                minscale = 0.333;
-            }
-            else
-            {
-                minscale = work[2];
-            }
-            if (work[3] == 0.0)
-            {
-                maxscale = 6.0;
-            }
-            else
-            {
-                maxscale = work[3];
-            }
-
-            // BETA for step control stabilization
-            if (work[4] == 0.0)
-            {
-                beta = 0.0;
-            }
-            else
-            {
-                if (work[4] < 0.0)
-                {
-                    beta = 0.0;
-                }
-                else
-                {
-                    beta = work[4];
-                    if (beta > 0.2)
-                    {
-                        if (iprint > 0)
-                        {
-                            Console.WriteLine(" Curious input for BETA: WORK(5)=" + work[4]);
-                        }
-                        arret = true;
-                    }
-                }
-            }
-
-            // Maximal step size
-            if (work[5] == 0.0)
-            {
-                hmax = xend - x;
-            }
-            else
-            {
-                hmax = work[5];
-            }
-
             // Initial step size
-            h = work[6];
+            double h = 0.0;
 
             // Prepare the entry-points for the arrays in work
             xout = new double[n];
@@ -590,16 +408,19 @@ namespace MathNet.Numerics.OdeSolvers
             this.rtol = rtol;
             this.atol = atol;
 
-            var controller = new ErrorController(8, minscale, maxscale, hmax, safe, beta);
-            var stiff = new StiffnessChecker(6.1);
+            fcn(t, x, dxdt);
+
+            if (h == 0.0)
+            {
+                double hmax = tend - t;
+                double posneg = d_sign(1.0, hmax);
+                h = AdaptiveIntegrator.Initialize(fcn, 8, t, x, tend, posneg, k2, k3, dxdt, Math.Abs(hmax), rtol, atol, itol);
+            }
 
             // Call to core integrator
-            int idid = dopcor_(x, y, xend, hmax, ref h,
-                itol, iprint, nmax, uround,
-                controller, stiff,
-                icomp, nrdens, ref nstep);
-
-            work[6] = h;
+            int idid = dopcor_(t, x, tend, h,
+                itol, iprint, nmax, icomp, nrdens, ref nstep);
+            
             iwork[17] = nstep;
             iwork[18] = controller.Accepted;
             iwork[19] = controller.Rejected;
@@ -612,23 +433,17 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Parameters same as in DOP853 with workspace added */
         /* ---------------------------------------------------------- */
         int dopcor_(double t, double[] x,
-            double tend, double hmax, ref double dt, int itol, int iprint,
-            int nmax, double uround,
-            ErrorController controller, StiffnessChecker stiff,
+            double tend, double dt, int itol, int iprint, int nmax,
             int[] icomp, int nrd, ref int nstep)
         {
             int irtrn = 0;
             double posneg = d_sign(1.0, tend - t);
 
+            // UROUND smallest number satisfying 1.0 + UROUND > 1.0
+            double uround = Precision.DoublePrecision;
+
             // Initial preparations
             bool last = false;
-            fcn(t, x, dxdt);
-            hmax = Math.Abs(hmax);
-
-            if (dt == 0.0)
-            {
-                dt = AdaptiveIntegrator.Initialize(fcn, 8, t, x, tend, posneg, k2, k3, dxdt, hmax, rtol, atol, itol);
-            }
             
             // Basic integration step
             L1:
@@ -644,12 +459,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             if (Math.Abs(dt) * 0.1 <= Math.Abs(t) * uround)
             {
-                if (iprint > 0)
-                {
-                    Debug.WriteLine("Exit of DOP853 at X=" + t);
-                    Console.WriteLine(" Step size too small, H=" + dt);
-                }
-                return -3;
+                throw new NumericalBreakdownException("Step size too small, h=" + dt);
             }
 
             if ((t + dt * 1.01 - tend) * posneg > 0.0)
@@ -867,10 +677,10 @@ namespace MathNet.Numerics.OdeSolvers
                     double rtoli = rtol[0];
 
                     sk = atoli + rtoli * Math.Max(Math.Abs(x[i]), Math.Abs(xout[i]));
-                    /* Computing 2nd power */
+
                     temp = xerr2[i] / sk;
                     err2 += temp * temp;
-                    /* Computing 2nd power */
+
                     temp = xerr[i] / sk;
                     err += temp * temp;
                 }
@@ -880,10 +690,10 @@ namespace MathNet.Numerics.OdeSolvers
                 for (int i = 0; i < n; ++i)
                 {
                     sk = atol[i] + rtol[i] * Math.Max(Math.Abs(x[i]), Math.Abs(xout[i]));
-                    /* Computing 2nd power */
+
                     temp = xerr2[i] / sk;
                     err2 += temp * temp;
-                    /* Computing 2nd power */
+
                     temp = xerr[i] / sk;
                     err += temp * temp;
                 }

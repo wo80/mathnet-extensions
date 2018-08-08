@@ -3,12 +3,14 @@ namespace MathNet.Numerics.OdeSolvers
 {
     using System;
 
-    class StiffnessChecker
+    /// <summary>
+    /// Check stiffness while integrating ODE's with Runge-Kutta
+    /// </summary>
+    public class StiffnessChecker
     {
         double dist;
         int nstiff;
-        int n;
-
+        
         int nonsti = 0;
         int iasti = 0;
 
@@ -24,10 +26,10 @@ namespace MathNet.Numerics.OdeSolvers
         /// 
         /// </summary>
         /// <param name="dist">Distance of the boundary of the stability region to the origin.</param>
-        /// <param name="nstiff"></param>
+        /// <param name="nstiff">Test for stiffness is activated after step number j*nstiff (default = 1000).</param>
         /// <remarks>
-        /// DormandPrince5    dist = 3.25
-        /// DormandPrince853  dist = 6.1
+        /// DOPRI5    dist = 3.25
+        /// DOPRI853  dist = 6.1
         /// </remarks>
         public StiffnessChecker(double dist, int nstiff = 1000)
         {
@@ -37,6 +39,8 @@ namespace MathNet.Numerics.OdeSolvers
 
         public bool Check(int naccpt, double h, double[] ki, double[] kj, double[] yi, double[] yj)
         {
+            int n = yi.Length;
+
             // Stiffness detection
             if (enabled && (naccpt % nstiff == 0 || iasti > 0))
             {
@@ -52,10 +56,12 @@ namespace MathNet.Numerics.OdeSolvers
                     temp = yi[i] - yj[i];
                     stden += temp * temp;
                 }
+
                 if (stden > 0.0)
                 {
                     hlamb = Math.Abs(h) * Math.Sqrt(stnum / stden);
                 }
+
                 if (hlamb > dist)
                 {
                     nonsti = 0;
@@ -74,6 +80,7 @@ namespace MathNet.Numerics.OdeSolvers
                     }
                 }
             }
+
             return true;
         }
     }
