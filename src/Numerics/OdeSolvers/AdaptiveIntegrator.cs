@@ -10,11 +10,11 @@ namespace MathNet.Numerics.OdeSolvers
             double x = Math.Abs(a);
             return b >= 0 ? x : -x;
         }
-        
+
         /* ----  Computation of an initial step size guess */
 
         public static double Initialize(Action<double, double[], double[]> fcn, int iord, double t, double[] x, double tend, double posneg,
-            double[] f0, double[] f1, double[] y1, double hmax, double[] rtol, double[] atol, int itol)
+            double[] f0, double[] f1, double[] y1, double hmax, double rtol, double atol)
         {
             double temp;
 
@@ -22,7 +22,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             /* Local variables */
             double h;
-            double h1, sk, dnf, dny, der2, der12, atoli, rtoli;
+            double h1, sk, dnf, dny, der2, der12;
 
             // Compute a first guess for explicit euler as
             //   H = 0.01 * NORM (Y0) / NORM (F0)
@@ -32,34 +32,18 @@ namespace MathNet.Numerics.OdeSolvers
             /* Function Body */
             dnf = 0.0;
             dny = 0.0;
-            atoli = atol[0];
-            rtoli = rtol[0];
-            if (itol == 0)
+
+            for (int i = 0; i < n; ++i)
             {
-                for (int i = 0; i < n; ++i)
-                {
-                    sk = atoli + rtoli * Math.Abs(x[i]);
+                sk = atol + rtol * Math.Abs(x[i]);
 
-                    temp = f0[i] / sk;
-                    dnf += temp * temp;
+                temp = f0[i] / sk;
+                dnf += temp * temp;
 
-                    temp = x[i] / sk;
-                    dny += temp * temp;
-                }
+                temp = x[i] / sk;
+                dny += temp * temp;
             }
-            else
-            {
-                for (int i = 0; i < n; ++i)
-                {
-                    sk = atol[i] + rtol[i] * Math.Abs(x[i]);
 
-                    temp = f0[i] / sk;
-                    dnf += temp * temp;
-
-                    temp = x[i] / sk;
-                    dny += temp * temp;
-                }
-            }
             if (dnf <= 1e-10 || dny <= 1e-10)
             {
                 h = 1e-6;
@@ -81,26 +65,15 @@ namespace MathNet.Numerics.OdeSolvers
 
             // Estimate the second derivative of the solution
             der2 = 0.0;
-            if (itol == 0)
-            {
-                for (int i = 0; i < n; ++i)
-                {
-                    sk = atoli + rtoli * Math.Abs(x[i]);
 
-                    temp = (f1[i] - f0[i]) / sk;
-                    der2 += temp * temp;
-                }
-            }
-            else
+            for (int i = 0; i < n; ++i)
             {
-                for (int i = 0; i < n; ++i)
-                {
-                    sk = atol[i] + rtol[i] * Math.Abs(x[i]);
+                sk = atol + rtol * Math.Abs(x[i]);
 
-                    temp = (f1[i] - f0[i]) / sk;
-                    der2 += temp * temp;
-                }
+                temp = (f1[i] - f0[i]) / sk;
+                der2 += temp * temp;
             }
+
             der2 = Math.Sqrt(der2) / h;
 
             // Step size is computed such that

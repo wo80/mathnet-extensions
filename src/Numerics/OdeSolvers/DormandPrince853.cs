@@ -202,7 +202,7 @@ namespace MathNet.Numerics.OdeSolvers
         double[] k2, k3, k4, k5, k6, k7, k8, k9, k10;
         double[] r;
 
-        double[] rtol, atol;
+        double rtol, atol;
 
         public DormandPrince853(IErrorController controller, StiffnessChecker stiff)
         {
@@ -258,14 +258,6 @@ namespace MathNet.Numerics.OdeSolvers
          *                 CAN BE BOTH SCALARS OR ELSE BOTH VECTORS OF LENGTH N.
          *                 ATOL SHOULD BE STRICTLY POSITIVE (POSSIBLY VERY SMALL)
          *
-         *     ITOL        SWITCH FOR RTOL AND ATOL:
-         *                   ITOL=0: BOTH RTOL AND ATOL ARE SCALARS.
-         *                     THE CODE KEEPS, ROUGHLY, THE LOCAL ERROR OF
-         *                     Y(I) BELOW RTOL*ABS(Y(I))+ATOL
-         *                   ITOL=1: BOTH RTOL AND ATOL ARE VECTORS.
-         *                     THE CODE KEEPS THE LOCAL ERROR OF Y(I) BELOW
-         *                     RTOL(I)*ABS(Y(I))+ATOL(I).
-         *
          * ----------------------------------------------------------------------
          *
          *     OUTPUT PARAMETERS
@@ -279,7 +271,7 @@ namespace MathNet.Numerics.OdeSolvers
          *
          * ----------------------------------------------------------------------- */
         public int dop853_(Action<double, double[], double[]> fcn, double t, double[] x, double tend,
-            double[] rtol, double[] atol, int itol)
+            double rtol, double atol)
         {
             this.n = x.Length;
             this.fcn = fcn;
@@ -288,7 +280,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             // NMAX the maximal number of steps
             int nmax = 100000;
-            
+
             // Initial step size
             double h = 0.0;
 
@@ -308,7 +300,7 @@ namespace MathNet.Numerics.OdeSolvers
             k9 = new double[n];
             k10 = new double[n];
             r = new double[8 * n];
-            
+
             this.rtol = rtol;
             this.atol = atol;
 
@@ -318,11 +310,11 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 double hmax = tend - t;
                 double posneg = d_sign(1.0, hmax);
-                h = AdaptiveIntegrator.Initialize(fcn, 8, t, x, tend, posneg, k2, k3, dxdt, Math.Abs(hmax), rtol, atol, itol);
+                h = AdaptiveIntegrator.Initialize(fcn, 8, t, x, tend, posneg, k2, k3, dxdt, Math.Abs(hmax), rtol, atol);
             }
 
             // Call to core integrator
-            int nstep = dopcor_(t, x, tend, h, itol, iprint, nmax);
+            int nstep = dopcor_(t, x, tend, h, nmax);
 
             if (nstep > nmax)
             {
@@ -336,7 +328,7 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Core integrator for DOP853 */
         /*     Parameters same as in DOP853 with workspace added */
         /* ---------------------------------------------------------- */
-        int dopcor_(double t, double[] x, double tend, double dt, int itol, int iprint, int nmax)
+        int dopcor_(double t, double[] x, double tend, double dt, int nmax)
         {
             int nstep = 0;
             int irtrn = 0;
@@ -374,7 +366,7 @@ namespace MathNet.Numerics.OdeSolvers
                 double th = t + dt;
 
                 // Error estimation
-                double err = Error(dt, x, itol);
+                double err = Error(dt, x);
 
                 dtold = dt;
                 told = t;
@@ -420,7 +412,7 @@ namespace MathNet.Numerics.OdeSolvers
         private void PrepareInterpolation(double t, double dt, double[] x)
         {
             int i, n = this.n;
-            
+
             for (i = 0; i < n; ++i)
             {
                 double dx = xout[i] - x[i];
@@ -552,38 +544,19 @@ namespace MathNet.Numerics.OdeSolvers
             }
         }
 
-        private double Error(double dt, double[] x, int itol)
+        private double Error(double dt, double[] x)
         {
             double err = 0.0, err2 = 0.0, sk, deno, temp;
 
-            if (itol == 0)
+            for (int i = 0; i < n; ++i)
             {
-                for (int i = 0; i < n; ++i)
-                {
-                    double atoli = atol[0];
-                    double rtoli = rtol[0];
+                sk = atol + rtol * Math.Max(Math.Abs(x[i]), Math.Abs(xout[i]));
 
-                    sk = atoli + rtoli * Math.Max(Math.Abs(x[i]), Math.Abs(xout[i]));
+                temp = xerr2[i] / sk;
+                err2 += temp * temp;
 
-                    temp = xerr2[i] / sk;
-                    err2 += temp * temp;
-
-                    temp = xerr[i] / sk;
-                    err += temp * temp;
-                }
-            }
-            else
-            {
-                for (int i = 0; i < n; ++i)
-                {
-                    sk = atol[i] + rtol[i] * Math.Max(Math.Abs(x[i]), Math.Abs(xout[i]));
-
-                    temp = xerr2[i] / sk;
-                    err2 += temp * temp;
-
-                    temp = xerr[i] / sk;
-                    err += temp * temp;
-                }
+                temp = xerr[i] / sk;
+                err += temp * temp;
             }
 
             deno = err + err2 * 0.01;
@@ -594,7 +567,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             return Math.Abs(dt) * err * Math.Sqrt(1.0 / (n * deno));
         }
-        
+
         /* ---------------------------------------------------------- */
         /*     This function can be used for continuous output in connection */
         /*     with the output-subroutine for DOP853. It provides an */

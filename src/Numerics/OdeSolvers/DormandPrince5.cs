@@ -64,7 +64,7 @@ namespace MathNet.Numerics.OdeSolvers
         double[] k2, k3, k4, k5, k6;
         double[] r;
 
-        double[] rtol, atol;
+        double rtol, atol;
 
         public DormandPrince5(IErrorController controller, StiffnessChecker stiff)
         {
@@ -119,14 +119,6 @@ namespace MathNet.Numerics.OdeSolvers
          *     RTOL,ATOL   RELATIVE AND ABSOLUTE ERROR TOLERANCES. THEY
          *                 CAN BE BOTH SCALARS OR ELSE BOTH VECTORS OF LENGTH N.
          *
-         *     ITOL        SWITCH FOR RTOL AND ATOL:
-         *                   ITOL=0: BOTH RTOL AND ATOL ARE SCALARS.
-         *                     THE CODE KEEPS, ROUGHLY, THE LOCAL ERROR OF
-         *                     Y(I) BELOW RTOL*ABS(Y(I))+ATOL
-         *                   ITOL=1: BOTH RTOL AND ATOL ARE VECTORS.
-         *                     THE CODE KEEPS THE LOCAL ERROR OF Y(I) BELOW
-         *                     RTOL(I)*ABS(Y(I))+ATOL(I).
-         *
          * ----------------------------------------------------------------------
          *
          *     OUTPUT PARAMETERS
@@ -139,7 +131,7 @@ namespace MathNet.Numerics.OdeSolvers
          *     NSTEP       NUMBER OF COMPUTED STEPS
          * ----------------------------------------------------------------------- */
         public int dopri5_(Action<double, double[], double[]> fcn, double t, double[] x, double tend,
-            double[] rtol, double[] atol, int itol)
+            double rtol, double atol)
         {
             this.n = x.Length;
             this.fcn = fcn;
@@ -174,11 +166,11 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 double hmax = tend - t;
                 double posneg = d_sign(1.0, hmax);
-                h = AdaptiveIntegrator.Initialize(fcn, 5, t, x, tend, posneg, k2, k3, dxdt, Math.Abs(hmax), rtol, atol, itol);
+                h = AdaptiveIntegrator.Initialize(fcn, 5, t, x, tend, posneg, k2, k3, dxdt, Math.Abs(hmax), rtol, atol);
             }
 
             // Call to core integrator
-            int nstep = dopcor_(t, x, tend, h, itol, iprint, nmax);
+            int nstep = dopcor_(t, x, tend, h, nmax);
 
             if (nstep >= nmax)
             {
@@ -192,7 +184,7 @@ namespace MathNet.Numerics.OdeSolvers
         /*     Core integrator for DOPRI5 */
         /*     Parameters same as in DOPRI5 with workspace added */
         /* ---------------------------------------------------------- */
-        int dopcor_(double t, double[] x, double tend, double dt, int itol, int iprint, int nmax)
+        int dopcor_(double t, double[] x, double tend, double dt, int nmax)
         {
             int nstep = 0;
             int irtrn = 0;
@@ -228,7 +220,7 @@ namespace MathNet.Numerics.OdeSolvers
                 Step(t, dt, x);
 
                 // Error estimation
-                double err = Error(dt, x, itol);
+                double err = Error(dt, x);
 
                 dtold = dt;
                 told = t;
@@ -334,31 +326,16 @@ namespace MathNet.Numerics.OdeSolvers
             }
         }
 
-        double Error(double dt, double[] x, int itol)
+        double Error(double dt, double[] x)
         {
             double err = 0.0, sk, temp;
-            if (itol == 0)
+
+            for (int i = 0; i < n; ++i)
             {
-                double atoli = atol[0];
-                double rtoli = rtol[0];
+                sk = atol + rtol * Math.Max(Math.Abs(x[i]), Math.Abs(xtemp[i]));
 
-                for (int i = 0; i < n; ++i)
-                {
-                    sk = atoli + rtoli * Math.Max(Math.Abs(x[i]), Math.Abs(xtemp[i]));
-
-                    temp = xerr[i] / sk;
-                    err += temp * temp;
-                }
-            }
-            else
-            {
-                for (int i = 0; i < n; ++i)
-                {
-                    sk = atol[i] + rtol[i] * Math.Max(Math.Abs(x[i]), Math.Abs(xtemp[i]));
-
-                    temp = xerr[i] / sk;
-                    err += temp * temp;
-                }
+                temp = xerr[i] / sk;
+                err += temp * temp;
             }
 
             return Math.Sqrt(err / n);
@@ -372,7 +349,7 @@ namespace MathNet.Numerics.OdeSolvers
         public double Interpolate(int i, double t, double[] con)
         {
             int n = this.n;
-            
+
             double s = (t - told) / dtold;
             double s1 = 1.0 - s;
 
