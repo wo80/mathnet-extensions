@@ -2,8 +2,19 @@
 namespace MathNet.Numerics.OdeSolvers
 {
     using System;
-    using System.Diagnostics;
 
+    /// <summary>
+    /// Numerical solution of a system of first order ordinary differential equations y'=f(x,y).
+    /// This is an explicit runge-kutta method of order 8(5,3) due to Dormand & Prince (with stepsize
+    /// control and dense output)
+    ///
+    /// Authors: E. Hairer and G. Wanner
+    ///
+    /// This code is described in:
+    ///         E. Hairer, S.P. Norsett and G. Wanner
+    ///         Solving Ordinary Differential Equations I. Nonstiff Problems (2nd edition)
+    ///         Springer-Verlag (1993)
+    /// </summary>
     public class DormandPrince853
     {
         #region Runge-Kutta coefficients
@@ -204,92 +215,25 @@ namespace MathNet.Numerics.OdeSolvers
 
         double rtol, atol;
 
-        public DormandPrince853(IErrorController controller, StiffnessChecker stiff)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DormandPrince853"/> class.
+        /// </summary>
+        /// <param name="n">Dimension of the system.</param>
+        /// <param name="controller">The error controller.</param>
+        /// <param name="stiff">The stiffness detector.</param>
+        public DormandPrince853(int n, IErrorController controller, StiffnessChecker stiff)
         {
+            this.n = n;
+
             this.controller = controller;
             this.stiff = stiff;
-        }
 
-        double d_sign(double a, double b)
-        {
-            double x = Math.Abs(a);
-            return b >= 0 ? x : -x;
-        }
-
-        /* ----------------------------------------------------------
-         *     NUMERICAL SOLUTION OF A SYSTEM OF FIRST 0RDER
-         *     ORDINARY DIFFERENTIAL EQUATIONS  Y'=F(X,Y).
-         *     THIS IS AN EXPLICIT RUNGE-KUTTA METHOD OF ORDER 8(5,3)
-         *     DUE TO DORMAND & PRINCE (WITH STEPSIZE CONTROL AND
-         *     DENSE OUTPUT)
-         *
-         *     AUTHORS: E. HAIRER AND G. WANNER
-         *              UNIVERSITE DE GENEVE, DEPT. DE MATHEMATIQUES
-         *              CH-1211 GENEVE 24, SWITZERLAND
-         *              E-MAIL:  Ernst.Hairer@unige.ch
-         *                       Gerhard.Wanner@unige.ch
-         *
-         *     THIS CODE IS DESCRIBED IN:
-         *         E. HAIRER, S.P. NORSETT AND G. WANNER, SOLVING ORDINARY
-         *         DIFFERENTIAL EQUATIONS I. NONSTIFF PROBLEMS. 2ND EDITION.
-         *         SPRINGER SERIES IN COMPUTATIONAL MATHEMATICS,
-         *         SPRINGER-VERLAG (1993)
-         *
-         *     VERSION OF OCTOBER 11, 2009
-         *      (new option IOUT=3 for sparse dense output)
-         *
-         *     INPUT PARAMETERS
-         *     ----------------
-         *     N           DIMENSION OF THE SYSTEM
-         *
-         *     FCN         NAME (EXTERNAL) OF SUBROUTINE COMPUTING THE
-         *                 VALUE OF F(X,Y):
-         *                    SUBROUTINE FCN(N,X,Y,F,RPAR,IPAR)
-         *                    DOUBLE PRECISION X,Y(N),F(N)
-         *                    F(1)=...   ETC.
-         *
-         *     X           INITIAL X-VALUE
-         *
-         *     Y(N)        INITIAL VALUES FOR Y
-         *
-         *     XEND        FINAL X-VALUE (XEND-X MAY BE POSITIVE OR NEGATIVE)
-         *
-         *     RTOL,ATOL   RELATIVE AND ABSOLUTE ERROR TOLERANCES. THEY
-         *                 CAN BE BOTH SCALARS OR ELSE BOTH VECTORS OF LENGTH N.
-         *                 ATOL SHOULD BE STRICTLY POSITIVE (POSSIBLY VERY SMALL)
-         *
-         * ----------------------------------------------------------------------
-         *
-         *     OUTPUT PARAMETERS
-         *     -----------------
-         *     t           t-VALUE FOR WHICH THE SOLUTION HAS BEEN COMPUTED
-         *                 (AFTER SUCCESSFUL RETURN t=tend).
-         *
-         *     x(N)        NUMERICAL SOLUTION AT t
-         *
-         *     NSTEP       NUMBER OF COMPUTED STEPS
-         *
-         * ----------------------------------------------------------------------- */
-        public int dop853_(Action<double, double[], double[]> fcn, double t, double[] x, double tend,
-            double rtol, double atol)
-        {
-            this.n = x.Length;
-            this.fcn = fcn;
-
-            int iprint = 1; // TODO: remove
-
-            // NMAX the maximal number of steps
-            int nmax = 100000;
-
-            // Initial step size
-            double h = 0.0;
-
-            // Prepare the entry-points for the arrays in work
             xout = new double[n];
             xtemp = new double[n];
             dxdt = new double[n];
             xerr = new double[n];
             xerr2 = new double[n];
+
             k2 = new double[n];
             k3 = new double[n];
             k4 = new double[n];
@@ -299,7 +243,35 @@ namespace MathNet.Numerics.OdeSolvers
             k8 = new double[n];
             k9 = new double[n];
             k10 = new double[n];
+
             r = new double[8 * n];
+        }
+
+        double sign(double a, double b)
+        {
+            double x = Math.Abs(a);
+            return b >= 0 ? x : -x;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="fcn">Function computing the value of f(t,x).</param>
+        /// <param name="t">Initial t-value.</param>
+        /// <param name="x">Initial values for x.</param>
+        /// <param name="tend">Final t-value (<c>tend-t</c> may be positive or negative).</param>
+        /// <param name="rtol">Relative error tolerance.</param>
+        /// <param name="atol">Absolute error tolerance.</param>
+        /// <returns>Number of computed steps.</returns>
+        public int Integrate(Action<double, double[], double[]> fcn, double t, double[] x, double tend, double rtol, double atol)
+        {
+            this.fcn = fcn;
+
+            // NMAX the maximal number of steps
+            int nmax = 100000;
+
+            // Initial step size
+            double h = 0.0;
 
             this.rtol = rtol;
             this.atol = atol;
@@ -309,30 +281,27 @@ namespace MathNet.Numerics.OdeSolvers
             if (h == 0.0)
             {
                 double hmax = tend - t;
-                double posneg = d_sign(1.0, hmax);
+                double posneg = sign(1.0, hmax);
                 h = AdaptiveIntegrator.Initialize(fcn, 8, t, x, tend, posneg, k2, k3, dxdt, Math.Abs(hmax), rtol, atol);
             }
 
             // Call to core integrator
-            int nstep = dopcor_(t, x, tend, h, nmax);
+            int nstep = Integrate(t, x, tend, h, nmax);
 
-            if (nstep > nmax)
+            if (nstep >= nmax)
             {
                 Console.WriteLine(" More than NMAX =" + nmax + " steps are needed");
             }
 
             return nstep;
         }
-
-        /* ---------------------------------------------------------- */
-        /*     Core integrator for DOP853 */
-        /*     Parameters same as in DOP853 with workspace added */
-        /* ---------------------------------------------------------- */
-        int dopcor_(double t, double[] x, double tend, double dt, int nmax)
+        
+        // Core integrator for DOP853
+        int Integrate(double t, double[] x, double tend, double dt, int nmax)
         {
             int nstep = 0;
             int irtrn = 0;
-            double posneg = d_sign(1.0, tend - t);
+            double posneg = sign(1.0, tend - t);
 
             // UROUND smallest number satisfying 1.0 + UROUND > 1.0
             double uround = Precision.DoublePrecision;
@@ -567,12 +536,14 @@ namespace MathNet.Numerics.OdeSolvers
 
             return Math.Abs(dt) * err * Math.Sqrt(1.0 / (n * deno));
         }
-
-        /* ---------------------------------------------------------- */
-        /*     This function can be used for continuous output in connection */
-        /*     with the output-subroutine for DOP853. It provides an */
-        /*     approximation to the i-th component of the solution at t. */
-        /* ---------------------------------------------------------- */
+        
+        /// <summary>
+        /// Provides an approximation to the i-th component of the solution at t.
+        /// </summary>
+        /// <param name="i"></param>
+        /// <param name="t"></param>
+        /// <param name="con"></param>
+        /// <returns></returns>
         public double Interpolate(int i, double t, double[] con)
         {
             int n = this.n;
