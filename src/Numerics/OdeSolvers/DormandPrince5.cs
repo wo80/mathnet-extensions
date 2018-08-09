@@ -18,7 +18,7 @@ namespace MathNet.Numerics.OdeSolvers
     ///         Solving Ordinary Differential Equations I. Nonstiff Problems (2nd edition)
     ///         Springer-Verlag (1993)
     /// </summary>
-    public class DormandPrince5
+    public class DormandPrince5 : IRungeKuttaStepper
     {
         #region Runge-Kutta coefficients
 
@@ -79,18 +79,26 @@ namespace MathNet.Numerics.OdeSolvers
 
         double rtol, atol;
 
+        public int Order { get; private set; }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="DormandPrince5"/> class.
         /// </summary>
         /// <param name="n">Dimension of the system.</param>
         /// <param name="controller">The error controller.</param>
         /// <param name="stiff">The stiffness detector.</param>
-        public DormandPrince5(int n, IErrorController controller, StiffnessChecker stiff)
+        public DormandPrince5(int n, Action<double, double[], double[]> fcn, double rtol, double atol,
+            IErrorController controller, StiffnessChecker stiff)
         {
             this.n = n;
+            this.fcn = fcn;
+            this.rtol = rtol;
+            this.atol = atol;
 
             this.controller = controller;
             this.stiff = stiff;
+
+            this.Order = 5;
 
             xout = new double[n];
             xtemp = new double[n];
@@ -113,82 +121,20 @@ namespace MathNet.Numerics.OdeSolvers
             return b >= 0 ? x : -x;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="fcn">Function computing the value of f(t,x).</param>
-        /// <param name="t">Initial t-value.</param>
-        /// <param name="x">Initial values for x.</param>
-        /// <param name="tend">Final t-value (<c>tend-t</c> may be positive or negative).</param>
-        /// <param name="rtol">Relative error tolerance.</param>
-        /// <param name="atol">Absolute error tolerance.</param>
-        /// <returns>Number of computed steps.</returns>
-        public int Integrate(Action<double, double[], double[]> fcn, double t, double[] x, double tend,
-            double rtol, double atol)
-        {
-            this.fcn = fcn;
-            
-            // NMAX the maximal number of steps
-            int nmax = 100000;
-
-            // Initial step size
-            double h = 0.0;
-            
-            this.rtol = rtol;
-            this.atol = atol;
-
-            fcn(t, x, dxdt);
-
-            if (h == 0.0)
-            {
-                double hmax = tend - t;
-                double posneg = sign(1.0, hmax);
-                h = AdaptiveIntegrator.Initialize(fcn, 5, t, x, tend, posneg, k2, k3, dxdt, Math.Abs(hmax), rtol, atol);
-            }
-
-            // Call to core integrator
-            int nstep = Integrate(t, x, tend, h, nmax);
-
-            if (nstep >= nmax)
-            {
-                Console.WriteLine(" More than NMAX =" + nmax + " steps are needed");
-            }
-
-            return nstep;
-        }
-        
         // Core integrator for DOPRI5
-        int Integrate(double t, double[] x, double tend, double dt, int nmax)
+        public double Integrate(ref double t, ref double dt, double[] x, ref int step, int nmax, double posneg, bool dense)
         {
-            int nstep = 0;
-            double posneg = sign(1.0, tend - t);
-
-            // UROUND smallest number satisfying 1.0 + UROUND > 1.0
-            double uround = Precision.DoublePrecision;
-
-            // Initial preparations
-            bool last = false;
+            double err = 0.0;
 
             // Basic integration step
-            while (nstep < nmax)
+            while (step < nmax)
             {
-                if (Math.Abs(dt) * 0.1 <= Math.Abs(t) * uround)
-                {
-                    throw new NumericalBreakdownException("Step size too small, h=" + dt);
-                }
-
-                if ((t + dt * 1.01 - tend) * posneg > 0.0)
-                {
-                    dt = tend - t;
-                    last = true;
-                }
-
-                nstep++;
-
                 Step(t, dt, x);
 
+                step++;
+
                 // Error estimation
-                double err = Error(dt, x);
+                err = Error(dt, x);
 
                 dtold = dt;
                 told = t;
@@ -196,38 +142,30 @@ namespace MathNet.Numerics.OdeSolvers
                 // Computation of HNEW
                 if (controller.Success(err, posneg, ref dt))
                 {
-                    // Stiffness detection
-                    if (!stiff.Check(controller.Accepted, dtold, dxdtnew, k6, xout, xtemp))
-                    {
-                        throw new Exception(" The problem seems to become stiff at t = " + t);
-                    }
-
-                    //if (dense)
-                    {
-                        PrepareInterpolation(dtold, x);
-                    }
-
-                    for (int i = 0; i < n; ++i)
-                    {
-                        dxdt[i] = dxdtnew[i];
-                        x[i] = xout[i];
-                    }
-
-                    t = t + dtold;
-
-                    // Normal exit
-                    if (last)
-                    {
-                        return nstep;
-                    }
-                }
-                else
-                {
-                    last = false;
+                    break;
                 }
             }
 
-            return nstep;
+            // Stiffness detection
+            if (!stiff.Check(controller.Accepted, dtold, dxdtnew, k6, xout, xtemp))
+            {
+                throw new Exception(" The problem seems to become stiff at t = " + t);
+            }
+
+            //if (dense)
+            {
+                PrepareInterpolation(dtold, x);
+            }
+
+            for (int i = 0; i < n; ++i)
+            {
+                dxdt[i] = dxdtnew[i];
+                x[i] = xout[i];
+            }
+
+            t = t + dtold;
+
+            return err;
         }
 
         private void PrepareInterpolation(double dt, double[] x)
@@ -294,7 +232,7 @@ namespace MathNet.Numerics.OdeSolvers
             }
         }
 
-        double Error(double dt, double[] x)
+        public double Error(double dt, double[] x)
         {
             double err = 0.0, sk, temp;
 
