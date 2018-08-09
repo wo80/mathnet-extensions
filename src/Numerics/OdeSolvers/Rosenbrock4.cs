@@ -222,34 +222,6 @@ namespace MathNet.Numerics.OdeSolvers
          *              IF IWORK(3).EQ.2  CLASSICAL APPROACH
          *              THE DEFAULT VALUE (FOR IWORK(3)=0) IS IWORK(3)=1.
          *
-         *       IF THE DIFFERENTIAL SYSTEM HAS THE SPECIAL STRUCTURE THAT
-         *            Y(I)' = Y(I+M2)   FOR  I=1,...,M1,
-         *       WITH M1 A MULTIPLE OF M2, A SUBSTANTIAL GAIN IN COMPUTERTIME
-         *       CAN BE ACHIEVED BY SETTING THE PARAMETERS IWORK(9) AND IWORK(10).
-         *       E.G., FOR SECOND ORDER SYSTEMS P'=V, V'=G(P,V), WHERE P AND V ARE
-         *       VECTORS OF DIMENSION N/2, ONE HAS TO PUT M1=M2=N/2.
-         *       FOR M1>0 SOME OF THE INPUT PARAMETERS HAVE DIFFERENT MEANINGS:
-         *       - JAC: ONLY THE ELEMENTS OF THE NON-TRIVIAL PART OF THE
-         *              JACOBIAN HAVE TO BE STORED
-         *              IF (MLJAC.EQ.N-M1) THE JACOBIAN IS SUPPOSED TO BE FULL
-         *                 DFY(I,J) = PARTIAL F(I+M1) / PARTIAL Y(J)
-         *                FOR I=1,N-M1 AND J=1,N.
-         *              ELSE, THE JACOBIAN IS BANDED ( M1 = M2 * MM )
-         *                 DFY(I-J+MUJAC+1,J+K*M2) = PARTIAL F(I+M1) / PARTIAL Y(J+K*M2)
-         *                FOR I=1,MLJAC+MUJAC+1 AND J=1,M2 AND K=0,MM.
-         *       - MAS: IF IMAS=0 THIS MATRIX IS ASSUMED TO BE THE IDENTITY AND
-         *              NEED NOT BE DEFINED. SUPPLY A DUMMY SUBROUTINE IN THIS CASE.
-         *              IT IS ASSUMED THAT ONLY THE ELEMENTS OF RIGHT LOWER BLOCK OF
-         *              DIMENSION N-M1 DIFFER FROM THAT OF THE IDENTITY MATRIX.
-         *              IF (MLMAS.EQ.N-M1) THIS SUBMATRIX IS SUPPOSED TO BE FULL
-         *                 AM(I,J) = M(I+M1,J+M1)     FOR I=1,N-M1 AND J=1,N-M1.
-         *              ELSE, THE MASS MATRIX IS BANDED
-         *                 AM(I-J+MUMAS+1,J) = M(I+M1,J+M1)
-         *
-         *    IWORK(9)  THE VALUE OF M1.  DEFAULT M1=0.
-         *
-         *    IWORK(10) THE VALUE OF M2.  DEFAULT M2=M1.
-         *
          *    WORK(1)   UROUND, THE ROUNDING UNIT, DEFAULT 1.D-16.
          *
          *    WORK(2)   MAXIMAL STEP SIZE, DEFAULT XEND-X.
@@ -296,7 +268,7 @@ namespace MathNet.Numerics.OdeSolvers
             double[] atol, int itol, J_fp jac, int ijac, S_fp dfx, int idfx, M_fp mas,
             int imas, P_fp solout, int iout, double[] work, int[] iwork)
         {
-            int i, m1, m2, nm1, lde;
+            int i, nm1, lde;
             double fac1, fac2;
             int ndec, njac;
             double safe;
@@ -364,26 +336,6 @@ namespace MathNet.Numerics.OdeSolvers
             else
             {
                 pred = false;
-            }
-
-            // PARAMETER FOR SECOND ORDER EQUATIONS
-            m1 = iwork[8];
-            m2 = iwork[9];
-            nm1 = n - m1;
-            if (m1 == 0)
-            {
-                m2 = n;
-            }
-            if (m2 == 0)
-            {
-                m2 = m1;
-            }
-            if (m1 < 0 || m2 < 0 || m1 + m2 > n)
-            {
-
-                Console.WriteLine(" CURIOUS INPUT FOR IWORK(9,10)=", m1, m2);
-
-                arret = true;
             }
 
             // UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0
@@ -487,13 +439,13 @@ namespace MathNet.Numerics.OdeSolvers
             // COMPUTATION OF THE ROW-DIMENSIONS OF THE 2-ARRAYS
 
             // JACOBIAN AND MATRIX E
-            ldjac = nm1;
-            lde = nm1;
+            ldjac = n;
+            lde = n;
 
             // MASS MATRIX
             if (implct)
             {
-                ldmas = nm1;
+                ldmas = n;
                 ijob = 5;
             }
             else
@@ -517,11 +469,11 @@ namespace MathNet.Numerics.OdeSolvers
             var fx = new double[n];
             var con = new double[n << 2];
             var _jac = new double[n * ldjac];
-            var _mas = new double[nm1 * ldmas];
-            var e = new double[nm1 * lde];
+            var _mas = new double[n * ldmas];
+            var e = new double[n * lde];
 
             // - ENTRY POINTS FOR int WORKSPACE
-            var ip = new int[nm1];
+            var ip = new int[n]; // TODO: remove (decsol pivoting)
 
             // WHEN A FAIL HAS OCCURED, WE RETURN WITH IDID=-1
             if (arret)
@@ -536,7 +488,7 @@ namespace MathNet.Numerics.OdeSolvers
                 ijob, fac1, fac2, safe, autnms, implct, pred,
                 ldjac, lde, ldmas2, ynew, dy1, dy,
                 ak1, ak2, ak3, ak4, ak5, ak6, fx, _jac, e,
-                _mas, ip, con, m1, m2, nm1, ref nfcn,
+                _mas, ip, con, ref nfcn,
                 ref njac, ref nstep, ref naccpt, ref nrejct, ref ndec, ref nsol);
 
             iwork[13] = nfcn;
@@ -563,7 +515,7 @@ namespace MathNet.Numerics.OdeSolvers
             dy1, double[] dy, double[] ak1, double[] ak2, double[]
             ak3, double[] ak4, double[] ak5, double[] ak6, double[]
             fx, double[] fjac, double[] e, double[] fmas, int[] ip,
-            double[] cont, int m1, int m2, int nm1,
+            double[] cont,
             ref int nfcn, ref int njac, ref int nstep, ref int naccpt,
             ref int nrejct, ref int ndec, ref int nsol)
         {
@@ -609,18 +561,13 @@ namespace MathNet.Numerics.OdeSolvers
             // - COMPUTE MASS MATRIX FOR IMPLICIT CASE
             if (implct)
             {
-                mas(nm1, fmas, ldmas);
+                mas(n, fmas, ldmas);
             }
 
             // SET THE PARAMETERS OF THE METHOD
             rocoe_(meth);
 
             // - INITIAL PREPARATIONS
-            if (m1 > 0)
-            {
-                ijob += 10;
-            }
-
             posneg = d_sign(1.0, xend - x);
 
             hmaxn = Math.Min(Math.Abs(hmax), Math.Abs(xend - x));
@@ -696,9 +643,9 @@ namespace MathNet.Numerics.OdeSolvers
                     delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
                     y[i] = ysafe + delt;
                     fcn(n, x, y, ak1);
-                    for (j = m1; j < n; ++j)
+                    for (j = 0; j < n; ++j)
                     {
-                        fjac[j - m1 + i * ldjac] = (ak1[j] - dy1[j]) / delt;
+                        fjac[j + i * ldjac] = (ak1[j] - dy1[j]) / delt;
                     }
                     y[i] = ysafe;
                 }
@@ -734,7 +681,7 @@ namespace MathNet.Numerics.OdeSolvers
             //
             fac = 1.0 / (h * gamma);
             Factorize(n, lu, _jac, fjac, fac);
-            //dc_decsol.decomr_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, ref ier, ijob, implct, ip);
+            //dc_decsol.decomr_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, ref ier, ijob, implct, ip);
             
             if (ier != 0)
             {
@@ -767,7 +714,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             // - THE STAGES
             Solve(n, lu, dy1, ak1, fx, ynew, hd1, false);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy1, ak1, fx, ynew, hd1, ijob, false);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy1, ak1, fx, ynew, hd1, ijob, false);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a21 * ak1[i];
@@ -779,7 +726,7 @@ namespace MathNet.Numerics.OdeSolvers
                 ynew[i] = hc21 * ak1[i];
             }
             Solve(n, lu, dy, ak2, fx, ynew, hd2, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak2, fx, ynew, hd2, ijob, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak2, fx, ynew, hd2, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a31 * ak1[i] + a32 * ak2[i];
@@ -791,7 +738,7 @@ namespace MathNet.Numerics.OdeSolvers
                 ynew[i] = hc31 * ak1[i] + hc32 * ak2[i];
             }
             Solve(n, lu, dy, ak3, fx, ynew, hd3, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak3, fx, ynew, hd3, ijob, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak3, fx, ynew, hd3, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a41 * ak1[i] + a42 * ak2[i] + a43 * ak3[i];
@@ -803,7 +750,7 @@ namespace MathNet.Numerics.OdeSolvers
                 ynew[i] = hc41 * ak1[i] + hc42 * ak2[i] + hc43 * ak3[i];
             }
             Solve(n, lu, dy, ak4, fx, ynew, hd4, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak4, fx, ynew, hd4, ijob, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak4, fx, ynew, hd4, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a51 * ak1[i] + a52 * ak2[i] + a53 * ak3[i]
@@ -816,7 +763,7 @@ namespace MathNet.Numerics.OdeSolvers
                 ak6[i] = hc52 * ak2[i] + hc54 * ak4[i] + hc51 * ak1[i] + hc53 * ak3[i];
             }
             Solve(n, lu, dy, ak5, fx, ak6, 0.0, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak5, fx, ak6, 0.0, ijob, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak5, fx, ak6, 0.0, ijob, true);
 
             // ---- EMBEDDED SOLUTION
             for (i = 0; i < n; i++)
@@ -830,7 +777,7 @@ namespace MathNet.Numerics.OdeSolvers
                 cont[i] = hc61 * ak1[i] + hc62 * ak2[i] + hc65 * ak5[i] + hc64 * ak4[i] + hc63 * ak3[i];
             }
             Solve(n, lu, dy, ak6, fx, cont, 0.0, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak6, fx, cont, 0.0, ijob, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak6, fx, cont, 0.0, ijob, true);
 
             // ---- NEW SOLUTION
             for (i = 0; i < n; i++)
