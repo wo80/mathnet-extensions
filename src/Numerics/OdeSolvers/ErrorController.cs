@@ -78,7 +78,6 @@ namespace MathNet.Numerics.OdeSolvers
             this.safe = safe;
             this.alpha = 1.0 / order - beta * 0.75;
             this.beta = beta;
-
         }
 
         public void Reset()

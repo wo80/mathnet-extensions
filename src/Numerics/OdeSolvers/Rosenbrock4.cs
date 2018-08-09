@@ -16,6 +16,8 @@ namespace MathNet.Numerics.OdeSolvers
     public class Rosenbrock4
     {
         double[] rtol, atol;
+        
+        double hold;
 
         struct conros
         {
@@ -275,7 +277,7 @@ namespace MathNet.Numerics.OdeSolvers
             int imas, P_fp solout, int iout, double[] work, int[] iwork)
         {
             int i, lde;
-            double fac1, fac2;
+            double maxscale, minscale;
             int ndec, njac;
             double safe;
             int ijob, nfcn;
@@ -377,21 +379,21 @@ namespace MathNet.Numerics.OdeSolvers
             //  FAC1,FAC2     Parameters for step size selection
             if (work[2] == 0.0)
             {
-                fac1 = 5.0;
+                maxscale = 5.0;
             }
             else
             {
-                fac1 = 1.0 / work[2];
+                maxscale = 1.0 / work[2];
             }
             if (work[3] == 0.0)
             {
-                fac2 = 0.16666666666666666;
+                minscale = 0.16666666666666666;
             }
             else
             {
-                fac2 = 1.0 / work[3];
+                minscale = 1.0 / work[3];
             }
-            if (fac1 < 1.0 || fac2 > 1.0)
+            if (maxscale < 1.0 || minscale > 1.0)
             {
 
                 Console.WriteLine(" Curious input WORK(3,4)=", work[2], work[3]);
@@ -494,7 +496,7 @@ namespace MathNet.Numerics.OdeSolvers
             int idid = roscor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
                 itol, jac, ijac, dfx, idfx, mas,
                 solout, iout, nmax, uround, meth,
-                ijob, fac1, fac2, safe, autnms, implct, pred,
+                ijob, maxscale, minscale, safe, autnms, implct, pred,
                 ldjac, lde, ldmas2, ynew, dy1, dy,
                 ak1, ak2, ak3, ak4, ak5, ak6, fx, _jac, e,
                 _mas, ip, con, ref nfcn,
@@ -518,7 +520,7 @@ namespace MathNet.Numerics.OdeSolvers
             S_fp dfx, int idfx, M_fp mas,
             P_fp solout, int iout,
             int nmax, double uround, int meth, int ijob,
-            double fac1, double fac2, double safe, bool
+            double maxscale, double minscale, double safe, bool
             autnms, bool implct, bool pred, int
             ldjac, int lde, int ldmas, double[] ynew, double[]
             dy1, double[] dy, double[] ak1, double[] ak2, double[]
@@ -535,8 +537,8 @@ namespace MathNet.Numerics.OdeSolvers
             double hd1 = 0, hd2 = 0, hd3 = 0, hd4 = 0;
             double fac, hc21, hc31, hc32, hc41, hc42, hc43, hc51, hc52, hc53, hc54, hc61, hc62;
             int ier = 0;
-            double hc63, hc64, hc65, err, hacc = 0;
-            double delt, hnew;
+            double hc63, hc64, hc65, err;
+            double delt;
             bool last;
             double hopt = 0;
 
@@ -544,12 +546,8 @@ namespace MathNet.Numerics.OdeSolvers
             int nsing;
             double xdelt;
             int irtrn;
-            double erracc = 0;
-
-            double facgus;
-            bool reject;
+            
             double posneg;
-
 
             //
             // Core integrator for RODAS
@@ -575,13 +573,13 @@ namespace MathNet.Numerics.OdeSolvers
             hmaxn = Math.Min(Math.Abs(hmax), Math.Abs(xend - x));
             if (Math.Abs(h) <= uround * 10.0)
             {
-
                 h = 1e-6;
             }
             h = Math.Min(Math.Abs(h), hmaxn);
+            
+            var controller = new ErrorControllerRos(minscale, maxscale, hmaxn, safe); // TODO: pred
 
             h = d_sign(h, posneg);
-            reject = false;
             last = false;
             nsing = 0;
             irtrn = 1;
@@ -704,11 +702,13 @@ namespace MathNet.Numerics.OdeSolvers
                 }
 
                 h *= 0.5;
-                reject = true;
+                //reject = true; // TODO: controller.Reject();
                 last = false;
                 goto L2;
             }
+
             ++(ndec);
+
             // Prepare for the computation of the 6 stages
             hc21 = c21 / h;
             hc31 = c31 / h;
@@ -822,42 +822,27 @@ namespace MathNet.Numerics.OdeSolvers
 
             ++(nstep);
 
+            hold = h;
+
             //
             // Error estimation
             //
             err = Error(n, h, y, ynew, ak6);
-
-            // Computation of HNEW
-            // We require 0.2<=HNEW/H<=6.0
-            fac = Math.Max(fac2, Math.Min(fac1, Math.Pow(err, 0.25) / safe));
-            hnew = h / fac;
+            
             //
             // Is the error small enough ?
             //
-            if (err <= 1.0)
+            if (controller.Success(err, posneg, ref h))
             {
-                // Step is accepted
-                ++(naccpt);
-                if (pred)
-                {
-                    //      --- Predictive controller of Gustafsson
-                    if (naccpt > 1)
-                    {
-                        facgus = hacc / h * Math.Pow(err * err / erracc, 0.25) / safe;
-                        facgus = Math.Max(fac2, Math.Min(fac1, facgus));
-                        fac = Math.Max(fac, facgus);
-                        hnew = h / fac;
-                    }
-                    hacc = h;
-                    erracc = Math.Max(.01, err);
-                }
                 for (i = 0; i < n; ++i)
                 {
                     y[i] = ynew[i];
                 }
                 conros_.xold = x;
 
-                x += h;
+                x += hold;
+
+                /*
                 if (iout != 0)
                 {
                     for (i = 0; i < n; ++i)
@@ -873,34 +858,19 @@ namespace MathNet.Numerics.OdeSolvers
                         return 2;
                     }
                 }
-                if (Math.Abs(hnew) > hmaxn)
-                {
-                    hnew = posneg * hmaxn;
-                }
-                if (reject)
-                {
-                    hnew = posneg * Math.Min(Math.Abs(hnew), Math.Abs(h));
-                }
-                reject = false;
+                //*/
 
-                h = hnew;
                 goto L1;
             }
             else
             {
                 // Step is rejected
-                reject = true;
                 last = false;
 
-                h = hnew;
-                if (naccpt >= 1)
-                {
-                    ++(nrejct);
-                }
                 goto L2;
             }
         }
-
+        
         public double Error(int n, double h, double[] y, double[] ynew, double[] yerr)
         {
             double temp, sk, err = 0.0;
