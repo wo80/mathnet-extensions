@@ -103,10 +103,6 @@ namespace MathNet.Numerics.OdeSolvers
          *                    BE FULL AND THE PARTIAL DERIVATIVES ARE
          *                    STORED IN DFY AS
          *                       DFY(I,J) = PARTIAL F(I) / PARTIAL Y(J)
-         *                 ELSE, THE JACOBIAN IS TAKEN AS BANDED AND
-         *                    THE PARTIAL DERIVATIVES ARE STORED
-         *                    DIAGONAL-WISE AS
-         *                       DFY(I-J+MUJAC+1,J) = PARTIAL F(I) / PARTIAL Y(J).
          *
          *     IJAC        SWITCH FOR THE COMPUTATION OF THE JACOBIAN:
          *                    IJAC=0: JACOBIAN IS COMPUTED INTERNALLY BY FINITE
@@ -142,9 +138,6 @@ namespace MathNet.Numerics.OdeSolvers
          *                    IF (MLMAS.EQ.N) THE MASS-MATRIX IS STORED
          *                    AS FULL MATRIX LIKE
          *                         AM(I,J) = M(I,J)
-         *                    ELSE, THE MATRIX IS TAKEN AS BANDED AND STORED
-         *                    DIAGONAL-WISE AS
-         *                         AM(I-J+MUMAS+1,J) = M(I,J).
          *
          *     IMAS       GIVES INFORMATION ON THE MASS-MATRIX:
          *                    IMAS=0: M IS SUPPOSED TO BE THE IDENTITY
@@ -543,8 +536,8 @@ namespace MathNet.Numerics.OdeSolvers
                 ijob, fac1, fac2, safe, autnms, implct, pred,
                 ldjac, lde, ldmas2, ynew, dy1, dy,
                 ak1, ak2, ak3, ak4, ak5, ak6, fx, _jac, e,
-                _mas, ip, con, m1, m2, nm1, nfcn,
-                njac, nstep, naccpt, nrejct, ndec, nsol);
+                _mas, ip, con, m1, m2, nm1, ref nfcn,
+                ref njac, ref nstep, ref naccpt, ref nrejct, ref ndec, ref nsol);
 
             iwork[13] = nfcn;
             iwork[14] = njac;
@@ -570,9 +563,9 @@ namespace MathNet.Numerics.OdeSolvers
             dy1, double[] dy, double[] ak1, double[] ak2, double[]
             ak3, double[] ak4, double[] ak5, double[] ak6, double[]
             fx, double[] fjac, double[] e, double[] fmas, int[] ip,
-            double[] cont, int m1, int m2, int nm1, int
-            nfcn, int njac, int nstep, int naccpt, int nrejct,
-            int ndec, int nsol)
+            double[] cont, int m1, int m2, int nm1,
+            ref int nfcn, ref int njac, ref int nstep, ref int naccpt,
+            ref int nrejct, ref int ndec, ref int nsol)
         {
             var lu = new ReusableLU(n);
 
@@ -740,9 +733,9 @@ namespace MathNet.Numerics.OdeSolvers
             // COMPUTE THE STAGES
             //
             fac = 1.0 / (h * gamma);
-            ModifyJacobian(n, _jac, fjac, fac);
-            lu.Compute(_jac);
-            //dc_decsol.decomr_(n, fjac, fmas, fac, e, ip, ref ier, ijob, implct, ip);
+            Factorize(n, lu, _jac, fjac, fac);
+            //dc_decsol.decomr_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, ref ier, ijob, implct, ip);
+            
             if (ier != 0)
             {
                 goto L80;
@@ -773,8 +766,8 @@ namespace MathNet.Numerics.OdeSolvers
             }
 
             // - THE STAGES
-            lu.Solve(ynew, ak1);
-            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy1, ak1, fx, ynew, hd1, ijob, false);
+            Solve(n, lu, dy1, ak1, fx, ynew, hd1, false);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy1, ak1, fx, ynew, hd1, ijob, false);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a21 * ak1[i];
@@ -785,8 +778,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc21 * ak1[i];
             }
-            lu.Solve(ynew, ak2);
-            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak2, fx, ynew, hd2, ijob, true);
+            Solve(n, lu, dy, ak2, fx, ynew, hd2, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak2, fx, ynew, hd2, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a31 * ak1[i] + a32 * ak2[i];
@@ -797,8 +790,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc31 * ak1[i] + hc32 * ak2[i];
             }
-            lu.Solve(ynew, ak3);
-            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak3, fx, ynew, hd3, ijob, true);
+            Solve(n, lu, dy, ak3, fx, ynew, hd3, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak3, fx, ynew, hd3, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a41 * ak1[i] + a42 * ak2[i] + a43 * ak3[i];
@@ -809,8 +802,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc41 * ak1[i] + hc42 * ak2[i] + hc43 * ak3[i];
             }
-            lu.Solve(ynew, ak4);
-            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak4, fx, ynew, hd4, ijob, true);
+            Solve(n, lu, dy, ak4, fx, ynew, hd4, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak4, fx, ynew, hd4, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a51 * ak1[i] + a52 * ak2[i] + a53 * ak3[i]
@@ -822,8 +815,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ak6[i] = hc52 * ak2[i] + hc54 * ak4[i] + hc51 * ak1[i] + hc53 * ak3[i];
             }
-            lu.Solve(ak6, ak5);
-            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak5, fx, ak6, 0.0, ijob, true);
+            Solve(n, lu, dy, ak5, fx, ak6, 0.0, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak5, fx, ak6, 0.0, ijob, true);
 
             // ---- EMBEDDED SOLUTION
             for (i = 0; i < n; i++)
@@ -836,8 +829,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 cont[i] = hc61 * ak1[i] + hc62 * ak2[i] + hc65 * ak5[i] + hc64 * ak4[i] + hc63 * ak3[i];
             }
-            lu.Solve(cont, ak6);
-            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak6, fx, cont, 0.0, ijob, true);
+            Solve(n, lu, dy, ak6, fx, cont, 0.0, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac, e, lde, ip, dy, ak6, fx, cont, 0.0, ijob, true);
 
             // ---- NEW SOLUTION
             for (i = 0; i < n; i++)
@@ -1159,7 +1152,37 @@ namespace MathNet.Numerics.OdeSolvers
             return 0;
         }
 
-        void ModifyJacobian(int n, DenseMatrix jac, double[] values, double diag)
+        void Solve(int n, ReusableLU lu, double[] dy, double[] ak, double[] fx, double[] ynew, double hd, bool stage1)
+        {
+            if (hd == 0.0)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    ak[i] = dy[i];
+                }
+            }
+            else
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    ak[i] = dy[i] + hd * fx[i];
+                }
+            }
+            
+            /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
+            if (stage1)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    ak[i] += ynew[i];
+                }
+            }
+
+            lu.Solve(ak, ak);
+        }
+
+
+        private void Factorize(int n, ReusableLU lu, DenseMatrix jac, double[] fjac, double fac)
         {
             var a = jac.Values;
 
@@ -1167,11 +1190,13 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 for (int j = 0; j < n; j++)
                 {
-                    a[i * n + j] = values[i * n + j]; // TODO: check storage type
+                    a[i * n + j] = -fjac[i * n + j]; // TODO: check storage type
                 }
 
-                a[i * n + i] += diag;
+                a[i * n + i] += fac;
             }
+
+            lu.Compute(jac);
         }
     }
 }
