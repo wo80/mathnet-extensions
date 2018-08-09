@@ -1,4 +1,5 @@
-﻿using MathNet.Numerics.LinearAlgebra.Double.Factorization;
+﻿using MathNet.Numerics.LinearAlgebra.Double;
+using MathNet.Numerics.LinearAlgebra.Double.Factorization;
 using System;
 
 namespace MathNet.Numerics.OdeSolvers
@@ -8,15 +9,8 @@ namespace MathNet.Numerics.OdeSolvers
     using M_fp = Action<int, double[], int>;
     using P_fp = Action<int, double, double, double[], double[], int, int, int>;
 
-    public class Rosenbrock4_
+    public class Rosenbrock4
     {
-        struct linal
-        {
-            public int mle, mue, mbjac, mbb, mdiag, mdiff, mbdiag;
-        };
-
-        linal linal_1 = new linal();
-
         struct conros
         {
             public double xold, h;
@@ -716,6 +710,8 @@ namespace MathNet.Numerics.OdeSolvers
             //--rpar;
             //--ipar;
 
+            var _jac = new DenseMatrix(n);
+            
             /* Function Body */
             conros_.n = n;
             nn2 = n << 1;
@@ -847,9 +843,9 @@ namespace MathNet.Numerics.OdeSolvers
             /*  COMPUTE THE STAGES */
             /* *** *** *** *** *** *** *** */
             fac = 1.0 / (h * gamma);
-            dc_decsol.decomr_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/, ldmas,
-                m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip, ref ier, ijob,
-                implct, ip);
+            ModifyJacobian(n, _jac, fjac, fac);
+            lu.Compute(_jac);
+            //dc_decsol.decomr_(n, fjac, fmas, fac, e, ip, ref ier, ijob, implct, ip);
             if (ier != 0)
             {
                 goto L80;
@@ -878,10 +874,10 @@ namespace MathNet.Numerics.OdeSolvers
                 hd3 = h * d3;
                 hd4 = h * d4;
             }
+
             /* --- THE STAGES */
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
-                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
-                dy1, ak1, fx, ynew, hd1, ijob, false);
+            lu.Solve(ynew, ak1);
+            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy1, ak1, fx, ynew, hd1, ijob, false);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a21 * ak1[i];
@@ -892,9 +888,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc21 * ak1[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
-                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
-                dy, ak2, fx, ynew, hd2, ijob, true);
+            lu.Solve(ynew, ak2);
+            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak2, fx, ynew, hd2, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a31 * ak1[i] + a32 * ak2[i];
@@ -905,9 +900,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc31 * ak1[i] + hc32 * ak2[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
-                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
-                dy, ak3, fx, ynew, hd3, ijob, true);
+            lu.Solve(ynew, ak3);
+            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak3, fx, ynew, hd3, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a41 * ak1[i] + a42 * ak2[i] + a43 * ak3[i];
@@ -918,9 +912,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc41 * ak1[i] + hc42 * ak2[i] + hc43 * ak3[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
-                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
-                dy, ak4, fx, ynew, hd4, ijob, true);
+            lu.Solve(ynew, ak4);
+            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak4, fx, ynew, hd4, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a51 * ak1[i] + a52 * ak2[i] + a53 * ak3[i]
@@ -930,12 +923,10 @@ namespace MathNet.Numerics.OdeSolvers
             fcn(n, x + h, ynew, dy);
             for (i = 0; i < n; i++)
             {
-                ak6[i] = hc52 * ak2[i] + hc54 * ak4[i] + hc51 * ak1[i] + hc53
-                 * ak3[i];
+                ak6[i] = hc52 * ak2[i] + hc54 * ak4[i] + hc51 * ak1[i] + hc53 * ak3[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
-                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
-                dy, ak5, fx, ak6, 0.0, ijob, true);
+            lu.Solve(ak6, ak5);
+            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak5, fx, ak6, 0.0, ijob, true);
 
             /* ------------ EMBEDDED SOLUTION --------------- */
             for (i = 0; i < n; i++)
@@ -946,12 +937,10 @@ namespace MathNet.Numerics.OdeSolvers
             fcn(n, x + h, ynew, dy);
             for (i = 0; i < n; i++)
             {
-                cont[i] = hc61 * ak1[i] + hc62 * ak2[i] + hc65 * ak5[i] +
-                    hc64 * ak4[i] + hc63 * ak3[i];
+                cont[i] = hc61 * ak1[i] + hc62 * ak2[i] + hc65 * ak5[i] + hc64 * ak4[i] + hc63 * ak3[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
-                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
-                dy, ak6, fx, cont, 0.0, ijob, true);
+            lu.Solve(cont, ak6);
+            //dc_decsol.slvrod_(n, fjac, fmas, fac, e, ip, dy, ak6, fx, cont, 0.0, ijob, true);
 
             /* ------------ NEW SOLUTION --------------- */
             for (i = 0; i < n; i++)
@@ -1282,5 +1271,19 @@ namespace MathNet.Numerics.OdeSolvers
             return 0;
         }
 
+        void ModifyJacobian(int n, DenseMatrix jac, double[] values, double diag)
+        {
+            var a = jac.Values;
+
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < n; j++)
+                {
+                    a[i * n + j] = values[i * n + j]; // TODO: check storage type
+                }
+
+                a[i * n + i] += diag;
+            }
+        }
     }
 }
