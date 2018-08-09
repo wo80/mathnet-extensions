@@ -1,16 +1,22 @@
-﻿using MathNet.Numerics.LinearAlgebra.Double;
-using MathNet.Numerics.LinearAlgebra.Double.Factorization;
-using System;
+﻿// Based on Fortran code RODAS
+// Copyright (c) 2004, Ernst Hairer
+// License: Simplified BSD License (https://www.unige.ch/~hairer/software.html)
 
 namespace MathNet.Numerics.OdeSolvers
 {
-    using S_fp = Action<int, double, double[], double[]>;
-    using J_fp = Action<int, double, double[], double[], int>;
-    using M_fp = Action<int, double[], int>;
-    using P_fp = Action<int, double, double, double[], double[], int, int, int>;
+    using MathNet.Numerics.LinearAlgebra.Double;
+    using MathNet.Numerics.LinearAlgebra.Double.Factorization;
+    using System;
+
+    using S_fp = System.Action<int, double, double[], double[]>;
+    using J_fp = System.Action<int, double, double[], double[], int>;
+    using M_fp = System.Action<int, double[], int>;
+    using P_fp = System.Action<int, double, double, double[], double[], int, int, int>;
 
     public class Rosenbrock4
     {
+        double[] rtol, atol;
+
         struct conros
         {
             public double xold, h;
@@ -268,7 +274,7 @@ namespace MathNet.Numerics.OdeSolvers
             double[] atol, int itol, J_fp jac, int ijac, S_fp dfx, int idfx, M_fp mas,
             int imas, P_fp solout, int iout, double[] work, int[] iwork)
         {
-            int i, nm1, lde;
+            int i, lde;
             double fac1, fac2;
             int ndec, njac;
             double safe;
@@ -283,6 +289,9 @@ namespace MathNet.Numerics.OdeSolvers
             bool implct;
             bool autnms;
             double uround;
+
+            this.rtol = rtol;
+            this.atol = atol;
 
             // Function Body
             nfcn = 0;
@@ -305,7 +314,7 @@ namespace MathNet.Numerics.OdeSolvers
                 if (nmax <= 0)
                 {
 
-                    Console.WriteLine(" WRONG INPUT IWORK(1)=", iwork[0]);
+                    Console.WriteLine(" Wrong input IWORK(1)=", iwork[0]);
 
                     arret = true;
                 }
@@ -322,7 +331,7 @@ namespace MathNet.Numerics.OdeSolvers
                 if (meth <= 0 || meth >= 4)
                 {
 
-                    Console.WriteLine(" CURIOUS INPUT IWORK(2)=", iwork[1]);
+                    Console.WriteLine(" Curious input IWORK(2)=", iwork[1]);
 
                     arret = true;
                 }
@@ -349,13 +358,13 @@ namespace MathNet.Numerics.OdeSolvers
                 if (uround < 1e-16 || uround >= 1.0)
                 {
 
-                    Console.WriteLine(" COEFFICIENTS HAVE 16 DIGITS, UROUND=", work[0]);
+                    Console.WriteLine(" Coefficients have 16 digits, UROUND=", work[0]);
 
                     arret = true;
                 }
             }
 
-            // MAXIMAL STEP SIZE
+            // Maximal step size
             if (work[1] == 0.0)
             {
                 hmax = xend - x;
@@ -365,7 +374,7 @@ namespace MathNet.Numerics.OdeSolvers
                 hmax = work[1];
             }
 
-            // -  FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION
+            //  FAC1,FAC2     Parameters for step size selection
             if (work[2] == 0.0)
             {
                 fac1 = 5.0;
@@ -385,12 +394,12 @@ namespace MathNet.Numerics.OdeSolvers
             if (fac1 < 1.0 || fac2 > 1.0)
             {
 
-                Console.WriteLine(" CURIOUS INPUT WORK(3,4)=", work[2], work[3]);
+                Console.WriteLine(" Curious input WORK(3,4)=", work[2], work[3]);
 
                 arret = true;
             }
 
-            // - SAFE     SAFETY FACTOR IN STEP SIZE PREDICTION
+            // SAFE     Safety factor in step size prediction
             if (work[4] == 0.0)
             {
                 safe = 0.9;
@@ -401,19 +410,19 @@ namespace MathNet.Numerics.OdeSolvers
                 if (safe <= 0.001 || safe >= 1.0)
                 {
 
-                    Console.WriteLine(" CURIOUS INPUT FOR WORK(5)=", work[4]);
+                    Console.WriteLine(" Curious input for WORK(5)=", work[4]);
 
                     arret = true;
                 }
             }
 
-            // - CHECK IF TOLERANCES ARE O.K.
+            // Check if tolerances are OK.
             if (itol == 0)
             {
                 if (atol[0] <= 0.0 || rtol[0] <= uround * 10.0)
                 {
 
-                    Console.WriteLine(" TOLERANCES ARE TOO SMALL");
+                    Console.WriteLine(" Tolerances are too small");
 
                     arret = true;
                 }
@@ -425,24 +434,24 @@ namespace MathNet.Numerics.OdeSolvers
                     if (atol[i] <= 0.0 || rtol[i] <= uround * 10.0)
                     {
 
-                        Console.WriteLine(" TOLERANCES(%d) ARE TOO SMALL", i);
+                        Console.WriteLine(" Tolerances(%d) are too small", i);
 
                         arret = true;
                     }
                 }
             }
 
-            // AUTONOMOUS, IMPLICIT, BANDED OR NOT ?
+            // Autonomous, implicit or not ?
             autnms = ifcn == 0;
             implct = imas != 0;
 
-            // COMPUTATION OF THE ROW-DIMENSIONS OF THE 2-ARRAYS
+            // Computation of the row-dimensions of the 2-arrays
 
-            // JACOBIAN AND MATRIX E
+            // Jacobian and matrix e
             ldjac = n;
             lde = n;
 
-            // MASS MATRIX
+            // Mass matrix
             if (implct)
             {
                 ldmas = n;
@@ -456,7 +465,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             ldmas2 = Math.Max(1, ldmas);
 
-            // - PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK
+            // Prepare the entry-points for the arrays in work
             var ynew = new double[n];
             var dy1 = new double[n];
             var dy = new double[n];
@@ -472,16 +481,16 @@ namespace MathNet.Numerics.OdeSolvers
             var _mas = new double[n * ldmas];
             var e = new double[n * lde];
 
-            // - ENTRY POINTS FOR int WORKSPACE
+            // Entry points for int workspace
             var ip = new int[n]; // TODO: remove (decsol pivoting)
 
-            // WHEN A FAIL HAS OCCURED, WE RETURN WITH IDID=-1
+            // When a fail has occured, we return with IDID=-1
             if (arret)
             {
                 return -1;
             }
 
-            // CALL TO CORE INTEGRATOR
+            // Call to core integrator
             int idid = roscor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
                 itol, jac, ijac, dfx, idfx, mas,
                 solout, iout, nmax, uround, meth,
@@ -502,7 +511,7 @@ namespace MathNet.Numerics.OdeSolvers
             return idid;
         }
         
-        // ... AND HERE IS THE CORE INTEGRATOR
+        // ... and here is the core integrator
         int roscor_(int n, S_fp fcn, double x, double[] y,
             double xend, double hmax, double h, double[]
             rtol, double[] atol, int itol, J_fp jac, int ijac,
@@ -520,16 +529,12 @@ namespace MathNet.Numerics.OdeSolvers
             ref int nrejct, ref int ndec, ref int nsol)
         {
             var lu = new ReusableLU(n);
-
-            // System generated locals
-            double d__1;
-
+            
             // Local variables
             int i, j;
-            double sk, hd1 = 0, hd2 = 0, hd3 = 0, hd4 = 0;
-            int nn2, nn3;
+            double hd1 = 0, hd2 = 0, hd3 = 0, hd4 = 0;
             double fac, hc21, hc31, hc32, hc41, hc42, hc43, hc51, hc52, hc53, hc54, hc61, hc62;
-            int ier = 0, lrc;
+            int ier = 0;
             double hc63, hc64, hc65, err, hacc = 0;
             double delt, hnew;
             bool last;
@@ -547,27 +552,24 @@ namespace MathNet.Numerics.OdeSolvers
 
 
             //
-            // CORE INTEGRATOR FOR RODAS
+            // Core integrator for RODAS
             //
 
             var _jac = new DenseMatrix(n);
 
             // Function Body
             conros_.n = n;
-            nn2 = n << 1;
-            nn3 = n * 3;
-            lrc = n << 2;
 
-            // - COMPUTE MASS MATRIX FOR IMPLICIT CASE
+            // Compute mass matrix for implicit case
             if (implct)
             {
                 mas(n, fmas, ldmas);
             }
 
-            // SET THE PARAMETERS OF THE METHOD
+            // Set the parameters of the method
             rocoe_(meth);
 
-            // - INITIAL PREPARATIONS
+            // Initial preparations
             posneg = d_sign(1.0, xend - x);
 
             hmaxn = Math.Min(Math.Abs(hmax), Math.Abs(xend - x));
@@ -599,20 +601,27 @@ namespace MathNet.Numerics.OdeSolvers
                 //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
                 if (irtrn < 0)
                 {
-                    goto L179;
+                    // Exit caused by SOLOUT
+                    return 2;
                 }
             }
 
-            // - BASIC INTEGRATION STEP
+            // Basic integration step
             L1:
             if (nstep > nmax)
             {
-                goto L178;
+                //do_fio("  Exit of RODAS at X= ,e18.4", (x));
+                Console.WriteLine(" More than NMAX =" + nmax + "steps are needed");
+                return -2;
             }
+
             if (Math.Abs(h) * 0.1 <= Math.Abs(x) * uround)
             {
-                goto L177;
+                //do_fio("  Exit of RODAS at X= ,e18.4", (x));
+                Console.WriteLine(" Step size too small, H=" + h);
+                return -3;
             }
+
             if (last)
             {
                 h = hopt;
@@ -628,15 +637,15 @@ namespace MathNet.Numerics.OdeSolvers
             }
 
             //
-            // COMPUTATION OF THE JACOBIAN
+            // Computation of the Jacobian
             //
             fcn(n, x, y, dy1);
             ++(nfcn);
             ++(njac);
             if (ijac == 0)
             {
-                // - COMPUTE JACOBIAN MATRIX NUMERICALLY
-                // - JACOBIAN IS FULL
+                // Compute Jacobian matrix numerically
+                // Jacobian is full
                 for (i = 0; i < n; ++i)
                 {
                     ysafe = y[i];
@@ -652,7 +661,7 @@ namespace MathNet.Numerics.OdeSolvers
             }
             else
             {
-                // - COMPUTE JACOBIAN MATRIX ANALYTICALLY
+                // Compute jacobian matrix analytically
                 jac(n, x, y, fjac, ldjac);
             }
 
@@ -660,7 +669,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 if (idfx == 0)
                 {
-                    // - COMPUTE NUMERICALLY THE DERIVATIVE WITH RESPECT TO X
+                    // Compute numerically the derivative with respect to x
                     delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(x)));
                     xdelt = x + delt;
                     fcn(n, xdelt, y, ak1);
@@ -671,24 +680,36 @@ namespace MathNet.Numerics.OdeSolvers
                 }
                 else
                 {
-                    // - COMPUTE ANALYTICALLY THE DERIVATIVE WITH RESPECT TO X
+                    // Compute analytically the derivative with respect to x
                     dfx(n, x, y, fx);
                 }
             }
             L2:
             //
-            // COMPUTE THE STAGES
+            // Compute the stages
             //
             fac = 1.0 / (h * gamma);
-            Factorize(n, lu, _jac, fjac, fac);
+            Factorize(n, lu, _jac, fjac, fmas, fac);
             //dc_decsol.decomr_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, ref ier, ijob, implct, ip);
             
-            if (ier != 0)
+            if (ier != 0) // TODO: check determinant?
             {
-                goto L80;
+                // Singular matrix
+                ++nsing;
+                if (nsing >= 5)
+                {
+                    //do_fio("  Exit of RODAS at X= ,e18.4", (x));
+                    throw new Exception("Matrix is repeatedly singular.");
+                    //return -4;
+                }
+
+                h *= 0.5;
+                reject = true;
+                last = false;
+                goto L2;
             }
             ++(ndec);
-            // - PREPARE FOR THE COMPUTATION OF THE 6 STAGES
+            // Prepare for the computation of the 6 stages
             hc21 = c21 / h;
             hc31 = c31 / h;
             hc32 = c32 / h;
@@ -712,8 +733,8 @@ namespace MathNet.Numerics.OdeSolvers
                 hd4 = h * d4;
             }
 
-            // - THE STAGES
-            Solve(n, lu, dy1, ak1, fx, ynew, hd1, false);
+            // THE STAGES
+            Solve(n, lu, fmas, dy1, ak1, fx, ynew, hd1, false);
             //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy1, ak1, fx, ynew, hd1, ijob, false);
             for (i = 0; i < n; i++)
             {
@@ -725,7 +746,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc21 * ak1[i];
             }
-            Solve(n, lu, dy, ak2, fx, ynew, hd2, true);
+            Solve(n, lu, fmas, dy, ak2, fx, ynew, hd2, true);
             //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak2, fx, ynew, hd2, ijob, true);
             for (i = 0; i < n; i++)
             {
@@ -737,7 +758,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc31 * ak1[i] + hc32 * ak2[i];
             }
-            Solve(n, lu, dy, ak3, fx, ynew, hd3, true);
+            Solve(n, lu, fmas, dy, ak3, fx, ynew, hd3, true);
             //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak3, fx, ynew, hd3, ijob, true);
             for (i = 0; i < n; i++)
             {
@@ -749,7 +770,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc41 * ak1[i] + hc42 * ak2[i] + hc43 * ak3[i];
             }
-            Solve(n, lu, dy, ak4, fx, ynew, hd4, true);
+            Solve(n, lu, fmas, dy, ak4, fx, ynew, hd4, true);
             //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak4, fx, ynew, hd4, ijob, true);
             for (i = 0; i < n; i++)
             {
@@ -762,10 +783,10 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ak6[i] = hc52 * ak2[i] + hc54 * ak4[i] + hc51 * ak1[i] + hc53 * ak3[i];
             }
-            Solve(n, lu, dy, ak5, fx, ak6, 0.0, true);
+            Solve(n, lu, fmas, dy, ak5, fx, ak6, 0.0, true);
             //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak5, fx, ak6, 0.0, ijob, true);
 
-            // ---- EMBEDDED SOLUTION
+            // ---- Embedded solution
             for (i = 0; i < n; i++)
             {
                 ynew[i] += ak5[i];
@@ -776,10 +797,10 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 cont[i] = hc61 * ak1[i] + hc62 * ak2[i] + hc65 * ak5[i] + hc64 * ak4[i] + hc63 * ak3[i];
             }
-            Solve(n, lu, dy, ak6, fx, cont, 0.0, true);
+            Solve(n, lu, fmas, dy, ak6, fx, cont, 0.0, true);
             //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak6, fx, cont, 0.0, ijob, true);
 
-            // ---- NEW SOLUTION
+            // ---- New solution
             for (i = 0; i < n; i++)
             {
                 ynew[i] += ak6[i];
@@ -788,52 +809,38 @@ namespace MathNet.Numerics.OdeSolvers
             nsol += 6;
 
             nfcn += 5;
-            // ---- DENSE OUTPUT
+            // ---- Dense output
             if (iout != 0)
             {
                 for (i = 0; i < n; ++i)
                 {
                     cont[i] = y[i];
-                    cont[i + nn2] = d21 * ak1[i] + d22 * ak2[i] + d23 * ak3[i] + d24 * ak4[i] + d25 * ak5[i];
-                    cont[i + nn3] = d31 * ak1[i] + d32 * ak2[i] + d33 * ak3[i] + d34 * ak4[i] + d35 * ak5[i];
+                    cont[i + n * 2] = d21 * ak1[i] + d22 * ak2[i] + d23 * ak3[i] + d24 * ak4[i] + d25 * ak5[i];
+                    cont[i + n * 3] = d31 * ak1[i] + d32 * ak2[i] + d33 * ak3[i] + d34 * ak4[i] + d35 * ak5[i];
                 }
             }
 
-            //
-            // ERROR ESTIMATION
-            //
             ++(nstep);
-            // ---- COMPUTE ERROR ESTIMATION
-            err = 0.0;
-            for (i = 0; i < n; i++)
-            {
-                if (itol == 0)
-                {
-                    sk = atol[0] + rtol[0] * Math.Max(Math.Abs(y[i]), Math.Abs(ynew[i]));
-                }
-                else
-                {
-                    sk = atol[i] + rtol[i] * Math.Max(Math.Abs(y[i]), Math.Abs(ynew[i]));
-                }
-                // Computing 2nd power
-                d__1 = ak6[i] / sk;
-                err += d__1 * d__1;
-            }
-            err = Math.Sqrt(err / n);
-            // - COMPUTATION OF HNEW
-            // - WE REQUIRE .2<=HNEW/H<=6.
+
+            //
+            // Error estimation
+            //
+            err = Error(n, h, y, ynew, ak6);
+
+            // Computation of HNEW
+            // We require 0.2<=HNEW/H<=6.0
             fac = Math.Max(fac2, Math.Min(fac1, Math.Pow(err, 0.25) / safe));
             hnew = h / fac;
             //
-            // IS THE ERROR SMALL ENOUGH ?
+            // Is the error small enough ?
             //
             if (err <= 1.0)
             {
-                // - STEP IS ACCEPTED
+                // Step is accepted
                 ++(naccpt);
                 if (pred)
                 {
-                    //      --- PREDICTIVE CONTROLLER OF GUSTAFSSON
+                    //      --- Predictive controller of Gustafsson
                     if (naccpt > 1)
                     {
                         facgus = hacc / h * Math.Pow(err * err / erracc, 0.25) / safe;
@@ -862,7 +869,8 @@ namespace MathNet.Numerics.OdeSolvers
                     //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
                     if (irtrn < 0)
                     {
-                        goto L179;
+                        // Exit caused by SOLOUT
+                        return 2;
                     }
                 }
                 if (Math.Abs(hnew) > hmaxn)
@@ -880,7 +888,7 @@ namespace MathNet.Numerics.OdeSolvers
             }
             else
             {
-                // - STEP IS REJECTED
+                // Step is rejected
                 reject = true;
                 last = false;
 
@@ -891,55 +899,39 @@ namespace MathNet.Numerics.OdeSolvers
                 }
                 goto L2;
             }
-            // - SINGULAR MATRIX
-            L80:
-            ++nsing;
-            if (nsing >= 5)
-            {
-                goto L176;
-            }
-
-            h *= 0.5;
-            reject = true;
-            last = false;
-            goto L2;
-
-            // - FAIL EXIT
-            L176:
-            //do_fio("  EXIT OF RODAS AT X= ,e18.4", (x));
-            Console.WriteLine(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
-            return -4;
-
-            L177:
-            //do_fio("  EXIT OF RODAS AT X= ,e18.4", (x));
-            Console.WriteLine(" STEP SIZE T0O SMALL, H=" + h);
-            return -3;
-
-            L178:
-            //do_fio("  EXIT OF RODAS AT X= ,e18.4", (x));
-            Console.WriteLine(" MORE THAN NMAX =" + nmax + "STEPS ARE NEEDED");
-            return -2;
-
-            // - EXIT CAUSED BY SOLOUT
-            L179:
-            //do_fio("  EXIT OF RODAS AT X= ,e18.4", (x));
-            return 2;
         }
 
-        // THIS FUNCTION CAN BE USED FOR CONTINUOUS OUTPUT IN CONNECTION
-        // WITH THE OUTPUT-SUBROUTINE FOR RODAS. IT PROVIDES AN
-        // APPROXIMATION TO THE I-TH COMPONENT OF THE SOLUTION AT X.
-        double contro_(int i, double x, double[] cont, int lrc)
+        public double Error(int n, double h, double[] y, double[] ynew, double[] yerr)
         {
-            // System generated locals
-            double ret_val;
+            double temp, sk, err = 0.0;
 
+            for (int i = 0; i < n; i++)
+            {
+                //if (itol == 0)
+                {
+                    sk = atol[0] + rtol[0] * Math.Max(Math.Abs(y[i]), Math.Abs(ynew[i]));
+                }
+                //else
+                //{
+                //    sk = atol[i] + rtol[i] * Math.Max(Math.Abs(y[i]), Math.Abs(ynew[i]));
+                //}
+
+                temp = yerr[i] / sk;
+                err += temp * temp;
+            }
+
+            return Math.Sqrt(err / n);
+        }
+
+        // This function can be used for continuous output in connection
+        // with the output-subroutine for RODAS. It provides an
+        // approximation to the i-th component of the solution at x.
+        double Interpolate(int i, double x, double[] cont)
+        {
             // Local variables
-            double s;
-            
-            s = (x - conros_.xold) / conros_.h;
-            ret_val = cont[i] * (1 - s) + s * (cont[i + conros_.n] + (1 - s) * (cont[i + (conros_.n << 1)] + s * cont[i + conros_.n * 3]));
-            return ret_val;
+            double s = (x - conros_.xold) / conros_.h;
+
+            return cont[i] * (1 - s) + s * (cont[i + conros_.n] + (1 - s) * (cont[i + (conros_.n << 1)] + s * cont[i + conros_.n * 3]));
         }
         
         int rocoe_(int meth)
@@ -1099,7 +1091,41 @@ namespace MathNet.Numerics.OdeSolvers
             return 0;
         }
 
-        void Solve(int n, ReusableLU lu, double[] dy, double[] ak, double[] fx, double[] ynew, double hd, bool stage1)
+        private void Factorize(int n, ReusableLU lu, DenseMatrix jac, double[] fjac, double[] fmas, double fac)
+        {
+            var a = jac.Values;
+
+            bool dae = false; // Not tested.
+
+            if (!dae)
+            {
+                // M = identity, Jacobian a full matrix
+                for (int i = 0; i < n; i++)
+                {
+                    for (int j = 0; j < n; j++)
+                    {
+                        a[i * n + j] = -fjac[i * n + j];
+                    }
+
+                    a[i * n + i] += fac;
+                }
+            }
+            else
+            {
+                // M a full matrix, Jacobian a full matrix
+                for (int j = 0; j < n; j++)
+                {
+                    for (int i = 0; i < n; i++)
+                    {
+                        a[i * n + j] = fmas[i * n + j] * fac - fjac[i * n + j];
+                    }
+                }
+            }
+
+            lu.Compute(jac);
+        }
+
+        void Solve(int n, ReusableLU lu, double[] fmas, double[] dy, double[] ak, double[] fx, double[] ynew, double hd, bool stage1)
         {
             if (hd == 0.0)
             {
@@ -1115,35 +1141,35 @@ namespace MathNet.Numerics.OdeSolvers
                     ak[i] = dy[i] + hd * fx[i];
                 }
             }
-            
-            /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
-            if (stage1)
+
+            bool dae = false; // Not tested.
+
+            if (!dae)
             {
+                // M = identity, Jacobian a full matrix
+                if (stage1)
+                {
+                    for (int i = 0; i < n; i++)
+                    {
+                        ak[i] += ynew[i];
+                    }
+                }
+            }
+            else
+            {
+                // M a full matrix, Jacobian a full matrix
                 for (int i = 0; i < n; i++)
                 {
-                    ak[i] += ynew[i];
+                    double sum = 0.0;
+                    for (int j = 0; j < n; ++j)
+                    {
+                        sum += fmas[i * n + j] * ynew[j];
+                    }
+                    ak[i] += sum;
                 }
             }
 
             lu.Solve(ak, ak);
-        }
-
-
-        private void Factorize(int n, ReusableLU lu, DenseMatrix jac, double[] fjac, double fac)
-        {
-            var a = jac.Values;
-
-            for (int i = 0; i < n; i++)
-            {
-                for (int j = 0; j < n; j++)
-                {
-                    a[i * n + j] = -fjac[i * n + j]; // TODO: check storage type
-                }
-
-                a[i * n + i] += fac;
-            }
-
-            lu.Compute(jac);
         }
     }
 }
