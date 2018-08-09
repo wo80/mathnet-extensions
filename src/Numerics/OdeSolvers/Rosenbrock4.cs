@@ -38,9 +38,8 @@ namespace MathNet.Numerics.OdeSolvers
 
         /* Subroutine */
         public int rodas_(int n, S_fp fcn, int ifcn, double x, double[] y, double xend, double h, double[] rtol,
-        double[] atol, int itol, J_fp jac, int ijac, int mljac, int mujac, S_fp dfx, int idfx, M_fp mas,
-        int imas, int mlmas, int mumas, P_fp solout, int iout,
-        double[] work, int lwork, int[] iwork, int liwork, int idid)
+        double[] atol, int itol, J_fp jac, int ijac, S_fp dfx, int idfx, M_fp mas,
+        int imas, P_fp solout, int iout, double[] work, int[] iwork)
         {
             /* Local variables */
             int i, m1, m2, nm1, lde;
@@ -52,7 +51,6 @@ namespace MathNet.Numerics.OdeSolvers
             int meth;
             double hmax;
             int nmax, nsol, ldjac;
-            bool jband;
             int ldmas;
             bool arret;
             int nstep, ldmas2, naccpt, nrejct;
@@ -372,16 +370,7 @@ namespace MathNet.Numerics.OdeSolvers
              *   IWORK(19)  NDEC    NUMBER OF LU-DECOMPOSITIONS (N-DIMENSIONAL MATRIX)
              *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS
              * --------------------------------------------------------- */
-
-            /* Parameter adjustments */
-            //--y;
-            //--rtol;
-            //--atol;
-            //--work;
-            //--iwork;
-            //--rpar;
-            //--ipar;
-
+             
             /* Function Body */
             nfcn = 0;
             naccpt = 0;
@@ -391,6 +380,7 @@ namespace MathNet.Numerics.OdeSolvers
             ndec = 0;
             nsol = 0;
             arret = false;
+
             /* -------- NMAX , THE MAXIMAL NUMBER OF STEPS ----- */
             if (iwork[0] == 0)
             {
@@ -407,6 +397,7 @@ namespace MathNet.Numerics.OdeSolvers
                     arret = true;
                 }
             }
+
             /* -------- METH   COEFFICIENTS OF THE METHOD */
             if (iwork[1] == 0)
             {
@@ -423,6 +414,7 @@ namespace MathNet.Numerics.OdeSolvers
                     arret = true;
                 }
             }
+
             /* -------- PRED   STEP SIZE CONTROL */
             if (iwork[2] <= 1)
             {
@@ -432,6 +424,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 pred = false;
             }
+
             /* -------- PARAMETER FOR SECOND ORDER EQUATIONS */
             m1 = iwork[8];
             m2 = iwork[9];
@@ -451,6 +444,7 @@ namespace MathNet.Numerics.OdeSolvers
 
                 arret = true;
             }
+
             /* -------- UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0 */
             if (work[0] == 0.0)
             {
@@ -467,6 +461,7 @@ namespace MathNet.Numerics.OdeSolvers
                     arret = true;
                 }
             }
+
             /* -------- MAXIMAL STEP SIZE */
             if (work[1] == 0.0)
             {
@@ -476,6 +471,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 hmax = work[1];
             }
+
             /* -------  FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION */
             if (work[2] == 0.0)
             {
@@ -500,6 +496,7 @@ namespace MathNet.Numerics.OdeSolvers
 
                 arret = true;
             }
+
             /* --------- SAFE     SAFETY FACTOR IN STEP SIZE PREDICTION */
             if (work[4] == 0.0)
             {
@@ -516,6 +513,7 @@ namespace MathNet.Numerics.OdeSolvers
                     arret = true;
                 }
             }
+
             /* --------- CHECK IF TOLERANCES ARE O.K. */
             if (itol == 0)
             {
@@ -543,63 +541,30 @@ namespace MathNet.Numerics.OdeSolvers
             /* *** *** *** *** *** *** *** *** *** *** *** *** *** */
             /*         COMPUTATION OF ARRAY ENTRIES */
             /* *** *** *** *** *** *** *** *** *** *** *** *** *** */
+
             /* ---- AUTONOMOUS, IMPLICIT, BANDED OR NOT ? */
             autnms = ifcn == 0;
             implct = imas != 0;
-            jband = mljac < nm1;
+
             /* -------- COMPUTATION OF THE ROW-DIMENSIONS OF THE 2-ARRAYS --- */
+
             /* -- JACOBIAN AND MATRIX E */
-            if (jband)
             {
-                ldjac = mljac + mujac + 1;
-                lde = mljac + ldjac;
-            }
-            else
-            {
-
-                mljac = nm1;
-
-                mujac = nm1;
                 ldjac = nm1;
                 lde = nm1;
             }
             /* -- MASS MATRIX */
             if (implct)
             {
-                if (mlmas != nm1)
-                {
-                    ldmas = mlmas + mumas + 1;
-                    if (jband)
-                    {
-                        ijob = 4;
-                    }
-                    else
-                    {
-                        ijob = 3;
-                    }
-                }
-                else
                 {
                     ldmas = nm1;
                     ijob = 5;
-                }
-                /* ------ BANDWITH OF "MAS" NOT LARGER THAN BANDWITH OF "JAC" */
-                if (mlmas > mljac || mumas > mujac)
-                {
-
-                    Console.WriteLine("BANDWITH OF \"MAS\" NOT LARGER THAN BANDWITH OF \"JAC\"");
-
-                    arret = true;
                 }
             }
             else
             {
                 ldmas = 0;
-                if (jband)
-                {
-                    ijob = 2;
-                }
-                else
+
                 {
                     ijob = 1;
                 }
@@ -641,20 +606,19 @@ namespace MathNet.Numerics.OdeSolvers
             /* ------ WHEN A FAIL HAS OCCURED, WE RETURN WITH IDID=-1 */
             if (arret)
             {
-                idid = -1;
-                return 0;
+                return -1;
             }
 
             /* -------- CALL TO CORE INTEGRATOR ------------ */
-            roscor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
-                itol, jac, ijac, mljac, mujac, dfx, idfx, mas,
-                mlmas, mumas, solout, iout, idid, nmax, uround, meth, 
-                ijob, fac1, fac2, safe, autnms, implct, jband, pred, 
-                ldjac, lde, ldmas2, ynew, dy1, dy, 
-                ak1, ak2, ak3, ak4, ak5,
-                     ak6, fx, _jac, e, 
-                        _mas, ip, con, m1, m2, nm1, nfcn, 
-                        njac, nstep, naccpt, nrejct, ndec, nsol);
+            int idid = roscor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
+                itol, jac, ijac, dfx, idfx, mas,
+                solout, iout, nmax, uround, meth,
+                ijob, fac1, fac2, safe, autnms, implct, pred,
+                ldjac, lde, ldmas2, ynew, dy1, dy,
+                ak1, ak2, ak3, ak4, ak5, ak6, fx, _jac, e,
+                _mas, ip, con, m1, m2, nm1, nfcn,
+                njac, nstep, naccpt, nrejct, ndec, nsol);
+
             iwork[13] = nfcn;
             iwork[14] = njac;
             iwork[15] = nstep;
@@ -662,9 +626,9 @@ namespace MathNet.Numerics.OdeSolvers
             iwork[17] = nrejct;
             iwork[18] = ndec;
             iwork[19] = nsol;
-            /* ----------- RETURN ----------- */
-            return 0;
-        } /* rodas_ */
+
+            return idid;
+        }
 
 
         /*  ----- ... AND HERE IS THE CORE INTEGRATOR  ---------- */
@@ -672,11 +636,11 @@ namespace MathNet.Numerics.OdeSolvers
         int roscor_(int n, S_fp fcn, double x, double[] y,
             double xend, double hmax, double h, double[]
             rtol, double[] atol, int itol, J_fp jac, int ijac,
-            int mljac, int mujac, S_fp dfx, int idfx, M_fp mas,
-            int mlmas, int mumas, P_fp solout, int iout, int
-            idid, int nmax, double uround, int meth, int ijob,
+            S_fp dfx, int idfx, M_fp mas,
+            P_fp solout, int iout,
+            int nmax, double uround, int meth, int ijob,
             double fac1, double fac2, double safe, bool
-            autnms, bool implct, bool banded, bool pred, int
+            autnms, bool implct, bool pred, int
             ldjac, int lde, int ldmas, double[] ynew, double[]
             dy1, double[] dy, double[] ak1, double[] ak2, double[]
             ak3, double[] ak4, double[] ak5, double[] ak6, double[]
@@ -793,16 +757,8 @@ namespace MathNet.Numerics.OdeSolvers
                 hd4 = 0.0;
             }
             /* -------- PREPARE BAND-WIDTHS -------- */
-            linal_1.mbdiag = mumas + 1;
-            if (banded)
-            {
-                linal_1.mle = mljac;
-                linal_1.mue = mujac;
-                linal_1.mbjac = mljac + mujac + 1;
-                linal_1.mbb = mlmas + mumas + 1;
-                linal_1.mdiag = linal_1.mle + linal_1.mue + 1;
-                linal_1.mdiff = linal_1.mle + linal_1.mue - mumas;
-            }
+            //linal_1.mbdiag = mumas + 1;
+
             if (iout != 0)
             {
                 conros_.xold = x;
@@ -827,9 +783,8 @@ namespace MathNet.Numerics.OdeSolvers
             if (last)
             {
                 h = hopt;
-
-                idid = 1;
-                return 0;
+                
+                return 1;
             }
             hopt = h;
             if ((x + h * 1.0001 - xend) * posneg >= 0.0)
@@ -847,48 +802,6 @@ namespace MathNet.Numerics.OdeSolvers
             if (ijac == 0)
             {
                 /* --- COMPUTE JACOBIAN MATRIX NUMERICALLY */
-                if (banded)
-                {
-                    /* --- JACOBIAN IS BANDED */
-                    mujacp = mujac + 1;
-                    md = Math.Min(linal_1.mbjac, n);
-                    for (mm = 0; mm < m1 / m2 + 1; ++mm)
-                    {
-                        for (k = 0; k < md; ++k)
-                        {
-                            j = k + (mm - 1) * m2;
-                            L12:
-                            ak2[j] = y[j];
-                            ak3[j] = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(y[j])));
-                            y[j] += ak3[j];
-                            j += md;
-                            if (j <= mm * m2)
-                            {
-                                goto L12;
-                            }
-                            fcn(n, x, y, ak1);
-                            j = k + (mm - 1) * m2;
-                            j1 = k;
-                            lbeg = Math.Max(1, j1 - mujac) + m1;
-                            L14:
-                            lend = Math.Min(m2, j1 + mljac) + m1;
-                            y[j] = ak2[j];
-                            mujacj = mujacp - j1 - m1;
-                            for (l = lbeg - 1; l < lend; ++l)
-                            {
-                                fjac[l + mujacj + j * ldjac] = (ak1[l] - dy1[l]) / ak3[j];
-                            }
-                            j += md;
-                            j1 += md;
-                            lbeg = lend + 1;
-                            if (j <= mm * m2)
-                            {
-                                goto L14;
-                            }
-                        }
-                    }
-                }
-                else
                 {
                     /* --- JACOBIAN IS FULL */
                     for (i = 0; i < n; ++i)
@@ -934,8 +847,8 @@ namespace MathNet.Numerics.OdeSolvers
             /*  COMPUTE THE STAGES */
             /* *** *** *** *** *** *** *** */
             fac = 1.0 / (h * gamma);
-            dc_decsol.decomr_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/, ldmas, mlmas,
-                mumas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip, ref ier, ijob,
+            dc_decsol.decomr_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/, ldmas,
+                m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip, ref ier, ijob,
                 implct, ip);
             if (ier != 0)
             {
@@ -966,8 +879,8 @@ namespace MathNet.Numerics.OdeSolvers
                 hd4 = h * d4;
             }
             /* --- THE STAGES */
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, mljac, mujac, fmas/*[1 + ldmas]*/,
-                ldmas, mlmas, mumas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
+            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
+                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
                 dy1, ak1, fx, ynew, hd1, ijob, false);
             for (i = 0; i < n; i++)
             {
@@ -979,8 +892,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc21 * ak1[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, mljac, mujac, fmas/*[1 + ldmas]*/,
-                ldmas, mlmas, mumas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
+            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
+                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
                 dy, ak2, fx, ynew, hd2, ijob, true);
             for (i = 0; i < n; i++)
             {
@@ -992,8 +905,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc31 * ak1[i] + hc32 * ak2[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, mljac, mujac, fmas/*[1 + ldmas]*/,
-                ldmas, mlmas, mumas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
+            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
+                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
                 dy, ak3, fx, ynew, hd3, ijob, true);
             for (i = 0; i < n; i++)
             {
@@ -1005,8 +918,8 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 ynew[i] = hc41 * ak1[i] + hc42 * ak2[i] + hc43 * ak3[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, mljac, mujac, fmas/*[1 + ldmas]*/,
-                ldmas, mlmas, mumas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
+            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
+                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
                 dy, ak4, fx, ynew, hd4, ijob, true);
             for (i = 0; i < n; i++)
             {
@@ -1020,8 +933,8 @@ namespace MathNet.Numerics.OdeSolvers
                 ak6[i] = hc52 * ak2[i] + hc54 * ak4[i] + hc51 * ak1[i] + hc53
                  * ak3[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, mljac, mujac, fmas/*[1 + ldmas]*/,
-                ldmas, mlmas, mumas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
+            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
+                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
                 dy, ak5, fx, ak6, 0.0, ijob, true);
 
             /* ------------ EMBEDDED SOLUTION --------------- */
@@ -1036,8 +949,8 @@ namespace MathNet.Numerics.OdeSolvers
                 cont[i] = hc61 * ak1[i] + hc62 * ak2[i] + hc65 * ak5[i] +
                     hc64 * ak4[i] + hc63 * ak3[i];
             }
-            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, mljac, mujac, fmas/*[1 + ldmas]*/,
-                ldmas, mlmas, mumas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
+            dc_decsol.slvrod_(n, fjac/*[1 + ldjac]*/, ldjac, fmas/*[1 + ldmas]*/,
+                ldmas, m1, m2, nm1, fac, e/*[1 + lde]*/, lde, ip,
                 dy, ak6, fx, cont, 0.0, ijob, true);
 
             /* ------------ NEW SOLUTION --------------- */
