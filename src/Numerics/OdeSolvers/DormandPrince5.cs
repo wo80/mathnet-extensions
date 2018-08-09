@@ -1,3 +1,6 @@
+// Based on Fortran code DOPRI5
+// Copyright (c) 2004, Ernst Hairer
+// License: Simplified BSD License (https://www.unige.ch/~hairer/software.html)
 
 namespace MathNet.Numerics.OdeSolvers
 {
@@ -158,7 +161,6 @@ namespace MathNet.Numerics.OdeSolvers
         int Integrate(double t, double[] x, double tend, double dt, int nmax)
         {
             int nstep = 0;
-            int irtrn = 0;
             double posneg = sign(1.0, tend - t);
 
             // UROUND smallest number satisfying 1.0 + UROUND > 1.0
@@ -182,11 +184,6 @@ namespace MathNet.Numerics.OdeSolvers
                 }
 
                 nstep++;
-
-                if (irtrn > 1)
-                {
-                    fcn(t, x, dxdt);
-                }
 
                 Step(t, dt, x);
 
