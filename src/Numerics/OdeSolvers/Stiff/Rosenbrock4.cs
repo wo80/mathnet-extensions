@@ -2,7 +2,7 @@
 // Copyright (c) 2004, Ernst Hairer
 // License: Simplified BSD License (https://www.unige.ch/~hairer/software.html)
 
-namespace MathNet.Numerics.OdeSolvers
+namespace MathNet.Numerics.OdeSolvers.Stiff
 {
     using MathNet.Numerics.LinearAlgebra.Double;
     using MathNet.Numerics.LinearAlgebra.Double.Factorization;
@@ -11,10 +11,11 @@ namespace MathNet.Numerics.OdeSolvers
     using S_fp = System.Action<int, double, double[], double[]>;
     using J_fp = System.Action<int, double, double[], double[], int>;
     using M_fp = System.Action<int, double[], int>;
-    using P_fp = System.Action<int, double, double, double[], double[], int, int, int>;
 
     public class Rosenbrock4
     {
+        RosenbrockErrorController controller;
+
         double[] rtol, atol;
         
         double hold;
@@ -26,6 +27,11 @@ namespace MathNet.Numerics.OdeSolvers
         };
 
         conros conros_ = new conros();
+
+        public Rosenbrock4(RosenbrockErrorController controller)
+        {
+            this.controller = controller;
+        }
 
         double d_sign(double a, double b)
         {
@@ -152,60 +158,9 @@ namespace MathNet.Numerics.OdeSolvers
          *                       MATRIX, MAS IS NEVER CALLED.
          *                    IMAS=1: MASS-MATRIX  IS SUPPLIED.
          *
-         *     SOLOUT      NAME (EXTERNAL) OF SUBROUTINE PROVIDING THE
-         *                 NUMERICAL SOLUTION DURING INTEGRATION.
-         *                 IF IOUT=1, IT IS CALLED AFTER EVERY SUCCESSFUL STEP.
-         *                 SUPPLY A DUMMY SUBROUTINE IF IOUT=0.
-         *                 IT MUST HAVE THE FORM
-         *                    SUBROUTINE SOLOUT (NR,XOLD,X,Y,CONT,LRC,N,
-         *                                       RPAR,IPAR,IRTRN)
-         *                    DOUBLE PRECISION X,Y(N),CONT(LRC)
-         *                    ....
-         *                 SOLOUT FURNISHES THE SOLUTION "Y" AT THE NR-TH
-         *                    GRID-POINT "X" (THEREBY THE INITIAL VALUE IS
-         *                    THE FIRST GRID-POINT).
-         *                 "XOLD" IS THE PRECEEDING GRID-POINT.
-         *                 "IRTRN" SERVES TO INTERRUPT THE INTEGRATION. IF IRTRN
-         *                    IS SET &lt;0, RODAS RETURNS TO THE CALLING PROGRAM.
-         *
-         *          -----  CONTINUOUS OUTPUT: -----
-         *                 DURING CALLS TO "SOLOUT", A CONTINUOUS SOLUTION
-         *                 FOR THE INTERVAL [XOLD,X] IS AVAILABLE THROUGH
-         *                 THE FUNCTION
-         *                        >>>   CONTRO(I,S,CONT,LRC)
-         *                 WHICH PROVIDES AN APPROXIMATION TO THE I-TH
-         *                 COMPONENT OF THE SOLUTION AT THE POINT S. THE VALUE
-         *                 S SHOULD LIE IN THE INTERVAL [XOLD,X].
-         *
          *     IOUT        GIVES INFORMATION ON THE SUBROUTINE SOLOUT:
          *                    IOUT=0: SUBROUTINE IS NEVER CALLED
          *                    IOUT=1: SUBROUTINE IS USED FOR OUTPUT
-         *
-         *     WORK        ARRAY OF WORKING SPACE OF LENGTH "LWORK".
-         *                 SERVES AS WORKING SPACE FOR ALL VECTORS AND MATRICES.
-         *                 "LWORK" MUST BE AT LEAST
-         *                             N*(LJAC+LMAS+LE1+14)+20
-         *                 WHERE
-         *                    LJAC=N              IF MLJAC=N (FULL JACOBIAN)
-         *                    LJAC=MLJAC+MUJAC+1  IF MLJAC&lt;N (BANDED JAC.0)
-         *                 AND
-         *                    LMAS=0              IF IMAS=0
-         *                    LMAS=N              IF IMAS=1 AND MLMAS=N (FULL)
-         *                    LMAS=MLMAS+MUMAS+1  IF MLMAS&lt;N (BANDED MASS-M.0)
-         *                 AND
-         *                    LE1=N               IF MLJAC=N (FULL JACOBIAN)
-         *                    LE1=2*MLJAC+MUJAC+1 IF MLJAC&lt;N (BANDED JAC.0).
-         *                 IN THE USUAL CASE WHERE THE JACOBIAN IS FULL AND THE
-         *                 MASS-MATRIX IS THE INDENTITY (IMAS=0), THE MINIMUM
-         *                 STORAGE REQUIREMENT IS
-         *                             LWORK = 2*N*N+14*N+20.
-         *                 IF IWORK(9)=M1>0 THEN "LWORK" MUST BE AT LEAST
-         *                          N*(LJAC+14)+(N-M1)*(LMAS+LE1)+20
-         *                 WHERE IN THE DEFINITIONS OF LJAC, LMAS AND LE1 THE
-         *                 NUMBER N CAN BE REPLACED BY N-M1.
-         *
-         *     IWORK       int WORKING SPACE OF LENGTH "LIWORK".
-         *                 "LIWORK" MUST BE AT LEAST N+20.
          *
          * ----------------------------------------------------------------------
          *
@@ -233,14 +188,6 @@ namespace MathNet.Numerics.OdeSolvers
          *    WORK(1)   UROUND, THE ROUNDING UNIT, DEFAULT 1.D-16.
          *
          *    WORK(2)   MAXIMAL STEP SIZE, DEFAULT XEND-X.
-         *
-         *    WORK(3), WORK(4)   PARAMETERS FOR STEP SIZE SELECTION
-         *              THE NEW STEP SIZE IS CHOSEN SUBJECT TO THE RESTRICTION
-         *                 WORK(3) &lt;= HNEW/HOLD &lt;= WORK(4)
-         *              DEFAULT VALUES: WORK(3)=0.2D0, WORK(4)=6.D0
-         *
-         *    WORK(5)   THE SAFETY FACTOR IN STEP SIZE PREDICTION,
-         *              DEFAULT 0.9D0.
          *
          * -----------------------------------------------------------------------
          *
@@ -272,21 +219,15 @@ namespace MathNet.Numerics.OdeSolvers
          *   IWORK(19)  NDEC    NUMBER OF LU-DECOMPOSITIONS (N-DIMENSIONAL MATRIX)
          *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS
          */
-        public int rodas_(int n, S_fp fcn, int ifcn, double x, double[] y, double xend, double h, double[] rtol,
-            double[] atol, int itol, J_fp jac, int ijac, S_fp dfx, int idfx, M_fp mas,
-            int imas, P_fp solout, int iout, double[] work, int[] iwork)
+        public int rodas_(int n, S_fp fcn, int ifcn, double x, double[] y, double xend, double h, double[] rtol, double[] atol,
+            int itol, J_fp jac, int ijac, S_fp dfx, int idfx, M_fp mas, int imas, double[] work, int[] iwork)
         {
             int i, lde;
-            double maxscale, minscale;
             int ndec, njac;
-            double safe;
             int ijob, nfcn;
-            bool pred;
             int meth;
-            double hmax;
             int nmax, nsol, ldjac;
             int ldmas;
-            bool arret;
             int nstep, ldmas2, naccpt, nrejct;
             bool implct;
             bool autnms;
@@ -303,7 +244,6 @@ namespace MathNet.Numerics.OdeSolvers
             njac = 0;
             ndec = 0;
             nsol = 0;
-            arret = false;
 
             // NMAX , THE MAXIMAL NUMBER OF STEPS
             if (iwork[0] == 0)
@@ -315,10 +255,8 @@ namespace MathNet.Numerics.OdeSolvers
                 nmax = iwork[0];
                 if (nmax <= 0)
                 {
-
                     Console.WriteLine(" Wrong input IWORK(1)=", iwork[0]);
-
-                    arret = true;
+                    return -1;
                 }
             }
 
@@ -332,21 +270,9 @@ namespace MathNet.Numerics.OdeSolvers
                 meth = iwork[1];
                 if (meth <= 0 || meth >= 4)
                 {
-
                     Console.WriteLine(" Curious input IWORK(2)=", iwork[1]);
-
-                    arret = true;
+                    return -1;
                 }
-            }
-
-            // PRED   STEP SIZE CONTROL
-            if (iwork[2] <= 1)
-            {
-                pred = true;
-            }
-            else
-            {
-                pred = false;
             }
 
             // UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0
@@ -359,74 +285,18 @@ namespace MathNet.Numerics.OdeSolvers
                 uround = work[0];
                 if (uround < 1e-16 || uround >= 1.0)
                 {
-
                     Console.WriteLine(" Coefficients have 16 digits, UROUND=", work[0]);
-
-                    arret = true;
+                    return -1;
                 }
             }
-
-            // Maximal step size
-            if (work[1] == 0.0)
-            {
-                hmax = xend - x;
-            }
-            else
-            {
-                hmax = work[1];
-            }
-
-            //  FAC1,FAC2     Parameters for step size selection
-            if (work[2] == 0.0)
-            {
-                maxscale = 5.0;
-            }
-            else
-            {
-                maxscale = 1.0 / work[2];
-            }
-            if (work[3] == 0.0)
-            {
-                minscale = 0.16666666666666666;
-            }
-            else
-            {
-                minscale = 1.0 / work[3];
-            }
-            if (maxscale < 1.0 || minscale > 1.0)
-            {
-
-                Console.WriteLine(" Curious input WORK(3,4)=", work[2], work[3]);
-
-                arret = true;
-            }
-
-            // SAFE     Safety factor in step size prediction
-            if (work[4] == 0.0)
-            {
-                safe = 0.9;
-            }
-            else
-            {
-                safe = work[4];
-                if (safe <= 0.001 || safe >= 1.0)
-                {
-
-                    Console.WriteLine(" Curious input for WORK(5)=", work[4]);
-
-                    arret = true;
-                }
-            }
-
+            
             // Check if tolerances are OK.
             if (itol == 0)
             {
                 if (atol[0] <= 0.0 || rtol[0] <= uround * 10.0)
                 {
-
                     Console.WriteLine(" Tolerances are too small");
-
-                    arret = true;
+                    return -1;
                 }
             }
             else
@@ -435,10 +305,8 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     if (atol[i] <= 0.0 || rtol[i] <= uround * 10.0)
                     {
-
                         Console.WriteLine(" Tolerances(%d) are too small", i);
-
-                        arret = true;
+                        return -1;
                     }
                 }
             }
@@ -485,18 +353,12 @@ namespace MathNet.Numerics.OdeSolvers
 
             // Entry points for int workspace
             var ip = new int[n]; // TODO: remove (decsol pivoting)
-
-            // When a fail has occured, we return with IDID=-1
-            if (arret)
-            {
-                return -1;
-            }
-
+            
             // Call to core integrator
-            int idid = roscor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
+            int idid = roscor_(n, fcn, x, y, xend, h, rtol, atol,
                 itol, jac, ijac, dfx, idfx, mas,
-                solout, iout, nmax, uround, meth,
-                ijob, maxscale, minscale, safe, autnms, implct, pred,
+                nmax, uround, meth,
+                ijob, autnms, implct,
                 ldjac, lde, ldmas2, ynew, dy1, dy,
                 ak1, ak2, ak3, ak4, ak5, ak6, fx, _jac, e,
                 _mas, ip, con, ref nfcn,
@@ -515,14 +377,12 @@ namespace MathNet.Numerics.OdeSolvers
         
         // ... and here is the core integrator
         int roscor_(int n, S_fp fcn, double x, double[] y,
-            double xend, double hmax, double h, double[]
+            double xend, double h, double[]
             rtol, double[] atol, int itol, J_fp jac, int ijac,
             S_fp dfx, int idfx, M_fp mas,
-            P_fp solout, int iout,
             int nmax, double uround, int meth, int ijob,
-            double maxscale, double minscale, double safe, bool
-            autnms, bool implct, bool pred, int
-            ldjac, int lde, int ldmas, double[] ynew, double[]
+            bool autnms, bool implct,
+            int ldjac, int lde, int ldmas, double[] ynew, double[]
             dy1, double[] dy, double[] ak1, double[] ak2, double[]
             ak3, double[] ak4, double[] ak5, double[] ak6, double[]
             fx, double[] fjac, double[] e, double[] fmas, int[] ip,
@@ -542,7 +402,7 @@ namespace MathNet.Numerics.OdeSolvers
             bool last;
             double hopt = 0;
 
-            double ysafe, hmaxn;
+            double ysafe;
             int nsing;
             double xdelt;
             int irtrn;
@@ -569,15 +429,12 @@ namespace MathNet.Numerics.OdeSolvers
 
             // Initial preparations
             posneg = d_sign(1.0, xend - x);
-
-            hmaxn = Math.Min(Math.Abs(hmax), Math.Abs(xend - x));
+            
             if (Math.Abs(h) <= uround * 10.0)
             {
                 h = 1e-6;
             }
-            h = Math.Min(Math.Abs(h), hmaxn);
-            
-            var controller = new ErrorControllerRos(minscale, maxscale, hmaxn, safe); // TODO: pred
+            h = Math.Min(Math.Abs(h), Math.Abs(xend - x));
 
             h = d_sign(h, posneg);
             last = false;
@@ -590,18 +447,11 @@ namespace MathNet.Numerics.OdeSolvers
                 hd3 = 0.0;
                 hd4 = 0.0;
             }
-
-            if (iout != 0)
+            
             {
                 conros_.xold = x;
-                irtrn = 1;
                 conros_.h = h;
                 //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
-                if (irtrn < 0)
-                {
-                    // Exit caused by SOLOUT
-                    return 2;
-                }
             }
 
             // Basic integration step
@@ -809,8 +659,9 @@ namespace MathNet.Numerics.OdeSolvers
             nsol += 6;
 
             nfcn += 5;
+
             // ---- Dense output
-            if (iout != 0)
+            //if (dense)
             {
                 for (i = 0; i < n; ++i)
                 {
@@ -849,14 +700,8 @@ namespace MathNet.Numerics.OdeSolvers
                     {
                         cont[conros_.n + i] = y[i];
                     }
-                    irtrn = 1;
                     conros_.h = h;
                     //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
-                    if (irtrn < 0)
-                    {
-                        // Exit caused by SOLOUT
-                        return 2;
-                    }
                 }
                 //*/
 
@@ -1082,7 +927,7 @@ namespace MathNet.Numerics.OdeSolvers
             }
             else
             {
-                // M a full matrix, Jacobian a full matrix
+                // M is a full matrix, Jacobian a full matrix
                 for (int j = 0; j < n; j++)
                 {
                     for (int i = 0; i < n; i++)
@@ -1127,7 +972,7 @@ namespace MathNet.Numerics.OdeSolvers
             }
             else
             {
-                // M a full matrix, Jacobian a full matrix
+                // M is a full matrix, Jacobian a full matrix
                 for (int i = 0; i < n; i++)
                 {
                     double sum = 0.0;

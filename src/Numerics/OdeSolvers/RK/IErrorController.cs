@@ -1,5 +1,5 @@
 ﻿
-namespace MathNet.Numerics.OdeSolvers
+namespace MathNet.Numerics.OdeSolvers.RK
 {
     public interface IErrorController
     {

@@ -2,7 +2,7 @@
 // Copyright (c) 2004, Ernst Hairer
 // License: Simplified BSD License (https://www.unige.ch/~hairer/software.html)
 
-namespace MathNet.Numerics.OdeSolvers
+namespace MathNet.Numerics.OdeSolvers.RK
 {
     using System;
 

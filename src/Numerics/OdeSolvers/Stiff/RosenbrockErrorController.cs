@@ -1,18 +1,14 @@
 ﻿using System;
 
-namespace MathNet.Numerics.OdeSolvers
+namespace MathNet.Numerics.OdeSolvers.Stiff
 {
-    public class ErrorControllerRos
+    public class RosenbrockErrorController
     {
-        //double maxscale = 5.0;
-        //double minscale = 0.16666666666666666;
-        //double safe = 0.9;
-
-        bool pred = true;
+        bool predictive = true;
 
         double minscale;
         double maxscale;
-        double hmaxn;
+        double hmax;
         double safe;
 
         bool rejected;
@@ -39,14 +35,67 @@ namespace MathNet.Numerics.OdeSolvers
         /// </summary>
         public int Accepted { get { return naccepted; } }
 
+        // TODO: minscale <> maxscale
+
+        /*
+         * 
+         *    WORK(3), WORK(4)   PARAMETERS FOR STEP SIZE SELECTION
+         *              THE NEW STEP SIZE IS CHOSEN SUBJECT TO THE RESTRICTION
+         *                 WORK(3) &lt;= HNEW/HOLD &lt;= WORK(4)
+         *              DEFAULT VALUES: WORK(3)=0.2D0, WORK(4)=6.D0
+         *              
+
+            //  FAC1,FAC2     Parameters for step size selection
+            if (work[2] == 0.0)
+            {
+                maxscale = 5.0;
+            }
+            else
+            {
+                maxscale = 1.0 / work[2];
+            }
+            if (work[3] == 0.0)
+            {
+                minscale = 0.16666666666666666;
+            }
+            else
+            {
+                minscale = 1.0 / work[3];
+            }
+            if (maxscale < 1.0 || minscale > 1.0)
+            {
+
+                Console.WriteLine(" Curious input WORK(3,4)=", work[2], work[3]);
+
+                arret = true;
+            }
+
+            // SAFE     Safety factor in step size prediction
+            if (work[4] == 0.0)
+            {
+                safe = 0.9;
+            }
+            else
+            {
+                safe = work[4];
+                if (safe <= 0.001 || safe >= 1.0)
+                {
+
+                    Console.WriteLine(" Curious input for WORK(5)=", work[4]);
+
+                    arret = true;
+                }
+            }
+        //*/
+
         /// <summary>
         /// 
         /// </summary>
         /// <param name="minscale">Minimum scaling for step size selection (minscale &lt= hnew/hold).</param>
         /// <param name="maxscale">Maximum scaling for step size selection (hnew/hold &lt= maxscale).</param>
-        /// <param name="hmaxn">Maximal step size (default tend - t).</param>
+        /// <param name="hmax">Maximal step size (default tend - t).</param>
         /// <param name="safe">Safety factor in step size prediction (default 0.9).</param>
-        public ErrorControllerRos(double minscale, double maxscale, double hmaxn, double safe)
+        public RosenbrockErrorController(double minscale, double maxscale, double hmax, double safe, bool predictive)
         {
             if (safe >= 1.0 || safe <= 1e-4)
             {
@@ -55,8 +104,9 @@ namespace MathNet.Numerics.OdeSolvers
             
             this.minscale = minscale;
             this.maxscale = maxscale;
-            this.hmaxn = hmaxn;
+            this.hmax = hmax;
             this.safe = safe;
+            this.predictive = predictive;
         }
 
         public void Reset()
@@ -82,7 +132,7 @@ namespace MathNet.Numerics.OdeSolvers
                 // Step is accepted
                 naccepted++;
 
-                if (pred)
+                if (predictive)
                 {
                     // Predictive controller of Gustafsson
                     if (naccepted > 1)
@@ -97,9 +147,9 @@ namespace MathNet.Numerics.OdeSolvers
                     erracc = Math.Max(.01, err);
                 }
 
-                if (Math.Abs(hnew) > hmaxn)
+                if (Math.Abs(hnew) > hmax)
                 {
-                    hnew = posneg * hmaxn;
+                    hnew = posneg * hmax;
                 }
 
                 if (rejected)
