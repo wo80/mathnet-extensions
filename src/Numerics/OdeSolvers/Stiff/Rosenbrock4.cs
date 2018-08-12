@@ -16,8 +16,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         RosenbrockErrorController controller;
 
         double[] rtol, atol;
-        
+
         double hold;
+        
+        public int ndec, nsol; // TODO: remove
 
         struct conros
         {
@@ -185,74 +187,29 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
          *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS
          */
         public int rodas_(int n, S_fp fcn, int ifcn, double x, double[] y, double xend, double h, double[] rtol, double[] atol,
-            int itol, J_fp jac, S_fp dfx, DenseMatrix mas, double[] work, int[] iwork)
+            int itol, J_fp jac, S_fp dfx, DenseMatrix mas)
         {
-            int ndec, njac, nfcn, nsol, nstep;
-            int meth;
-            int nmax;
-            bool implct;
-            bool autnms;
-            double uround;
+            double eps = Precision.DoublePrecision;
 
             this.rtol = rtol;
             this.atol = atol;
 
-            // Function Body
-            nfcn = 0;
-            nstep = 0;
-            njac = 0;
-            ndec = 0;
-            nsol = 0;
-
             // NMAX , THE MAXIMAL NUMBER OF STEPS
-            if (iwork[0] == 0)
-            {
-                nmax = 100000;
-            }
-            else
-            {
-                nmax = iwork[0];
-                if (nmax <= 0)
-                {
-                    Console.WriteLine(" Wrong input IWORK(1)=", iwork[0]);
-                    return -1;
-                }
-            }
+            int nmax = 100000;
 
             // METH   COEFFICIENTS OF THE METHOD
-            if (iwork[1] == 0)
+            int meth = 1;
+
+            if (meth <= 0 || meth >= 4)
             {
-                meth = 1;
-            }
-            else
-            {
-                meth = iwork[1];
-                if (meth <= 0 || meth >= 4)
-                {
-                    Console.WriteLine(" Curious input IWORK(2)=", iwork[1]);
-                    return -1;
-                }
+                Console.WriteLine(" Curious input IWORK(2)=", meth);
+                return -1;
             }
 
-            // UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0
-            if (work[0] == 0.0)
-            {
-                uround = 1e-16;
-            }
-            else
-            {
-                uround = work[0];
-                if (uround < 1e-16 || uround >= 1.0)
-                {
-                    Console.WriteLine(" Coefficients have 16 digits, UROUND=", work[0]);
-                    return -1;
-                }
-            }
-            
             // Check if tolerances are OK.
             if (itol == 0)
             {
-                if (atol[0] <= 0.0 || rtol[0] <= uround * 10.0)
+                if (atol[0] <= 0.0 || rtol[0] <= eps * 10.0)
                 {
                     Console.WriteLine(" Tolerances are too small");
                     return -1;
@@ -262,7 +219,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 for (int i = 0; i < n; ++i)
                 {
-                    if (atol[i] <= 0.0 || rtol[i] <= uround * 10.0)
+                    if (atol[i] <= 0.0 || rtol[i] <= eps * 10.0)
                     {
                         Console.WriteLine(" Tolerances(%d) are too small", i);
                         return -1;
@@ -271,9 +228,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             // Autonomous, implicit or not ?
-            autnms = ifcn == 0;
-            implct = mas != null;
-            
+            bool autnms = ifcn == 0;
+            bool implct = mas != null;
+
             // Prepare the entry-points for the arrays in work
             var ynew = new double[n];
             var dy1 = new double[n];
@@ -286,40 +243,37 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var ak6 = new double[n];
             var fx = new double[n];
             var con = new double[4 * n];
-            
+
+            ndec = nsol = 0;
+
             // Call to core integrator
-            int idid = roscor_(n, fcn, x, y, xend, h, rtol, atol,
+            int nstep = roscor_(n, fcn, x, y, xend, h, rtol, atol,
                 itol, jac, dfx, mas,
-                nmax, uround, meth,
-                autnms, implct,
+                nmax, meth, autnms, implct,
                 ynew, dy1, dy,
                 ak1, ak2, ak3, ak4, ak5, ak6, fx,
-                con, ref nfcn,
-                ref njac, ref nstep, ref ndec, ref nsol);
+                con);
 
-            iwork[13] = nfcn;
-            iwork[14] = njac;
-            iwork[15] = nstep;
-            iwork[18] = ndec;
-            iwork[19] = nsol;
+            if (nstep > nmax)
+            {
+                Console.WriteLine(" More than NMAX =" + nmax + "steps are needed");
+            }
 
-            return idid;
+            return nstep;
         }
-        
+
         // ... and here is the core integrator
         int roscor_(int n, S_fp fcn, double x, double[] y,
             double xend, double h, double[] rtol, double[] atol,
             int itol, J_fp jac, S_fp dfx, DenseMatrix mas,
-            int nmax, double uround, int meth,
-            bool autnms, bool implct,
+            int nmax, int meth, bool autnms, bool implct,
             double[] ynew, double[] dy1,
             double[] dy, double[] ak1, double[] ak2, double[] ak3,
             double[] ak4, double[] ak5, double[] ak6, double[] fx,
-            double[] cont,
-            ref int nfcn, ref int njac, ref int nstep, ref int ndec, ref int nsol)
+            double[] cont)
         {
             var lu = new ReusableLU(n);
-            
+
             // Local variables
             int i, j;
             double hd1 = 0, hd2 = 0, hd3 = 0, hd4 = 0;
@@ -329,14 +283,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double delt;
             bool last;
             double hopt = 0;
-            
+
             //int ijob = implct ? 5 : 1;
 
             double ysafe;
-            int nsing;
             double xdelt;
-            
-            double posneg;
+            int nsing;
+            int nstep = 0;
+
+            double posneg, eps = Precision.DoublePrecision;
 
             //
             // Core integrator for RODAS
@@ -347,14 +302,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             // Function Body
             conros_.n = n;
-            
+
             // Set the parameters of the method
             rocoe_(meth);
 
             // Initial preparations
             posneg = d_sign(1.0, xend - x);
-            
-            if (Math.Abs(h) <= uround * 10.0)
+
+            if (Math.Abs(h) <= eps * 10.0)
             {
                 h = 1e-6;
             }
@@ -371,7 +326,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 hd3 = 0.0;
                 hd4 = 0.0;
             }
-            
+
             {
                 conros_.xold = x;
                 conros_.h = h;
@@ -384,21 +339,20 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 //do_fio("  Exit of RODAS at X= ,e18.4", (x));
                 Console.WriteLine(" More than NMAX =" + nmax + "steps are needed");
-                return -2;
+                return nstep;
             }
 
-            if (Math.Abs(h) * 0.1 <= Math.Abs(x) * uround)
+            if (Math.Abs(h) * 0.1 <= Math.Abs(x) * eps)
             {
                 //do_fio("  Exit of RODAS at X= ,e18.4", (x));
-                Console.WriteLine(" Step size too small, H=" + h);
-                return -3;
+                throw new NumericalBreakdownException(" Step size too small, H=" + h);
             }
 
             if (last)
             {
                 h = hopt;
 
-                return 1;
+                return nstep;
             }
             hopt = h;
             if ((x + h * 1.0001 - xend) * posneg >= 0.0)
@@ -412,8 +366,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Computation of the Jacobian
             //
             fcn(n, x, y, dy1);
-            nfcn++;
-            njac++;
+
             if (jac == null)
             {
                 // Compute Jacobian matrix numerically
@@ -421,7 +374,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 for (i = 0; i < n; ++i)
                 {
                     ysafe = y[i];
-                    delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
+                    delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(ysafe)));
                     y[i] = ysafe + delt;
                     fcn(n, x, y, ak1);
                     for (j = 0; j < n; ++j)
@@ -442,7 +395,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 if (dfx == null)
                 {
                     // Compute numerically the derivative with respect to x
-                    delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(x)));
+                    delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(x)));
                     xdelt = x + delt;
                     fcn(n, xdelt, y, ak1);
                     for (j = 0; j < n; ++j)
@@ -463,7 +416,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             fac = 1.0 / (h * gamma);
             Factorize(n, lu, fmodjac, fjac, mas, fac);
             //dc_decsol.decomr_(n, fjac, ldjac, mas, fac, e, lde, ip, ref ier, ijob, implct, ip);
-            
+
             if (ier != 0) // TODO: check determinant?
             {
                 // Singular matrix
@@ -582,8 +535,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             nsol += 6;
 
-            nfcn += 5;
-
             // ---- Dense output
             //if (dense)
             {
@@ -603,7 +554,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Error estimation
             //
             err = Error(n, h, y, ynew, ak6);
-            
+
             //
             // Is the error small enough ?
             //
@@ -639,7 +590,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L2;
             }
         }
-        
+
         public double Error(int n, double h, double[] y, double[] ynew, double[] yerr)
         {
             double temp, sk, err = 0.0;
@@ -672,7 +623,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             return cont[i] * (1 - s) + s * (cont[i + conros_.n] + (1 - s) * (cont[i + (conros_.n << 1)] + s * cont[i + conros_.n * 3]));
         }
-        
+
         int rocoe_(int meth)
         {
             double bet2p, bet3p, bet4p;
