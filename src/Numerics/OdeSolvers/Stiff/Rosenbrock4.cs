@@ -9,7 +9,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
     using System;
 
     using S_fp = System.Action<int, double, double[], double[]>;
-    using J_fp = System.Action<int, double, double[], double[], int>;
+    using J_fp = System.Action<int, double, double[], LinearAlgebra.Double.DenseMatrix>;
 
     public class Rosenbrock4
     {
@@ -117,11 +117,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
          *                    STORED IN DFY AS
          *                       DFY(I,J) = PARTIAL F(I) / PARTIAL Y(J)
          *
-         *     IJAC        SWITCH FOR THE COMPUTATION OF THE JACOBIAN:
-         *                    IJAC=0: JACOBIAN IS COMPUTED INTERNALLY BY FINITE
-         *                       DIFFERENCES, SUBROUTINE "JAC" IS NEVER CALLED.
-         *                    IJAC=1: JACOBIAN IS SUPPLIED BY SUBROUTINE JAC.
-         *
          *     DFX         NAME (EXTERNAL) OF THE SUBROUTINE WHICH COMPUTES
          *                 THE PARTIAL DERIVATIVES OF F(X,Y) WITH RESPECT TO X
          *                 (THIS ROUTINE IS ONLY CALLED IF IDFX=1 AND IFCN=1;
@@ -131,10 +126,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
          *                    DOUBLE PRECISION X,Y(N),FX(N)
          *                    FX(1)= 0...
          *
-         *     IDFX        SWITCH FOR THE COMPUTATION OF THE DF/DX:
-         *                    IDFX=0: DF/DX IS COMPUTED INTERNALLY BY FINITE
-         *                       DIFFERENCES, SUBROUTINE "DFX" IS NEVER CALLED.
-         *                    IDFX=1: DF/DX IS SUPPLIED BY SUBROUTINE DFX.
+         *     MAS         THE MASS-MATRIX M.
          * ----------------------------------------------------------------------
          *
          *     SOPHISTICATED SETTING OF PARAMETERS
@@ -193,15 +185,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
          *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS
          */
         public int rodas_(int n, S_fp fcn, int ifcn, double x, double[] y, double xend, double h, double[] rtol, double[] atol,
-            int itol, J_fp jac, int ijac, S_fp dfx, int idfx, DenseMatrix mas, double[] work, int[] iwork)
+            int itol, J_fp jac, S_fp dfx, DenseMatrix mas, double[] work, int[] iwork)
         {
-            int i, lde;
-            int ndec, njac;
-            int ijob, nfcn;
+            int ndec, njac, nfcn, nsol, nstep;
             int meth;
-            int nmax, nsol, ldjac;
-            int ldmas;
-            int nstep, ldmas2, naccpt, nrejct;
+            int nmax;
             bool implct;
             bool autnms;
             double uround;
@@ -211,8 +199,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             // Function Body
             nfcn = 0;
-            naccpt = 0;
-            nrejct = 0;
             nstep = 0;
             njac = 0;
             ndec = 0;
@@ -274,7 +260,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             else
             {
-                for (i = 0; i < n; ++i)
+                for (int i = 0; i < n; ++i)
                 {
                     if (atol[i] <= 0.0 || rtol[i] <= uround * 10.0)
                     {
@@ -287,27 +273,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Autonomous, implicit or not ?
             autnms = ifcn == 0;
             implct = mas != null;
-
-            // Computation of the row-dimensions of the 2-arrays
-
-            // Jacobian and matrix e
-            ldjac = n;
-            lde = n;
-
-            // Mass matrix
-            if (implct)
-            {
-                ldmas = n;
-                ijob = 5;
-            }
-            else
-            {
-                ldmas = 0;
-                ijob = 1;
-            }
-
-            ldmas2 = Math.Max(1, ldmas);
-
+            
             // Prepare the entry-points for the arrays in work
             var ynew = new double[n];
             var dy1 = new double[n];
@@ -319,25 +285,21 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var ak5 = new double[n];
             var ak6 = new double[n];
             var fx = new double[n];
-            var con = new double[n << 2];
-            var _jac = new double[n * ldjac];
-            var e = new double[n * lde];
+            var con = new double[4 * n];
             
             // Call to core integrator
             int idid = roscor_(n, fcn, x, y, xend, h, rtol, atol,
-                itol, jac, ijac, dfx, idfx, mas,
+                itol, jac, dfx, mas,
                 nmax, uround, meth,
-                ijob, autnms, implct,
-                ldjac, lde, ldmas2, ynew, dy1, dy,
-                ak1, ak2, ak3, ak4, ak5, ak6, fx, _jac, e,
+                autnms, implct,
+                ynew, dy1, dy,
+                ak1, ak2, ak3, ak4, ak5, ak6, fx,
                 con, ref nfcn,
-                ref njac, ref nstep, ref naccpt, ref nrejct, ref ndec, ref nsol);
+                ref njac, ref nstep, ref ndec, ref nsol);
 
             iwork[13] = nfcn;
             iwork[14] = njac;
             iwork[15] = nstep;
-            iwork[16] = naccpt;
-            iwork[17] = nrejct;
             iwork[18] = ndec;
             iwork[19] = nsol;
 
@@ -346,17 +308,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         
         // ... and here is the core integrator
         int roscor_(int n, S_fp fcn, double x, double[] y,
-            double xend, double h, double[]
-            rtol, double[] atol, int itol, J_fp jac, int ijac,
-            S_fp dfx, int idfx, DenseMatrix mas,
-            int nmax, double uround, int meth, int ijob,
+            double xend, double h, double[] rtol, double[] atol,
+            int itol, J_fp jac, S_fp dfx, DenseMatrix mas,
+            int nmax, double uround, int meth,
             bool autnms, bool implct,
-            int ldjac, int lde, int ldmas, double[] ynew, double[]
-            dy1, double[] dy, double[] ak1, double[] ak2, double[]
-            ak3, double[] ak4, double[] ak5, double[] ak6, double[]
-            fx, double[] fjac, double[] e, double[] cont,
-            ref int nfcn, ref int njac, ref int nstep, ref int naccpt,
-            ref int nrejct, ref int ndec, ref int nsol)
+            double[] ynew, double[] dy1,
+            double[] dy, double[] ak1, double[] ak2, double[] ak3,
+            double[] ak4, double[] ak5, double[] ak6, double[] fx,
+            double[] cont,
+            ref int nfcn, ref int njac, ref int nstep, ref int ndec, ref int nsol)
         {
             var lu = new ReusableLU(n);
             
@@ -369,6 +329,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double delt;
             bool last;
             double hopt = 0;
+            
+            //int ijob = implct ? 5 : 1;
 
             double ysafe;
             int nsing;
@@ -380,7 +342,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Core integrator for RODAS
             //
 
-            var _jac = new DenseMatrix(n);
+            var fjac = new DenseMatrix(n);
+            var fmodjac = new DenseMatrix(n);
 
             // Function Body
             conros_.n = n;
@@ -449,9 +412,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Computation of the Jacobian
             //
             fcn(n, x, y, dy1);
-            ++(nfcn);
-            ++(njac);
-            if (ijac == 0)
+            nfcn++;
+            njac++;
+            if (jac == null)
             {
                 // Compute Jacobian matrix numerically
                 // Jacobian is full
@@ -463,7 +426,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     fcn(n, x, y, ak1);
                     for (j = 0; j < n; ++j)
                     {
-                        fjac[j + i * ldjac] = (ak1[j] - dy1[j]) / delt;
+                        fjac.At(i, j, (ak1[j] - dy1[j]) / delt);
                     }
                     y[i] = ysafe;
                 }
@@ -471,12 +434,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             else
             {
                 // Compute jacobian matrix analytically
-                jac(n, x, y, fjac, ldjac);
+                jac(n, x, y, fjac);
             }
 
             if (!(autnms))
             {
-                if (idfx == 0)
+                if (dfx == null)
                 {
                     // Compute numerically the derivative with respect to x
                     delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(x)));
@@ -498,7 +461,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Compute the stages
             //
             fac = 1.0 / (h * gamma);
-            Factorize(n, lu, _jac, fjac, mas, fac);
+            Factorize(n, lu, fmodjac, fjac, mas, fac);
             //dc_decsol.decomr_(n, fjac, ldjac, mas, fac, e, lde, ip, ref ier, ijob, implct, ip);
             
             if (ier != 0) // TODO: check determinant?
@@ -867,11 +830,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return 0;
         }
 
-        private void Factorize(int n, ReusableLU lu, DenseMatrix jac, double[] fjac, DenseMatrix mas, double fac)
+        private void Factorize(int n, ReusableLU lu, DenseMatrix tmp, DenseMatrix jac, DenseMatrix mas, double fac)
         {
-            var a = jac.Values;
+            var a = tmp.Values;
+            var b = jac.Values;
 
-            bool dae = false; // Not tested.
+            bool dae = mas != null; // Not tested.
 
             if (!dae)
             {
@@ -880,7 +844,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
                     for (int j = 0; j < n; j++)
                     {
-                        a[i * n + j] = -fjac[i * n + j];
+                        a[i * n + j] = -b[i * n + j];
                     }
 
                     a[i * n + i] += fac;
@@ -893,12 +857,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
                     for (int i = 0; i < n; i++)
                     {
-                        a[i * n + j] = mas.At(i, j) * fac - fjac[i * n + j];
+                        a[i * n + j] = mas.At(i, j) * fac - b[i * n + j];
                     }
                 }
             }
 
-            lu.Compute(jac);
+            lu.Compute(tmp);
         }
 
         void Solve(int n, ReusableLU lu, DenseMatrix mas, double[] dy, double[] ak, double[] fx, double[] ynew, double hd, bool stage1)
@@ -918,7 +882,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
             }
 
-            bool dae = false; // Not tested.
+            bool dae = mas != null; // Not tested.
 
             if (!dae)
             {
