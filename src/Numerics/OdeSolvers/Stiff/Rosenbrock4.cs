@@ -10,7 +10,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
     using S_fp = System.Action<int, double, double[], double[]>;
     using J_fp = System.Action<int, double, double[], double[], int>;
-    using M_fp = System.Action<int, double[], int>;
 
     public class Rosenbrock4
     {
@@ -136,32 +135,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
          *                    IDFX=0: DF/DX IS COMPUTED INTERNALLY BY FINITE
          *                       DIFFERENCES, SUBROUTINE "DFX" IS NEVER CALLED.
          *                    IDFX=1: DF/DX IS SUPPLIED BY SUBROUTINE DFX.
-         *
-         *     ----   MAS,IMAS,MLMAS, AND MUMAS HAVE ANALOG MEANINGS      -----
-         *     ----   FOR THE "MASS MATRIX" (THE MATRIX "M" OF SECTION IV.8): -
-         *
-         *     MAS         NAME (EXTERNAL) OF SUBROUTINE COMPUTING THE MASS-
-         *                 MATRIX M.
-         *                 IF IMAS=0, THIS MATRIX IS ASSUMED TO BE THE IDENTITY
-         *                 MATRIX AND NEEDS NOT TO BE DEFINED;
-         *                 SUPPLY A DUMMY SUBROUTINE IN THIS CASE.
-         *                 IF IMAS=1, THE SUBROUTINE MAS IS OF THE FORM
-         *                    SUBROUTINE MAS(N,AM,LMAS,RPAR,IPAR)
-         *                    DOUBLE PRECISION AM(LMAS,N)
-         *                    AM(1,1)= 0....
-         *                    IF (MLMAS.EQ.N) THE MASS-MATRIX IS STORED
-         *                    AS FULL MATRIX LIKE
-         *                         AM(I,J) = M(I,J)
-         *
-         *     IMAS       GIVES INFORMATION ON THE MASS-MATRIX:
-         *                    IMAS=0: M IS SUPPOSED TO BE THE IDENTITY
-         *                       MATRIX, MAS IS NEVER CALLED.
-         *                    IMAS=1: MASS-MATRIX  IS SUPPLIED.
-         *
-         *     IOUT        GIVES INFORMATION ON THE SUBROUTINE SOLOUT:
-         *                    IOUT=0: SUBROUTINE IS NEVER CALLED
-         *                    IOUT=1: SUBROUTINE IS USED FOR OUTPUT
-         *
          * ----------------------------------------------------------------------
          *
          *     SOPHISTICATED SETTING OF PARAMETERS
@@ -220,7 +193,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
          *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS
          */
         public int rodas_(int n, S_fp fcn, int ifcn, double x, double[] y, double xend, double h, double[] rtol, double[] atol,
-            int itol, J_fp jac, int ijac, S_fp dfx, int idfx, M_fp mas, int imas, double[] work, int[] iwork)
+            int itol, J_fp jac, int ijac, S_fp dfx, int idfx, DenseMatrix mas, double[] work, int[] iwork)
         {
             int i, lde;
             int ndec, njac;
@@ -313,7 +286,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             // Autonomous, implicit or not ?
             autnms = ifcn == 0;
-            implct = imas != 0;
+            implct = mas != null;
 
             // Computation of the row-dimensions of the 2-arrays
 
@@ -348,11 +321,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var fx = new double[n];
             var con = new double[n << 2];
             var _jac = new double[n * ldjac];
-            var _mas = new double[n * ldmas];
             var e = new double[n * lde];
-
-            // Entry points for int workspace
-            var ip = new int[n]; // TODO: remove (decsol pivoting)
             
             // Call to core integrator
             int idid = roscor_(n, fcn, x, y, xend, h, rtol, atol,
@@ -361,7 +330,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ijob, autnms, implct,
                 ldjac, lde, ldmas2, ynew, dy1, dy,
                 ak1, ak2, ak3, ak4, ak5, ak6, fx, _jac, e,
-                _mas, ip, con, ref nfcn,
+                con, ref nfcn,
                 ref njac, ref nstep, ref naccpt, ref nrejct, ref ndec, ref nsol);
 
             iwork[13] = nfcn;
@@ -379,14 +348,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         int roscor_(int n, S_fp fcn, double x, double[] y,
             double xend, double h, double[]
             rtol, double[] atol, int itol, J_fp jac, int ijac,
-            S_fp dfx, int idfx, M_fp mas,
+            S_fp dfx, int idfx, DenseMatrix mas,
             int nmax, double uround, int meth, int ijob,
             bool autnms, bool implct,
             int ldjac, int lde, int ldmas, double[] ynew, double[]
             dy1, double[] dy, double[] ak1, double[] ak2, double[]
             ak3, double[] ak4, double[] ak5, double[] ak6, double[]
-            fx, double[] fjac, double[] e, double[] fmas, int[] ip,
-            double[] cont,
+            fx, double[] fjac, double[] e, double[] cont,
             ref int nfcn, ref int njac, ref int nstep, ref int naccpt,
             ref int nrejct, ref int ndec, ref int nsol)
         {
@@ -405,7 +373,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double ysafe;
             int nsing;
             double xdelt;
-            int irtrn;
             
             double posneg;
 
@@ -417,13 +384,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             // Function Body
             conros_.n = n;
-
-            // Compute mass matrix for implicit case
-            if (implct)
-            {
-                mas(n, fmas, ldmas);
-            }
-
+            
             // Set the parameters of the method
             rocoe_(meth);
 
@@ -439,7 +400,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             h = d_sign(h, posneg);
             last = false;
             nsing = 0;
-            irtrn = 1;
+
             if (autnms)
             {
                 hd1 = 0.0;
@@ -537,8 +498,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Compute the stages
             //
             fac = 1.0 / (h * gamma);
-            Factorize(n, lu, _jac, fjac, fmas, fac);
-            //dc_decsol.decomr_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, ref ier, ijob, implct, ip);
+            Factorize(n, lu, _jac, fjac, mas, fac);
+            //dc_decsol.decomr_(n, fjac, ldjac, mas, fac, e, lde, ip, ref ier, ijob, implct, ip);
             
             if (ier != 0) // TODO: check determinant?
             {
@@ -584,8 +545,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             // THE STAGES
-            Solve(n, lu, fmas, dy1, ak1, fx, ynew, hd1, false);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy1, ak1, fx, ynew, hd1, ijob, false);
+            Solve(n, lu, mas, dy1, ak1, fx, ynew, hd1, false);
+            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy1, ak1, fx, ynew, hd1, ijob, false);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a21 * ak1[i];
@@ -596,8 +557,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 ynew[i] = hc21 * ak1[i];
             }
-            Solve(n, lu, fmas, dy, ak2, fx, ynew, hd2, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak2, fx, ynew, hd2, ijob, true);
+            Solve(n, lu, mas, dy, ak2, fx, ynew, hd2, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak2, fx, ynew, hd2, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a31 * ak1[i] + a32 * ak2[i];
@@ -608,8 +569,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 ynew[i] = hc31 * ak1[i] + hc32 * ak2[i];
             }
-            Solve(n, lu, fmas, dy, ak3, fx, ynew, hd3, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak3, fx, ynew, hd3, ijob, true);
+            Solve(n, lu, mas, dy, ak3, fx, ynew, hd3, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak3, fx, ynew, hd3, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a41 * ak1[i] + a42 * ak2[i] + a43 * ak3[i];
@@ -620,8 +581,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 ynew[i] = hc41 * ak1[i] + hc42 * ak2[i] + hc43 * ak3[i];
             }
-            Solve(n, lu, fmas, dy, ak4, fx, ynew, hd4, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak4, fx, ynew, hd4, ijob, true);
+            Solve(n, lu, mas, dy, ak4, fx, ynew, hd4, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak4, fx, ynew, hd4, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a51 * ak1[i] + a52 * ak2[i] + a53 * ak3[i]
@@ -633,8 +594,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 ak6[i] = hc52 * ak2[i] + hc54 * ak4[i] + hc51 * ak1[i] + hc53 * ak3[i];
             }
-            Solve(n, lu, fmas, dy, ak5, fx, ak6, 0.0, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak5, fx, ak6, 0.0, ijob, true);
+            Solve(n, lu, mas, dy, ak5, fx, ak6, 0.0, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak5, fx, ak6, 0.0, ijob, true);
 
             // ---- Embedded solution
             for (i = 0; i < n; i++)
@@ -647,8 +608,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 cont[i] = hc61 * ak1[i] + hc62 * ak2[i] + hc65 * ak5[i] + hc64 * ak4[i] + hc63 * ak3[i];
             }
-            Solve(n, lu, fmas, dy, ak6, fx, cont, 0.0, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, fmas, ldmas, fac, e, lde, ip, dy, ak6, fx, cont, 0.0, ijob, true);
+            Solve(n, lu, mas, dy, ak6, fx, cont, 0.0, true);
+            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak6, fx, cont, 0.0, ijob, true);
 
             // ---- New solution
             for (i = 0; i < n; i++)
@@ -906,7 +867,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return 0;
         }
 
-        private void Factorize(int n, ReusableLU lu, DenseMatrix jac, double[] fjac, double[] fmas, double fac)
+        private void Factorize(int n, ReusableLU lu, DenseMatrix jac, double[] fjac, DenseMatrix mas, double fac)
         {
             var a = jac.Values;
 
@@ -932,7 +893,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
                     for (int i = 0; i < n; i++)
                     {
-                        a[i * n + j] = fmas[i * n + j] * fac - fjac[i * n + j];
+                        a[i * n + j] = mas.At(i, j) * fac - fjac[i * n + j];
                     }
                 }
             }
@@ -940,7 +901,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             lu.Compute(jac);
         }
 
-        void Solve(int n, ReusableLU lu, double[] fmas, double[] dy, double[] ak, double[] fx, double[] ynew, double hd, bool stage1)
+        void Solve(int n, ReusableLU lu, DenseMatrix mas, double[] dy, double[] ak, double[] fx, double[] ynew, double hd, bool stage1)
         {
             if (hd == 0.0)
             {
@@ -978,7 +939,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     double sum = 0.0;
                     for (int j = 0; j < n; ++j)
                     {
-                        sum += fmas[i * n + j] * ynew[j];
+                        sum += mas.At(i, j) * ynew[j];
                     }
                     ak[i] += sum;
                 }
