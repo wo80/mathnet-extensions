@@ -8,17 +8,36 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
     using MathNet.Numerics.LinearAlgebra.Double.Factorization;
     using System;
 
-    using S_fp = System.Action<int, double, double[], double[]>;
-    using J_fp = System.Action<int, double, double[], LinearAlgebra.Double.DenseMatrix>;
-
+    /// <summary>
+    /// Numerical solution of a stiff(or differential algebraic) system of first
+    /// order ordinary differential equations. This is an embedded Rosenbrock
+    /// method of order (3)4 with step size control and dense output.
+    /// 
+    /// Authors: E. Hairer and G. Wanner
+    ///
+    /// This code is part of the book:
+    ///         E. Hairer and G. Wanner
+    ///         Solving Ordinary Differential Equations II.
+    ///         Stiff and differential-algebraic problems. (2nd edition)
+    ///         Springer-Verlag (1996)
+    /// </summary>
     public class Rosenbrock4
     {
         RosenbrockErrorController controller;
 
-        double[] rtol, atol;
+        int n;
+
+        Action<double, double[], double[]> fcn;
+
+        bool autonomous;
+        Action<double, double[], DenseMatrix> jac;
+        Action<double, double[], double[]> dfx;
+        DenseMatrix mas;
+
+        double rtol, atol;
 
         double hold;
-        
+
         public int ndec, nsol; // TODO: remove
 
         struct conros
@@ -29,8 +48,33 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         conros conros_ = new conros();
 
-        public Rosenbrock4(RosenbrockErrorController controller)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="n">dimension of the system</param>
+        /// <param name="fcn">subroutine computing the value of f(x,y)</param>
+        /// <param name="autonomous">f(x,y) independent of x (autonomous)</param>
+        /// <param name="jac">subroutine which computes the partial derivatives of f(x,y) with respect to y</param>
+        /// <param name="dfx">subroutine which computes the partial derivatives of f(x,y) with respect to x</param>
+        /// <param name="mas">the mass-matrix m.</param>
+        /// <param name="rtol">relative error tolerances</param>
+        /// <param name="atol">absolute error tolerances</param>
+        /// <param name="controller"></param>
+        public Rosenbrock4(int n, Action<double, double[], double[]> fcn,
+            bool autonomous, Action<double, double[], DenseMatrix> jac,
+            Action<double, double[], double[]> dfx, DenseMatrix mas,
+            double rtol, double atol,
+            RosenbrockErrorController controller)
         {
+            this.n = n;
+            this.fcn = fcn;
+            this.autonomous = autonomous;
+            this.jac = jac;
+            this.dfx = dfx;
+            this.mas = mas;
+            this.rtol = rtol;
+            this.atol = atol;
+
             this.controller = controller;
         }
 
@@ -46,158 +90,40 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         double c2, c3, c4, d1, d2, d3, d4, gamma;
 
         /**
-         *     NUMERICAL SOLUTION OF A STIFF (OR DIFFERENTIAL ALGEBRAIC)
-         *     SYSTEM OF FIRST 0RDER ORDINARY DIFFERENTIAL EQUATIONS  MY'=F(X,Y).
-         *     THIS IS AN EMBEDDED ROSENBROCK METHOD OF ORDER (3)4
-         *     (WITH STEP SIZE CONTROL).
-         *     C.F. SECTIONS IV.7  AND VI.3
-         *
-         *     AUTHORS: E. HAIRER AND G. WANNER
-         *              UNIVERSITE DE GENEVE, DEPT. DE MATHEMATIQUES
-         *              CH-1211 GENEVE 24, SWITZERLAND
-         *              E-MAIL:  Ernst.Hairer@math.unige.ch
-         *                       Gerhard.Wanner@math.unige.ch
-         *
-         *     THIS CODE IS PART OF THE BOOK:
-         *         E. HAIRER AND G. WANNER, SOLVING ORDINARY DIFFERENTIAL
-         *         EQUATIONS II. STIFF AND DIFFERENTIAL-ALGEBRAIC PROBLEMS.
-         *         SPRINGER SERIES IN COMPUTATIONAL MATHEMATICS 14,
-         *         SPRINGER-VERLAG 1991, SECOND EDITION 1996.
-         *
-         *     VERSION OF OCTOBER 28, 1996
-         *
-         *     INPUT PARAMETERS
-         *     ----------------
-         *     N           DIMENSION OF THE SYSTEM
-         *
-         *     FCN         NAME (EXTERNAL) OF SUBROUTINE COMPUTING THE
-         *                 VALUE OF F(X,Y):
-         *                    SUBROUTINE FCN(N,X,Y,F,RPAR,IPAR)
-         *                    DOUBLE PRECISION X,Y(N),F(N)
-         *                    F(1)=...   ETC.
-         *                 RPAR, IPAR (SEE BELOW)
-         *
-         *     IFCN        GIVES INFORMATION ON FCN:
-         *                    IFCN=0: F(X,Y) INDEPENDENT OF X (AUTONOMOUS)
-         *                    IFCN=1: F(X,Y) MAY DEPEND ON X (NON-AUTONOMOUS)
-         *
-         *     X           INITIAL X-VALUE
-         *
-         *     Y(N)        INITIAL VALUES FOR Y
-         *
-         *     XEND        FINAL X-VALUE (XEND-X MAY BE POSITIVE OR NEGATIVE)
-         *
-         *     H           INITIAL STEP SIZE GUESS;
-         *                 FOR STIFF EQUATIONS WITH INITIAL TRANSIENT,
-         *                 H=1.D0/(NORM OF F'), USUALLY 1.D-2 OR 1.D-3, IS GOOD.
-         *                 THIS CHOICE IS NOT VERY IMPORTANT, THE CODE QUICKLY
-         *                 ADAPTS ITS STEP SIZE (IF H=0.D0, THE CODE PUTS H=1.D-6).
-         *
-         *     RTOL,ATOL   RELATIVE AND ABSOLUTE ERROR TOLERANCES. THEY
-         *                 CAN BE BOTH SCALARS OR ELSE BOTH VECTORS OF LENGTH N.
-         *
-         *     ITOL        SWITCH FOR RTOL AND ATOL:
-         *                   ITOL=0: BOTH RTOL AND ATOL ARE SCALARS.
-         *                     THE CODE KEEPS, ROUGHLY, THE LOCAL ERROR OF
-         *                     Y(I) BELOW RTOL*ABS(Y(I))+ATOL
-         *                   ITOL=1: BOTH RTOL AND ATOL ARE VECTORS.
-         *                     THE CODE KEEPS THE LOCAL ERROR OF Y(I) BELOW
-         *                     RTOL(I)*ABS(Y(I))+ATOL(I).
-         *
-         *     JAC         NAME (EXTERNAL) OF THE SUBROUTINE WHICH COMPUTES
-         *                 THE PARTIAL DERIVATIVES OF F(X,Y) WITH RESPECT TO Y
-         *                 (THIS ROUTINE IS ONLY CALLED IF IJAC=1; SUPPLY
-         *                 A DUMMY SUBROUTINE IN THE CASE IJAC=0).
-         *                 FOR IJAC=1, THIS SUBROUTINE MUST HAVE THE FORM
-         *                    SUBROUTINE JAC(N,X,Y,DFY,LDFY,RPAR,IPAR)
-         *                    DOUBLE PRECISION X,Y(N),DFY(LDFY,N)
-         *                    DFY(1,1)= 0...
-         *                 LDFY, THE COLOMN-LENGTH OF THE ARRAY, IS
-         *                 FURNISHED BY THE CALLING PROGRAM.
-         *                 IF (MLJAC.EQ.N) THE JACOBIAN IS SUPPOSED TO
-         *                    BE FULL AND THE PARTIAL DERIVATIVES ARE
-         *                    STORED IN DFY AS
-         *                       DFY(I,J) = PARTIAL F(I) / PARTIAL Y(J)
-         *
-         *     DFX         NAME (EXTERNAL) OF THE SUBROUTINE WHICH COMPUTES
-         *                 THE PARTIAL DERIVATIVES OF F(X,Y) WITH RESPECT TO X
-         *                 (THIS ROUTINE IS ONLY CALLED IF IDFX=1 AND IFCN=1;
-         *                 SUPPLY A DUMMY SUBROUTINE IN THE CASE IDFX=0 OR IFCN=0).
-         *                 OTHERWISE, THIS SUBROUTINE MUST HAVE THE FORM
-         *                    SUBROUTINE DFX(N,X,Y,FX,RPAR,IPAR)
-         *                    DOUBLE PRECISION X,Y(N),FX(N)
-         *                    FX(1)= 0...
-         *
-         *     MAS         THE MASS-MATRIX M.
-         * ----------------------------------------------------------------------
-         *
-         *     SOPHISTICATED SETTING OF PARAMETERS
-         *     -----------------------------------
-         *              SEVERAL PARAMETERS OF THE CODE ARE TUNED TO MAKE IT WORK
-         *              WELL. THEY MAY BE DEFINED BY SETTING WORK(1),..,WORK(4)
-         *              AS WELL AS IWORK(1),IWORK(2) DIFFERENT FROM ZERO.
-         *              FOR ZERO INPUT, THE CODE CHOOSES DEFAULT VALUES:
-         *
-         *    IWORK(1)  THIS IS THE MAXIMAL NUMBER OF ALLOWED STEPS.
-         *              THE DEFAULT VALUE (FOR IWORK(1)=0) IS 100000.
-         *
-         *    IWORK(2)  SWITCH FOR THE CHOICE OF THE COEFFICIENTS
-         *              IF IWORK(2).EQ.1  METHOD (SEE BOOK, PAGE 452)
-         *              IF IWORK(2).EQ.2  SAME METHOD WITH DIFFERENT PARAMETERS
-         *              IF IWORK(2).EQ.3  METHOD WITH COEFF. OF GERD STEINEBACH
-         *              THE DEFAULT VALUE (FOR IWORK(2)=0) IS IWORK(2)=1.
-         *
-         *    IWORK(3)  SWITCH FOR STEP SIZE STRATEGY
-         *              IF IWORK(3).EQ.1  MOD. PREDICTIVE CONTROLLER (GUSTAFSSON)
-         *              IF IWORK(3).EQ.2  CLASSICAL APPROACH
-         *              THE DEFAULT VALUE (FOR IWORK(3)=0) IS IWORK(3)=1.
-         *
-         *    WORK(1)   UROUND, THE ROUNDING UNIT, DEFAULT 1.D-16.
-         *
-         *    WORK(2)   MAXIMAL STEP SIZE, DEFAULT XEND-X.
-         *
-         * -----------------------------------------------------------------------
-         *
-         *     OUTPUT PARAMETERS
+         *     output parameters
          *     -----------------
-         *     X           X-VALUE WHERE THE SOLUTION IS COMPUTED
-         *                 (AFTER SUCCESSFUL RETURN X=XEND)
+         *     x           x-value where the solution is computed
+         *                 (after successful return x=xend)
          *
-         *     Y(N)        SOLUTION AT X
+         *     y(n)        solution at x
          *
-         *     H           PREDICTED STEP SIZE OF THE LAST ACCEPTED STEP
+         *     h           predicted step size of the last accepted step
          *
-         *     IDID        REPORTS ON SUCCESSFULNESS UPON RETURN:
-         *                   IDID= 1  COMPUTATION SUCCESSFUL,
-         *                   IDID= 2  COMPUT. SUCCESSFUL (INTERRUPTED BY SOLOUT)
-         *                   IDID=-1  INPUT IS NOT CONSISTENT,
-         *                   IDID=-2  LARGER NMAX IS NEEDED,
-         *                   IDID=-3  STEP SIZE BECOMES TOO SMALL,
-         *                   IDID=-4  MATRIX IS REPEATEDLY SINGULAR.
+         * 
+         *     x           initial x-value
          *
-         *   IWORK(14)  NFCN    NUMBER OF FUNCTION EVALUATIONS (THOSE FOR NUMERICAL
-         *                      EVALUATION OF THE JACOBIAN ARE NOT COUNTED)
-         *   IWORK(15)  NJAC    NUMBER OF JACOBIAN EVALUATIONS (EITHER ANALYTICALLY
-         *                      OR NUMERICALLY)
-         *   IWORK(16)  NSTEP   NUMBER OF COMPUTED STEPS
-         *   IWORK(17)  NACCPT  NUMBER OF ACCEPTED STEPS
-         *   IWORK(18)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
-         *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
-         *   IWORK(19)  NDEC    NUMBER OF LU-DECOMPOSITIONS (N-DIMENSIONAL MATRIX)
-         *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS
+         *     y(n)        initial values for y
+         *
+         *     xend        final x-value (xend-x may be positive or negative)
+         *
+         *     h           initial step size guess;
+         *                 for stiff equations with initial transient,
+         *                 h=1.d0/(norm of f'), usually 1.d-2 or 1.d-3, is good.
+         *                 this choice is not very important, the code quickly
+         *                 adapts its step size (if h=0.d0, the code puts h=1.d-6).
          */
-        public int rodas_(int n, S_fp fcn, int ifcn, double x, double[] y, double xend, double h, double[] rtol, double[] atol,
-            int itol, J_fp jac, S_fp dfx, DenseMatrix mas)
+        public int rodas_(double x, double[] y, double xend, double h)
         {
             double eps = Precision.DoublePrecision;
-
-            this.rtol = rtol;
-            this.atol = atol;
 
             // NMAX , THE MAXIMAL NUMBER OF STEPS
             int nmax = 100000;
 
             // METH   COEFFICIENTS OF THE METHOD
+            //   1  method (see book, page 452)
+            //   2  same method with different parameters
+            //   3  method with coeff. of gerd steinebach
+
             int meth = 1;
 
             if (meth <= 0 || meth >= 4)
@@ -207,29 +133,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             // Check if tolerances are OK.
-            if (itol == 0)
+            if (atol <= 0.0 || rtol <= eps * 10.0)
             {
-                if (atol[0] <= 0.0 || rtol[0] <= eps * 10.0)
-                {
-                    Console.WriteLine(" Tolerances are too small");
-                    return -1;
-                }
+                Console.WriteLine(" Tolerances are too small");
+                return -1;
             }
-            else
-            {
-                for (int i = 0; i < n; ++i)
-                {
-                    if (atol[i] <= 0.0 || rtol[i] <= eps * 10.0)
-                    {
-                        Console.WriteLine(" Tolerances(%d) are too small", i);
-                        return -1;
-                    }
-                }
-            }
-
-            // Autonomous, implicit or not ?
-            bool autnms = ifcn == 0;
-            bool implct = mas != null;
 
             // Prepare the entry-points for the arrays in work
             var ynew = new double[n];
@@ -247,9 +155,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ndec = nsol = 0;
 
             // Call to core integrator
-            int nstep = roscor_(n, fcn, x, y, xend, h, rtol, atol,
-                itol, jac, dfx, mas,
-                nmax, meth, autnms, implct,
+            int nstep = roscor_(x, y, xend, h,
+                nmax, meth,
                 ynew, dy1, dy,
                 ak1, ak2, ak3, ak4, ak5, ak6, fx,
                 con);
@@ -263,15 +170,23 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         }
 
         // ... and here is the core integrator
-        int roscor_(int n, S_fp fcn, double x, double[] y,
-            double xend, double h, double[] rtol, double[] atol,
-            int itol, J_fp jac, S_fp dfx, DenseMatrix mas,
-            int nmax, int meth, bool autnms, bool implct,
+        int roscor_(double x, double[] y,
+            double xend, double h,
+            int nmax, int meth,
             double[] ynew, double[] dy1,
             double[] dy, double[] ak1, double[] ak2, double[] ak3,
             double[] ak4, double[] ak5, double[] ak6, double[] fx,
             double[] cont)
         {
+            int n = this.n;
+
+            var fcn = this.fcn;
+            var jac = this.jac;
+            var dfx = this.dfx;
+            var mas = this.mas;
+
+            bool autonomous = this.autonomous;
+
             var lu = new ReusableLU(n);
 
             // Local variables
@@ -319,7 +234,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             last = false;
             nsing = 0;
 
-            if (autnms)
+            if (autonomous)
             {
                 hd1 = 0.0;
                 hd2 = 0.0;
@@ -365,7 +280,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             //
             // Computation of the Jacobian
             //
-            fcn(n, x, y, dy1);
+            fcn(x, y, dy1);
 
             if (jac == null)
             {
@@ -376,7 +291,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     ysafe = y[i];
                     delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(ysafe)));
                     y[i] = ysafe + delt;
-                    fcn(n, x, y, ak1);
+                    fcn(x, y, ak1);
                     for (j = 0; j < n; ++j)
                     {
                         fjac.At(i, j, (ak1[j] - dy1[j]) / delt);
@@ -387,17 +302,17 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             else
             {
                 // Compute jacobian matrix analytically
-                jac(n, x, y, fjac);
+                jac(x, y, fjac);
             }
 
-            if (!(autnms))
+            if (!(autonomous))
             {
                 if (dfx == null)
                 {
                     // Compute numerically the derivative with respect to x
                     delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(x)));
                     xdelt = x + delt;
-                    fcn(n, xdelt, y, ak1);
+                    fcn(xdelt, y, ak1);
                     for (j = 0; j < n; ++j)
                     {
                         fx[j] = (ak1[j] - dy1[j]) / delt;
@@ -406,7 +321,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 else
                 {
                     // Compute analytically the derivative with respect to x
-                    dfx(n, x, y, fx);
+                    dfx(x, y, fx);
                 }
             }
             L2:
@@ -452,7 +367,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             hc63 = c63 / h;
             hc64 = c64 / h;
             hc65 = c65 / h;
-            if (!(autnms))
+            if (!(autonomous))
             {
                 hd1 = h * d1;
                 hd2 = h * d2;
@@ -468,7 +383,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ynew[i] = y[i] + a21 * ak1[i];
             }
 
-            fcn(n, x + c2 * h, ynew, dy);
+            fcn(x + c2 * h, ynew, dy);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = hc21 * ak1[i];
@@ -480,7 +395,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ynew[i] = y[i] + a31 * ak1[i] + a32 * ak2[i];
             }
 
-            fcn(n, x + c3 * h, ynew, dy);
+            fcn(x + c3 * h, ynew, dy);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = hc31 * ak1[i] + hc32 * ak2[i];
@@ -492,7 +407,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ynew[i] = y[i] + a41 * ak1[i] + a42 * ak2[i] + a43 * ak3[i];
             }
 
-            fcn(n, x + c4 * h, ynew, dy);
+            fcn(x + c4 * h, ynew, dy);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = hc41 * ak1[i] + hc42 * ak2[i] + hc43 * ak3[i];
@@ -505,7 +420,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     + a54 * ak4[i];
             }
 
-            fcn(n, x + h, ynew, dy);
+            fcn(x + h, ynew, dy);
             for (i = 0; i < n; i++)
             {
                 ak6[i] = hc52 * ak2[i] + hc54 * ak4[i] + hc51 * ak1[i] + hc53 * ak3[i];
@@ -519,7 +434,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ynew[i] += ak5[i];
             }
 
-            fcn(n, x + h, ynew, dy);
+            fcn(x + h, ynew, dy);
             for (i = 0; i < n; i++)
             {
                 cont[i] = hc61 * ak1[i] + hc62 * ak2[i] + hc65 * ak5[i] + hc64 * ak4[i] + hc63 * ak3[i];
@@ -597,14 +512,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             for (int i = 0; i < n; i++)
             {
-                //if (itol == 0)
-                {
-                    sk = atol[0] + rtol[0] * Math.Max(Math.Abs(y[i]), Math.Abs(ynew[i]));
-                }
-                //else
-                //{
-                //    sk = atol[i] + rtol[i] * Math.Max(Math.Abs(y[i]), Math.Abs(ynew[i]));
-                //}
+                sk = atol + rtol * Math.Max(Math.Abs(y[i]), Math.Abs(ynew[i]));
 
                 temp = yerr[i] / sk;
                 err += temp * temp;
