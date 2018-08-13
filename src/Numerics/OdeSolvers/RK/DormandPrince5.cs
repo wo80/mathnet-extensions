@@ -9,7 +9,7 @@ namespace MathNet.Numerics.OdeSolvers.RK
     /// <summary>
     /// Numerical solution of a system of first order ordinary differential equations y'=f(x,y).
     /// This is an explicit runge-kutta method of order (4)5 due to Dormand & Prince (with stepsize
-    /// control and dense output)
+    /// control and dense output).
     ///
     /// Authors: E. Hairer and G. Wanner
     ///

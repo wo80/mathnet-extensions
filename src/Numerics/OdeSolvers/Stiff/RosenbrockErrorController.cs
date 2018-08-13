@@ -34,65 +34,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         /// Gets the number of accepted steps.
         /// </summary>
         public int Accepted { get { return naccepted; } }
-
-        // TODO: minscale <> maxscale
-
-        /*
-         * 
-         *    WORK(3), WORK(4)   PARAMETERS FOR STEP SIZE SELECTION
-         *              THE NEW STEP SIZE IS CHOSEN SUBJECT TO THE RESTRICTION
-         *                 WORK(3) &lt;= HNEW/HOLD &lt;= WORK(4)
-         *              DEFAULT VALUES: WORK(3)=0.2D0, WORK(4)=6.D0
-         *              
-
-            //  FAC1,FAC2     Parameters for step size selection
-            if (work[2] == 0.0)
-            {
-                maxscale = 5.0;
-            }
-            else
-            {
-                maxscale = 1.0 / work[2];
-            }
-            if (work[3] == 0.0)
-            {
-                minscale = 0.16666666666666666;
-            }
-            else
-            {
-                minscale = 1.0 / work[3];
-            }
-            if (maxscale < 1.0 || minscale > 1.0)
-            {
-
-                Console.WriteLine(" Curious input WORK(3,4)=", work[2], work[3]);
-
-                arret = true;
-            }
-
-            // SAFE     Safety factor in step size prediction
-            if (work[4] == 0.0)
-            {
-                safe = 0.9;
-            }
-            else
-            {
-                safe = work[4];
-                if (safe <= 0.001 || safe >= 1.0)
-                {
-
-                    Console.WriteLine(" Curious input for WORK(5)=", work[4]);
-
-                    arret = true;
-                }
-            }
-        //*/
-
+        
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="minscale">Minimum scaling for step size selection (minscale &lt= hnew/hold).</param>
-        /// <param name="maxscale">Maximum scaling for step size selection (hnew/hold &lt= maxscale).</param>
+        /// <param name="minscale">Minimum scaling for step size selection (minscale &lt= hnew/h) (default = 0.2).</param>
+        /// <param name="maxscale">Maximum scaling for step size selection (hnew/h &lt= maxscale) (default = 6.0).</param>
         /// <param name="hmax">Maximal step size (default tend - t).</param>
         /// <param name="safe">Safety factor in step size prediction (default 0.9).</param>
         public RosenbrockErrorController(double minscale, double maxscale, double hmax, double safe, bool predictive)
@@ -101,7 +48,17 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 throw new ArgumentException("Curious input for safety factor.", nameof(safe));
             }
-            
+
+            if (minscale > 1.0)
+            {
+                throw new ArgumentException(" Curious input for minscale.", nameof(minscale));
+            }
+
+            if (maxscale < 1.0)
+            {
+                throw new ArgumentException(" Curious input for maxscale.", nameof(maxscale));
+            }
+
             this.minscale = minscale;
             this.maxscale = maxscale;
             this.hmax = hmax;
@@ -120,9 +77,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         public bool Success(double err, double posneg, ref double h)
         {
             // Computation of HNEW (we require 0.2 <= hnew/h <= 6.0)
-            double fac = Math.Max(minscale, Math.Min(maxscale, Math.Pow(err, 0.25) / safe));
+            double scale = Math.Max(minscale, Math.Min(maxscale, safe / Math.Pow(err, 0.25)));
 
-            hnew = h / fac;
+            hnew = h * scale;
 
             double facgus;
 
@@ -130,21 +87,21 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (err <= 1.0)
             {
                 // Step is accepted
-                naccepted++;
+                naccepted++; // TODO: move down? (see 'if (naccepted > 1)' below)
 
                 if (predictive)
                 {
                     // Predictive controller of Gustafsson
                     if (naccepted > 1)
                     {
-                        facgus = hacc / h * Math.Pow(err * err / erracc, 0.25) / safe;
+                        facgus = h / hacc * safe / Math.Pow(err * err / erracc, 0.25);
                         facgus = Math.Max(minscale, Math.Min(maxscale, facgus));
-                        fac = Math.Max(fac, facgus);
-                        hnew = h / fac;
+                        scale = Math.Min(scale, facgus);
+                        hnew = h * scale;
                     }
 
                     hacc = h;
-                    erracc = Math.Max(.01, err);
+                    erracc = Math.Max(0.01, err);
                 }
 
                 if (Math.Abs(hnew) > hmax)

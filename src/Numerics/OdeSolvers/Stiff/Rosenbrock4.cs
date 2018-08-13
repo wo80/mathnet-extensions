@@ -35,18 +35,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         DenseMatrix mas;
 
         double rtol, atol;
-
-        double hold;
-
+        
         public int ndec, nsol; // TODO: remove
 
-        struct conros
-        {
-            public double xold, h;
-            public int n;
-        };
-
-        conros conros_ = new conros();
+        double hold;
+        double xold, __hold; // TODO: remove __hold
 
         /// <summary>
         /// 
@@ -214,10 +207,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             var fjac = new DenseMatrix(n);
             var fmodjac = new DenseMatrix(n);
-
-            // Function Body
-            conros_.n = n;
-
+            
             // Set the parameters of the method
             rocoe_(meth);
 
@@ -243,8 +233,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             {
-                conros_.xold = x;
-                conros_.h = h;
+                xold = x;
+                __hold = h;
                 //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
             }
 
@@ -479,21 +469,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
                     y[i] = ynew[i];
                 }
-                conros_.xold = x;
+                xold = x;
 
                 x += hold;
-
-                /*
-                if (iout != 0)
+                
+                //if (dense)
                 {
                     for (i = 0; i < n; ++i)
                     {
-                        cont[conros_.n + i] = y[i];
+                        cont[n + i] = y[i];
                     }
-                    conros_.h = h;
+                    __hold = h;
                     //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
                 }
-                //*/
 
                 goto L1;
             }
@@ -527,9 +515,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         double Interpolate(int i, double x, double[] cont)
         {
             // Local variables
-            double s = (x - conros_.xold) / conros_.h;
+            double s = (x - xold) / __hold;
 
-            return cont[i] * (1 - s) + s * (cont[i + conros_.n] + (1 - s) * (cont[i + (conros_.n << 1)] + s * cont[i + conros_.n * 3]));
+            return cont[i] * (1 - s) + s * (cont[i + n] + (1 - s) * (cont[i + 2 * n] + s * cont[i +  3 * n]));
         }
 
         int rocoe_(int meth)
