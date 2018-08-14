@@ -48,6 +48,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         double[] ak1, ak2, ak3, ak4, ak5, ak6;
         double[] fx, cont;
 
+        ReusableLU lu;
+        DenseMatrix fjac;
+        DenseMatrix mjac;
+
         /// <summary>
         /// 
         /// </summary>
@@ -76,9 +80,25 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             this.atol = atol;
 
             this.controller = controller;
+
+            ynew = new double[n];
+            dy1 = new double[n];
+            dy = new double[n];
+            ak1 = new double[n];
+            ak2 = new double[n];
+            ak3 = new double[n];
+            ak4 = new double[n];
+            ak5 = new double[n];
+            ak6 = new double[n];
+            fx = new double[n];
+            cont = new double[4 * n];
+
+            lu = new ReusableLU(n);
+            fjac = new DenseMatrix(n);
+            mjac = new DenseMatrix(n);
         }
 
-        double d_sign(double a, double b)
+        double sign(double a, double b)
         {
             double x = Math.Abs(a);
             return b >= 0 ? x : -x;
@@ -112,7 +132,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
          *                 this choice is not very important, the code quickly
          *                 adapts its step size (if h=0.d0, the code puts h=1.d-6).
          */
-        public int rodas_(double x, double[] y, double xend, double h)
+        public int Integrate(double x, double[] y, double xend, double h)
         {
             double eps = Precision.DoublePrecision;
 
@@ -138,24 +158,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 Console.WriteLine(" Tolerances are too small");
                 return -1;
             }
-
-            // Prepare the entry-points for the arrays in work
-            ynew = new double[n];
-            dy1 = new double[n];
-            dy = new double[n];
-            ak1 = new double[n];
-            ak2 = new double[n];
-            ak3 = new double[n];
-            ak4 = new double[n];
-            ak5 = new double[n];
-            ak6 = new double[n];
-            fx = new double[n];
-            cont = new double[4 * n];
-
+            
             ndec = nsol = 0;
 
             // Call to core integrator
-            int nstep = roscor_(x, y, xend, h, nmax, meth, true);
+            int nstep = Integrate(x, y, xend, h, nmax, meth, true);
 
             if (nstep > nmax)
             {
@@ -166,7 +173,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         }
 
         // ... and here is the core integrator
-        int roscor_(double x, double[] y, double xend, double h, int nmax, int meth, bool dense)
+        int Integrate(double x, double[] y, double xend, double h, int nmax, int meth, bool dense)
         {
             int n = this.n;
 
@@ -177,21 +184,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             bool autonomous = this.autonomous;
 
-            var lu = new ReusableLU(n);
-
             // Local variables
-            int i, j;
-            int ier = 0;
-            double err;
-            double delt;
             bool last;
             double hopt = 0;
 
             //int ijob = implct ? 5 : 1;
 
-            double ysafe;
-            double xdelt;
-            int nsing;
             int nstep = 0;
 
             double posneg, eps = Precision.DoublePrecision;
@@ -200,14 +198,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Core integrator for RODAS
             //
 
-            var fjac = new DenseMatrix(n);
-            var fmodjac = new DenseMatrix(n);
-
             // Set the parameters of the method
             LoadMethod(meth);
 
             // Initial preparations
-            posneg = d_sign(1.0, xend - x);
+            posneg = sign(1.0, xend - x);
 
             if (Math.Abs(h) <= eps * 10.0)
             {
@@ -215,9 +210,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             h = Math.Min(Math.Abs(h), Math.Abs(xend - x));
 
-            h = d_sign(h, posneg);
+            h = sign(h, posneg);
             last = false;
-            nsing = 0;
 
             {
                 xold = x;
@@ -228,75 +222,104 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Basic integration step
             while (nstep < nmax)
             {
-                if (Math.Abs(h) * 0.1 <= Math.Abs(x) * eps)
-                {
-                    //do_fio("  Exit of RODAS at X= ,e18.4", (x));
-                    throw new NumericalBreakdownException(" Step size too small, H=" + h);
-                }
-
                 if (last)
                 {
                     h = hopt;
-
                     return nstep;
                 }
+
                 hopt = h;
+
                 if ((x + h * 1.0001 - xend) * posneg >= 0.0)
                 {
-
                     h = xend - x;
                     last = true;
                 }
 
-                //
-                // Computation of the Jacobian
-                //
-                fcn(x, y, dy1);
+                Step(ref h, ref x, y, posneg, dense, ref nstep);
+            }
 
-                if (jac == null)
+            return nstep;
+        }
+
+        private void Step(ref double h, ref double x, double[] y, double posneg, bool dense, ref int nstep)
+        {
+            int n = this.n;
+
+            var fcn = this.fcn;
+            var jac = this.jac;
+            var dfx = this.dfx;
+            var mas = this.mas;
+
+            bool autonomous = this.autonomous;
+
+            // Local variables
+            int ier = 0;
+            double err;
+            double delt;
+
+            //int ijob = implct ? 5 : 1;
+
+            double ysafe;
+            double xdelt;
+            int nsing = 0;
+
+            double eps = Precision.DoublePrecision;
+            //
+            // Computation of the Jacobian
+            //
+            fcn(x, y, dy1);
+
+            if (jac == null)
+            {
+                // Compute Jacobian matrix numerically
+                for (int i = 0; i < n; ++i)
                 {
-                    // Compute Jacobian matrix numerically
-                    // Jacobian is full
-                    for (i = 0; i < n; ++i)
+                    ysafe = y[i];
+                    delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(ysafe)));
+                    y[i] = ysafe + delt;
+                    fcn(x, y, ak1);
+                    for (int j = 0; j < n; ++j)
                     {
-                        ysafe = y[i];
-                        delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(ysafe)));
-                        y[i] = ysafe + delt;
-                        fcn(x, y, ak1);
-                        for (j = 0; j < n; ++j)
-                        {
-                            fjac.At(i, j, (ak1[j] - dy1[j]) / delt);
-                        }
-                        y[i] = ysafe;
+                        fjac.At(i, j, (ak1[j] - dy1[j]) / delt);
+                    }
+                    y[i] = ysafe;
+                }
+            }
+            else
+            {
+                // Compute jacobian matrix analytically
+                jac(x, y, fjac);
+            }
+
+            if (!(autonomous))
+            {
+                if (dfx == null)
+                {
+                    // Compute numerically the derivative with respect to x
+                    delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(x)));
+                    xdelt = x + delt;
+                    fcn(xdelt, y, ak1);
+                    for (int i = 0; i < n; ++i)
+                    {
+                        fx[i] = (ak1[i] - dy1[i]) / delt;
                     }
                 }
                 else
                 {
-                    // Compute jacobian matrix analytically
-                    jac(x, y, fjac);
+                    // Compute analytically the derivative with respect to x
+                    dfx(x, y, fx);
+                }
+            }
+
+            while (true)
+            {
+                if (Math.Abs(h) * 0.1 <= Math.Abs(x) * eps)
+                {
+                    throw new NumericalBreakdownException("Step size too small, h=" + h);
                 }
 
-                if (!(autonomous))
-                {
-                    if (dfx == null)
-                    {
-                        // Compute numerically the derivative with respect to x
-                        delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(x)));
-                        xdelt = x + delt;
-                        fcn(xdelt, y, ak1);
-                        for (j = 0; j < n; ++j)
-                        {
-                            fx[j] = (ak1[j] - dy1[j]) / delt;
-                        }
-                    }
-                    else
-                    {
-                        // Compute analytically the derivative with respect to x
-                        dfx(x, y, fx);
-                    }
-                }
-                L2:
-                Factorize(n, lu, fmodjac, fjac, mas, 1.0 / (h * gamma));
+                Factorize(n, lu, mjac, fjac, mas, 1.0 / (h * gamma));
                 //dc_decsol.decomr_(n, fjac, ldjac, mas, fac, e, lde, ip, ref ier, ijob, implct, ip);
 
                 if (ier != 0) // TODO: check determinant?
@@ -312,14 +335,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
                     h *= 0.5;
                     //reject = true; // TODO: controller.Reject();
-                    last = false;
-                    goto L2;
+                    //last = false;
+
+                    continue;
                 }
 
-                Step(h, x, y, lu);
+                Step(h, x, y);
 
-
-                ++(nstep);
+                nstep++;
 
                 hold = h;
 
@@ -339,7 +362,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         PrepareInterpolation(y);
                     }
 
-                    for (i = 0; i < n; ++i)
+                    for (int i = 0; i < n; ++i)
                     {
                         y[i] = ynew[i];
                     }
@@ -351,18 +374,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     __hold = h;
                     //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
 
-                    // goto L1;
+                    return;
                 }
-                else
-                {
-                    // Step is rejected
-                    last = false;
 
-                    goto L2;
-                }
+                // Step is rejected
+                //last = false;
             }
-
-            return nstep;
         }
 
         private void PrepareInterpolation(double[] y)
@@ -376,7 +393,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
         }
 
-        private void Step(double h, double x, double[] y, ReusableLU lu)
+        private void Step(double h, double x, double[] y)
         {
             int i;
 
