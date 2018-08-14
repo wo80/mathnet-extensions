@@ -37,9 +37,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         double rtol, atol;
 
         public int ndec, nsol; // TODO: remove
-
-        double hold;
-        double xold, __hold; // TODO: remove __hold
+        
+        double told, hold;
 
         // Workspace
 
@@ -132,7 +131,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
          *                 this choice is not very important, the code quickly
          *                 adapts its step size (if h=0.d0, the code puts h=1.d-6).
          */
-        public int Integrate(double x, double[] y, double xend, double h)
+        public int Integrate(double t, double[] y, double tend, double h)
         {
             double eps = Precision.DoublePrecision;
 
@@ -162,7 +161,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ndec = nsol = 0;
 
             // Call to core integrator
-            int nstep = Integrate(x, y, xend, h, nmax, meth, true);
+            int nstep = Integrate(t, y, tend, h, nmax, meth, true);
 
             if (nstep > nmax)
             {
@@ -173,7 +172,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         }
 
         // ... and here is the core integrator
-        int Integrate(double x, double[] y, double xend, double h, int nmax, int meth, bool dense)
+        private int Integrate(double t, double[] y, double tend, double h, int nmax, int meth, bool dense)
         {
             int n = this.n;
 
@@ -182,67 +181,49 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var dfx = this.dfx;
             var mas = this.mas;
 
-            bool autonomous = this.autonomous;
-
-            // Local variables
             bool last;
-            double hopt = 0;
-
-            //int ijob = implct ? 5 : 1;
-
+            bool autonomous = this.autonomous;
+            
             int nstep = 0;
 
             double posneg, eps = Precision.DoublePrecision;
-
-            //
-            // Core integrator for RODAS
-            //
-
+            
             // Set the parameters of the method
             LoadMethod(meth);
 
             // Initial preparations
-            posneg = sign(1.0, xend - x);
+            posneg = sign(1.0, tend - t);
 
             if (Math.Abs(h) <= eps * 10.0)
             {
                 h = 1e-6;
             }
-            h = Math.Min(Math.Abs(h), Math.Abs(xend - x));
+            h = Math.Min(Math.Abs(h), Math.Abs(tend - t));
 
             h = sign(h, posneg);
             last = false;
-
-            {
-                xold = x;
-                __hold = h;
-                //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
-            }
-
+            
             // Basic integration step
             while (nstep < nmax)
             {
                 if (last)
                 {
-                    h = hopt;
                     return nstep;
                 }
 
-                hopt = h;
-
-                if ((x + h * 1.0001 - xend) * posneg >= 0.0)
+                if ((t + h * 1.0001 - tend) * posneg >= 0.0)
                 {
-                    h = xend - x;
+                    h = tend - t;
                     last = true;
                 }
 
-                Step(ref h, ref x, y, posneg, dense, ref nstep);
+                Step(ref h, ref t, y, posneg, dense, ref nstep);
             }
 
             return nstep;
         }
 
-        private void Step(ref double h, ref double x, double[] y, double posneg, bool dense, ref int nstep)
+        private void Step(ref double h, ref double t, double[] y, double posneg, bool dense, ref int nstep)
         {
             int n = this.n;
 
@@ -252,54 +233,43 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var mas = this.mas;
 
             bool autonomous = this.autonomous;
-
-            // Local variables
-            int ier = 0;
-            double err;
-            double delt;
-
-            //int ijob = implct ? 5 : 1;
-
-            double ysafe;
-            double xdelt;
+            
             int nsing = 0;
 
-            double eps = Precision.DoublePrecision;
-            //
-            // Computation of the Jacobian
-            //
-            fcn(x, y, dy1);
+            double err, eps = Precision.DoublePrecision;
 
+            fcn(t, y, dy1);
+
+            // Computation of the Jacobian
             if (jac == null)
             {
                 // Compute Jacobian matrix numerically
                 for (int i = 0; i < n; ++i)
                 {
-                    ysafe = y[i];
-                    delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(ysafe)));
-                    y[i] = ysafe + delt;
-                    fcn(x, y, ak1);
+                    double ysafe = y[i];
+                    double delta = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(ysafe)));
+                    y[i] = ysafe + delta;
+                    fcn(t, y, ak1);
                     for (int j = 0; j < n; ++j)
                     {
-                        fjac.At(i, j, (ak1[j] - dy1[j]) / delt);
+                        fjac.At(i, j, (ak1[j] - dy1[j]) / delta);
                     }
                     y[i] = ysafe;
                 }
             }
             else
             {
-                // Compute jacobian matrix analytically
-                jac(x, y, fjac);
+                jac(t, y, fjac);
             }
 
-            if (!(autonomous))
+            // Computation of derivative with respect to x
+            if (!autonomous)
             {
                 if (dfx == null)
                 {
-                    // Compute numerically the derivative with respect to x
-                    delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(x)));
-                    xdelt = x + delt;
-                    fcn(xdelt, y, ak1);
+                    // Compute the derivative with respect to x numerically
+                    double delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(t)));
+                    fcn(t + delt, y, ak1);
                     for (int i = 0; i < n; ++i)
                     {
                         fx[i] = (ak1[i] - dy1[i]) / delt;
@@ -307,28 +277,25 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
                 else
                 {
-                    // Compute analytically the derivative with respect to x
-                    dfx(x, y, fx);
+                    dfx(t, y, fx);
                 }
             }
 
+            // Loop until success or stepsize too small.
             while (true)
             {
-                if (Math.Abs(h) * 0.1 <= Math.Abs(x) * eps)
+                if (Math.Abs(h) * 0.1 <= Math.Abs(t) * eps)
                 {
                     throw new NumericalBreakdownException("Step size too small, h=" + h);
                 }
 
                 Factorize(n, lu, mjac, fjac, mas, 1.0 / (h * gamma));
-                //dc_decsol.decomr_(n, fjac, ldjac, mas, fac, e, lde, ip, ref ier, ijob, implct, ip);
 
-                if (ier != 0) // TODO: check determinant?
+                if (lu.Determinant < eps) // TODO: remove?
                 {
                     // Singular matrix
-                    ++nsing;
-                    if (nsing >= 5)
+                    if (++nsing >= 5)
                     {
-                        //do_fio("  Exit of RODAS at X= ,e18.4", (x));
                         throw new Exception("Matrix is repeatedly singular.");
                         //return -4;
                     }
@@ -340,23 +307,18 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     continue;
                 }
 
-                Step(h, x, y);
+                Step(h, t, y);
 
                 nstep++;
 
                 hold = h;
-
-                //
+                
                 // Error estimation
-                //
                 err = Error(n, h, y, ynew, ak6);
-
-                //
+                
                 // Is the error small enough ?
-                //
                 if (controller.Success(err, posneg, ref h))
                 {
-                    // ---- Dense output
                     if (dense)
                     {
                         PrepareInterpolation(y);
@@ -366,13 +328,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     {
                         y[i] = ynew[i];
                     }
-                    xold = x;
 
-                    x += hold;
+                    told = t; // Used for interpolation.
 
-                    // Use for interpolation:
-                    __hold = h;
-                    //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
+                    t += hold;
+                    
+                    hold = h; // Used for interpolation.
 
                     return;
                 }
@@ -400,11 +361,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double hd1 = 0, hd2 = 0, hd3 = 0, hd4 = 0;
             double hc21, hc31, hc32, hc41, hc42, hc43, hc51, hc52, hc53, hc54, hc61, hc62, hc63, hc64, hc65;
 
-            //
-            // Compute the stages
-            //
+            var fcn = this.fcn;
+            var mas = this.mas;
 
-            ++(ndec);
+            // Compute the stages
+
+            ndec++;
 
             // Prepare for the computation of the 6 stages
             hc21 = c21 / h;
@@ -431,9 +393,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 hd4 = h * d4;
             }
 
-            // THE STAGES
             Solve(n, lu, mas, dy1, ak1, fx, ynew, hd1, false);
-            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy1, ak1, fx, ynew, hd1, ijob, false);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a21 * ak1[i];
@@ -445,7 +405,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ynew[i] = hc21 * ak1[i];
             }
             Solve(n, lu, mas, dy, ak2, fx, ynew, hd2, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak2, fx, ynew, hd2, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a31 * ak1[i] + a32 * ak2[i];
@@ -457,7 +416,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ynew[i] = hc31 * ak1[i] + hc32 * ak2[i];
             }
             Solve(n, lu, mas, dy, ak3, fx, ynew, hd3, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak3, fx, ynew, hd3, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a41 * ak1[i] + a42 * ak2[i] + a43 * ak3[i];
@@ -469,7 +427,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ynew[i] = hc41 * ak1[i] + hc42 * ak2[i] + hc43 * ak3[i];
             }
             Solve(n, lu, mas, dy, ak4, fx, ynew, hd4, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak4, fx, ynew, hd4, ijob, true);
             for (i = 0; i < n; i++)
             {
                 ynew[i] = y[i] + a51 * ak1[i] + a52 * ak2[i] + a53 * ak3[i]
@@ -482,9 +439,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ak6[i] = hc52 * ak2[i] + hc54 * ak4[i] + hc51 * ak1[i] + hc53 * ak3[i];
             }
             Solve(n, lu, mas, dy, ak5, fx, ak6, 0.0, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak5, fx, ak6, 0.0, ijob, true);
 
-            // ---- Embedded solution
+            // Embedded solution
             for (i = 0; i < n; i++)
             {
                 ynew[i] += ak5[i];
@@ -496,9 +452,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 cont[i] = hc61 * ak1[i] + hc62 * ak2[i] + hc65 * ak5[i] + hc64 * ak4[i] + hc63 * ak3[i];
             }
             Solve(n, lu, mas, dy, ak6, fx, cont, 0.0, true);
-            //dc_decsol.slvrod_(n, fjac, ldjac, mas, fac, e, lde, ip, dy, ak6, fx, cont, 0.0, ijob, true);
 
-            // ---- New solution
+            // New solution
             for (i = 0; i < n; i++)
             {
                 ynew[i] += ak6[i];
@@ -525,10 +480,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         // This function can be used for continuous output in connection
         // with the output-subroutine for RODAS. It provides an
         // approximation to the i-th component of the solution at x.
-        public double Interpolate(int i, double x)
+        public double Interpolate(int i, double t)
         {
             // Local variables
-            double s = (x - xold) / __hold;
+            double s = (t - told) / hold;
 
             return cont[i] * (1 - s) + s * (cont[i + n] + (1 - s) * (cont[i + 2 * n] + s * cont[i + 3 * n]));
         }

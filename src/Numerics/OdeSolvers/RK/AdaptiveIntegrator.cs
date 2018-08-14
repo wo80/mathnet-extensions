@@ -73,7 +73,6 @@ namespace MathNet.Numerics.OdeSolvers.RK
                 {
                     break;
                 }
-
             }
 
             if (step >= nmax)

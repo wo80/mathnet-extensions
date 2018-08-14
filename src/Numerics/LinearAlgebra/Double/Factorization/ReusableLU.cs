@@ -52,7 +52,32 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
             factors = new DenseMatrix(n);
             pivots = new int[n];
         }
-        
+
+        /// <summary>
+        /// Gets the determinant of the matrix for which the LU factorization was computed.
+        /// </summary>
+        public double Determinant
+        {
+            get
+            {
+                int n = factors.RowCount;
+                var det = 1.0;
+                for (var i = 0; i < n; i++)
+                {
+                    if (pivots[i] != i)
+                    {
+                        det *= -factors.Values[i * (n + 1)];
+                    }
+                    else
+                    {
+                        det *= factors.Values[i * (n + 1)];
+                    }
+                }
+
+                return det;
+            }
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="DenseLU"/> class. This object will compute the
         /// LU factorization when the constructor is called and cache it's factorization.
