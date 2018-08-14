@@ -35,7 +35,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         DenseMatrix mas;
 
         double rtol, atol;
-        
+
         public int ndec, nsol; // TODO: remove
 
         double hold;
@@ -155,7 +155,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ndec = nsol = 0;
 
             // Call to core integrator
-            int nstep = roscor_(x, y, xend, h, nmax, meth);
+            int nstep = roscor_(x, y, xend, h, nmax, meth, true);
 
             if (nstep > nmax)
             {
@@ -166,7 +166,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         }
 
         // ... and here is the core integrator
-        int roscor_(double x, double[] y, double xend, double h, int nmax, int meth)
+        int roscor_(double x, double[] y, double xend, double h, int nmax, int meth, bool dense)
         {
             int n = this.n;
 
@@ -202,9 +202,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             var fjac = new DenseMatrix(n);
             var fmodjac = new DenseMatrix(n);
-            
+
             // Set the parameters of the method
-            rocoe_(meth);
+            LoadMethod(meth);
 
             // Initial preparations
             posneg = d_sign(1.0, xend - x);
@@ -218,7 +218,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             h = d_sign(h, posneg);
             last = false;
             nsing = 0;
-            
+
             {
                 xold = x;
                 __hold = h;
@@ -317,17 +317,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
 
                 Step(h, x, y, lu);
-                
-                // ---- Dense output
-                //if (dense)
-                {
-                    for (i = 0; i < n; ++i)
-                    {
-                        cont[i] = y[i];
-                        cont[i + n * 2] = d21 * ak1[i] + d22 * ak2[i] + d23 * ak3[i] + d24 * ak4[i] + d25 * ak5[i];
-                        cont[i + n * 3] = d31 * ak1[i] + d32 * ak2[i] + d33 * ak3[i] + d34 * ak4[i] + d35 * ak5[i];
-                    }
-                }
+
 
                 ++(nstep);
 
@@ -343,6 +333,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 //
                 if (controller.Success(err, posneg, ref h))
                 {
+                    // ---- Dense output
+                    if (dense)
+                    {
+                        PrepareInterpolation(y);
+                    }
+
                     for (i = 0; i < n; ++i)
                     {
                         y[i] = ynew[i];
@@ -351,15 +347,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
                     x += hold;
 
-                    //if (dense)
-                    {
-                        for (i = 0; i < n; ++i)
-                        {
-                            cont[n + i] = y[i];
-                        }
-                        __hold = h;
-                        //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
-                    }
+                    // Use for interpolation:
+                    __hold = h;
+                    //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
 
                     // goto L1;
                 }
@@ -375,13 +365,24 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return nstep;
         }
 
+        private void PrepareInterpolation(double[] y)
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                cont[i] = y[i];
+                cont[i + n] = ynew[i];
+                cont[i + n * 2] = d21 * ak1[i] + d22 * ak2[i] + d23 * ak3[i] + d24 * ak4[i] + d25 * ak5[i];
+                cont[i + n * 3] = d31 * ak1[i] + d32 * ak2[i] + d33 * ak3[i] + d34 * ak4[i] + d35 * ak5[i];
+            }
+        }
+
         private void Step(double h, double x, double[] y, ReusableLU lu)
         {
             int i;
 
             double hd1 = 0, hd2 = 0, hd3 = 0, hd4 = 0;
             double hc21, hc31, hc32, hc41, hc42, hc43, hc51, hc52, hc53, hc54, hc61, hc62, hc63, hc64, hc65;
-            
+
             //
             // Compute the stages
             //
@@ -507,15 +508,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         // This function can be used for continuous output in connection
         // with the output-subroutine for RODAS. It provides an
         // approximation to the i-th component of the solution at x.
-        double Interpolate(int i, double x, double[] cont)
+        public double Interpolate(int i, double x)
         {
             // Local variables
             double s = (x - xold) / __hold;
 
-            return cont[i] * (1 - s) + s * (cont[i + n] + (1 - s) * (cont[i + 2 * n] + s * cont[i +  3 * n]));
+            return cont[i] * (1 - s) + s * (cont[i + n] + (1 - s) * (cont[i + 2 * n] + s * cont[i + 3 * n]));
         }
 
-        int rocoe_(int meth)
+        private int LoadMethod(int meth)
         {
             double bet2p, bet3p, bet4p;
 
