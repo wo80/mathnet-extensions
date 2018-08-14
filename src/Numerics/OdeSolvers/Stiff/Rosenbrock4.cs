@@ -41,6 +41,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         double hold;
         double xold, __hold; // TODO: remove __hold
 
+        // Workspace
+
+        double[] ynew;
+        double[] dy, dy1;
+        double[] ak1, ak2, ak3, ak4, ak5, ak6;
+        double[] fx, cont;
+
         /// <summary>
         /// 
         /// </summary>
@@ -133,26 +140,22 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             // Prepare the entry-points for the arrays in work
-            var ynew = new double[n];
-            var dy1 = new double[n];
-            var dy = new double[n];
-            var ak1 = new double[n];
-            var ak2 = new double[n];
-            var ak3 = new double[n];
-            var ak4 = new double[n];
-            var ak5 = new double[n];
-            var ak6 = new double[n];
-            var fx = new double[n];
-            var con = new double[4 * n];
+            ynew = new double[n];
+            dy1 = new double[n];
+            dy = new double[n];
+            ak1 = new double[n];
+            ak2 = new double[n];
+            ak3 = new double[n];
+            ak4 = new double[n];
+            ak5 = new double[n];
+            ak6 = new double[n];
+            fx = new double[n];
+            cont = new double[4 * n];
 
             ndec = nsol = 0;
 
             // Call to core integrator
-            int nstep = roscor_(x, y, xend, h,
-                nmax, meth,
-                ynew, dy1, dy,
-                ak1, ak2, ak3, ak4, ak5, ak6, fx,
-                con);
+            int nstep = roscor_(x, y, xend, h, nmax, meth);
 
             if (nstep > nmax)
             {
@@ -163,13 +166,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         }
 
         // ... and here is the core integrator
-        int roscor_(double x, double[] y,
-            double xend, double h,
-            int nmax, int meth,
-            double[] ynew, double[] dy1,
-            double[] dy, double[] ak1, double[] ak2, double[] ak3,
-            double[] ak4, double[] ak5, double[] ak6, double[] fx,
-            double[] cont)
+        int roscor_(double x, double[] y, double xend, double h, int nmax, int meth)
         {
             int n = this.n;
 
@@ -184,10 +181,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             // Local variables
             int i, j;
-            double hd1 = 0, hd2 = 0, hd3 = 0, hd4 = 0;
-            double fac, hc21, hc31, hc32, hc41, hc42, hc43, hc51, hc52, hc53, hc54, hc61, hc62;
             int ier = 0;
-            double hc63, hc64, hc65, err;
+            double err;
             double delt;
             bool last;
             double hopt = 0;
@@ -223,15 +218,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             h = d_sign(h, posneg);
             last = false;
             nsing = 0;
-
-            if (autonomous)
-            {
-                hd1 = 0.0;
-                hd2 = 0.0;
-                hd3 = 0.0;
-                hd4 = 0.0;
-            }
-
+            
             {
                 xold = x;
                 __hold = h;
@@ -239,105 +226,165 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             // Basic integration step
-            L1:
-            if (nstep > nmax)
+            while (nstep < nmax)
             {
-                //do_fio("  Exit of RODAS at X= ,e18.4", (x));
-                Console.WriteLine(" More than NMAX =" + nmax + "steps are needed");
-                return nstep;
-            }
-
-            if (Math.Abs(h) * 0.1 <= Math.Abs(x) * eps)
-            {
-                //do_fio("  Exit of RODAS at X= ,e18.4", (x));
-                throw new NumericalBreakdownException(" Step size too small, H=" + h);
-            }
-
-            if (last)
-            {
-                h = hopt;
-
-                return nstep;
-            }
-            hopt = h;
-            if ((x + h * 1.0001 - xend) * posneg >= 0.0)
-            {
-
-                h = xend - x;
-                last = true;
-            }
-
-            //
-            // Computation of the Jacobian
-            //
-            fcn(x, y, dy1);
-
-            if (jac == null)
-            {
-                // Compute Jacobian matrix numerically
-                // Jacobian is full
-                for (i = 0; i < n; ++i)
+                if (Math.Abs(h) * 0.1 <= Math.Abs(x) * eps)
                 {
-                    ysafe = y[i];
-                    delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(ysafe)));
-                    y[i] = ysafe + delt;
-                    fcn(x, y, ak1);
-                    for (j = 0; j < n; ++j)
-                    {
-                        fjac.At(i, j, (ak1[j] - dy1[j]) / delt);
-                    }
-                    y[i] = ysafe;
+                    //do_fio("  Exit of RODAS at X= ,e18.4", (x));
+                    throw new NumericalBreakdownException(" Step size too small, H=" + h);
                 }
-            }
-            else
-            {
-                // Compute jacobian matrix analytically
-                jac(x, y, fjac);
-            }
 
-            if (!(autonomous))
-            {
-                if (dfx == null)
+                if (last)
                 {
-                    // Compute numerically the derivative with respect to x
-                    delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(x)));
-                    xdelt = x + delt;
-                    fcn(xdelt, y, ak1);
-                    for (j = 0; j < n; ++j)
+                    h = hopt;
+
+                    return nstep;
+                }
+                hopt = h;
+                if ((x + h * 1.0001 - xend) * posneg >= 0.0)
+                {
+
+                    h = xend - x;
+                    last = true;
+                }
+
+                //
+                // Computation of the Jacobian
+                //
+                fcn(x, y, dy1);
+
+                if (jac == null)
+                {
+                    // Compute Jacobian matrix numerically
+                    // Jacobian is full
+                    for (i = 0; i < n; ++i)
                     {
-                        fx[j] = (ak1[j] - dy1[j]) / delt;
+                        ysafe = y[i];
+                        delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(ysafe)));
+                        y[i] = ysafe + delt;
+                        fcn(x, y, ak1);
+                        for (j = 0; j < n; ++j)
+                        {
+                            fjac.At(i, j, (ak1[j] - dy1[j]) / delt);
+                        }
+                        y[i] = ysafe;
                     }
                 }
                 else
                 {
-                    // Compute analytically the derivative with respect to x
-                    dfx(x, y, fx);
+                    // Compute jacobian matrix analytically
+                    jac(x, y, fjac);
+                }
+
+                if (!(autonomous))
+                {
+                    if (dfx == null)
+                    {
+                        // Compute numerically the derivative with respect to x
+                        delt = Math.Sqrt(eps * Math.Max(1e-5, Math.Abs(x)));
+                        xdelt = x + delt;
+                        fcn(xdelt, y, ak1);
+                        for (j = 0; j < n; ++j)
+                        {
+                            fx[j] = (ak1[j] - dy1[j]) / delt;
+                        }
+                    }
+                    else
+                    {
+                        // Compute analytically the derivative with respect to x
+                        dfx(x, y, fx);
+                    }
+                }
+                L2:
+                Factorize(n, lu, fmodjac, fjac, mas, 1.0 / (h * gamma));
+                //dc_decsol.decomr_(n, fjac, ldjac, mas, fac, e, lde, ip, ref ier, ijob, implct, ip);
+
+                if (ier != 0) // TODO: check determinant?
+                {
+                    // Singular matrix
+                    ++nsing;
+                    if (nsing >= 5)
+                    {
+                        //do_fio("  Exit of RODAS at X= ,e18.4", (x));
+                        throw new Exception("Matrix is repeatedly singular.");
+                        //return -4;
+                    }
+
+                    h *= 0.5;
+                    //reject = true; // TODO: controller.Reject();
+                    last = false;
+                    goto L2;
+                }
+
+                Step(h, x, y, lu);
+                
+                // ---- Dense output
+                //if (dense)
+                {
+                    for (i = 0; i < n; ++i)
+                    {
+                        cont[i] = y[i];
+                        cont[i + n * 2] = d21 * ak1[i] + d22 * ak2[i] + d23 * ak3[i] + d24 * ak4[i] + d25 * ak5[i];
+                        cont[i + n * 3] = d31 * ak1[i] + d32 * ak2[i] + d33 * ak3[i] + d34 * ak4[i] + d35 * ak5[i];
+                    }
+                }
+
+                ++(nstep);
+
+                hold = h;
+
+                //
+                // Error estimation
+                //
+                err = Error(n, h, y, ynew, ak6);
+
+                //
+                // Is the error small enough ?
+                //
+                if (controller.Success(err, posneg, ref h))
+                {
+                    for (i = 0; i < n; ++i)
+                    {
+                        y[i] = ynew[i];
+                    }
+                    xold = x;
+
+                    x += hold;
+
+                    //if (dense)
+                    {
+                        for (i = 0; i < n; ++i)
+                        {
+                            cont[n + i] = y[i];
+                        }
+                        __hold = h;
+                        //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
+                    }
+
+                    // goto L1;
+                }
+                else
+                {
+                    // Step is rejected
+                    last = false;
+
+                    goto L2;
                 }
             }
-            L2:
+
+            return nstep;
+        }
+
+        private void Step(double h, double x, double[] y, ReusableLU lu)
+        {
+            int i;
+
+            double hd1 = 0, hd2 = 0, hd3 = 0, hd4 = 0;
+            double hc21, hc31, hc32, hc41, hc42, hc43, hc51, hc52, hc53, hc54, hc61, hc62, hc63, hc64, hc65;
+            
             //
             // Compute the stages
             //
-            fac = 1.0 / (h * gamma);
-            Factorize(n, lu, fmodjac, fjac, mas, fac);
-            //dc_decsol.decomr_(n, fjac, ldjac, mas, fac, e, lde, ip, ref ier, ijob, implct, ip);
-
-            if (ier != 0) // TODO: check determinant?
-            {
-                // Singular matrix
-                ++nsing;
-                if (nsing >= 5)
-                {
-                    //do_fio("  Exit of RODAS at X= ,e18.4", (x));
-                    throw new Exception("Matrix is repeatedly singular.");
-                    //return -4;
-                }
-
-                h *= 0.5;
-                //reject = true; // TODO: controller.Reject();
-                last = false;
-                goto L2;
-            }
 
             ++(ndec);
 
@@ -357,7 +404,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             hc63 = c63 / h;
             hc64 = c64 / h;
             hc65 = c65 / h;
-            if (!(autonomous))
+
+            if (!autonomous)
             {
                 hd1 = h * d1;
                 hd2 = h * d2;
@@ -439,59 +487,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             nsol += 6;
-
-            // ---- Dense output
-            //if (dense)
-            {
-                for (i = 0; i < n; ++i)
-                {
-                    cont[i] = y[i];
-                    cont[i + n * 2] = d21 * ak1[i] + d22 * ak2[i] + d23 * ak3[i] + d24 * ak4[i] + d25 * ak5[i];
-                    cont[i + n * 3] = d31 * ak1[i] + d32 * ak2[i] + d33 * ak3[i] + d34 * ak4[i] + d35 * ak5[i];
-                }
-            }
-
-            ++(nstep);
-
-            hold = h;
-
-            //
-            // Error estimation
-            //
-            err = Error(n, h, y, ynew, ak6);
-
-            //
-            // Is the error small enough ?
-            //
-            if (controller.Success(err, posneg, ref h))
-            {
-                for (i = 0; i < n; ++i)
-                {
-                    y[i] = ynew[i];
-                }
-                xold = x;
-
-                x += hold;
-                
-                //if (dense)
-                {
-                    for (i = 0; i < n; ++i)
-                    {
-                        cont[n + i] = y[i];
-                    }
-                    __hold = h;
-                    //solout(naccpt + 1, conros_.xold, x, y, cont, lrc, n, irtrn);
-                }
-
-                goto L1;
-            }
-            else
-            {
-                // Step is rejected
-                last = false;
-
-                goto L2;
-            }
         }
 
         public double Error(int n, double h, double[] y, double[] ynew, double[] yerr)
