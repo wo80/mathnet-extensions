@@ -52,10 +52,10 @@
     <Compile Include="LinearAlgebra\Complex\CreateSparse.cs" />
     <Compile Include="LinearAlgebra\Complex\VectorHelper.cs" />
     <Compile Include="LinearAlgebra\Double\CreateSparse.cs" />
+    <Compile Include="LinearAlgebra\Double\Factorization\ReusableLU.cs" />
     <Compile Include="LinearAlgebra\Double\VectorHelper.cs" />
     <Compile Include="LinearAlgebra\Storage\StorageExtensions.cs" />
     <Compile Include="LinearAlgebra\VectorExtensions.cs" />
-    <Compile Include="Threading\CommonParallel.cs" />
     <Compile Include="LinearAlgebra\Complex\DenseMatrixExtensions.cs" />
     <Compile Include="LinearAlgebra\Complex\DenseVectorExtensions.cs" />
     <Compile Include="LinearAlgebra\Complex\MatrixComparer.cs" />
@@ -76,6 +76,16 @@
     <Compile Include="LinearAlgebra\Double\SparseMatrixExtensions.cs" />
     <Compile Include="LinearAlgebra\Double\StorageConverter.cs" />
     <Compile Include="LinearAlgebra\Storage\CoordinateStorage.cs" />
+    <Compile Include="OdeSolvers\RK\AdaptiveIntegrator.cs" />
+    <Compile Include="OdeSolvers\RK\DormandPrince5.cs" />
+    <Compile Include="OdeSolvers\RK\DormandPrince853.cs" />
+    <Compile Include="OdeSolvers\RK\ErrorController.cs" />
+    <Compile Include="OdeSolvers\RK\IErrorController.cs" />
+    <Compile Include="OdeSolvers\RK\IRungeKuttaStepper.cs" />
+    <Compile Include="OdeSolvers\RK\StiffnessChecker.cs" />
+    <Compile Include="OdeSolvers\Stiff\Rosenbrock4.cs" />
+    <Compile Include="OdeSolvers\Stiff\RosenbrockErrorController.cs" />
+    <Compile Include="Threading\CommonParallel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
