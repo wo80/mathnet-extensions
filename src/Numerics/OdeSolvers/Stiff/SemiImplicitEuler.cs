@@ -43,13 +43,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         coseu__1 coseu_1;
         coseu__2 coseu_2;
-        
+
         public int seulex_(int n, S_fp fcn, int ifcn, double x,
             double[] y, double xend, double h, double[] rtol, double[] atol, int itol,
             J_fp jac, int ijac, M_fp mas, int imas, S_fp solout, int iout,
             double[] work, int[] iwork)
         {
-            int i, m1, m2, km, km2, nm1, lde, nrd;
+            int i, km, km2, nrd;
             double fac1, fac2, fac3, fac4;
             int ndec, ijob;
             double hmax;
@@ -57,20 +57,17 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double thet;
             int nsol;
             double safe1, safe2;
-            int ldjac;
             double wkdec;
             double wkjac;
-            int ldmas;
             double wkfcn;
             int nstep, nsequ;
             double wksol, wkrow;
-            int ldmas2, lambda, naccpt, nrejct;
+            int lambda, naccpt, nrejct;
             bool implct;
             int nrdens;
 
             bool autnms;
             double uround;
-
 
             /**
              *     NUMERICAL SOLUTION OF A STIFF (OR DIFFERENTIAL ALGEBRAIC)
@@ -409,7 +406,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *   IWORK(19)  NDEC    NUMBER OF LU-DECOMPOSITIONS (N-DIMENSIONAL MATRIX)
              *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS
              */
-             
+
             nstep = 0;
             naccpt = 0;
             nrejct = 0;
@@ -450,14 +447,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 nsequ = 2;
             }
-            if (nsequ <= 0 || nsequ >= 5)
+            if (nsequ < 1 || nsequ > 4)
             {
                 Console.WriteLine(" CURIOUS INPUT IWORK(4)=", iwork[3]);
                 return -1;
             }
             // LAMBDA   PARAMETER FOR DENSE OUTPUT
             lambda = iwork[4];
-            if (lambda < 0 || lambda >= 2)
+            if (lambda < 0 || lambda > 1)
             {
                 Console.WriteLine(" CURIOUS INPUT IWORK(5)=", iwork[4]);
                 return -1;
@@ -469,23 +466,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 Console.WriteLine(" CURIOUS INPUT IWORK(6)=", iwork[5]);
                 return -1;
             }
-            // PARAMETER FOR SECOND ORDER EQUATIONS
-            m1 = iwork[8];
-            m2 = iwork[9];
-            nm1 = n - m1;
-            if (m1 == 0)
-            {
-                m2 = n;
-            }
-            if (m2 == 0)
-            {
-                m2 = m1;
-            }
-            if (m1 < 0 || m2 < 0 || m1 + m2 > n)
-            {
-                Console.WriteLine(" CURIOUS INPUT FOR IWORK(9,10)=", m1, m2);
-                return -1;
-            }
+
             // UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0
             if (work[0] == 0.0)
             {
@@ -628,32 +609,20 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             autnms = ifcn == 0;
             implct = imas != 0;
 
-            // COMPUTATION OF THE ROW-DIMENSIONS OF THE 2-ARRAYS
-            // JACOBIAN AND MATRIX E
-            {
-                ldjac = nm1;
-                lde = nm1;
-            }
+
             // MASS MATRIX
             if (implct)
             {
-                {
-                    ldmas = nm1;
-                    ijob = 5;
-                }
+                ijob = 5;
             }
             else
             {
-                ldmas = 0;
-                {
-                    ijob = 1;
-                    if (n > 2 && iwork[0] != 0)
-                    {
-                        ijob = 7;
-                    }
-                }
+                ijob = 1;
+                //if (n > 2 && iwork[0] != 0)
+                //{
+                //    ijob = 7;
+                //}
             }
-            ldmas2 = Math.Max(1, ldmas);
 
             // HESSENBERG OPTION ONLY FOR EXPLICIT EQU. WITH FULL JACOBIAN
             if (implct && ijob == 7)
@@ -675,9 +644,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var hh = new double[km];
             var w = new double[km];
             var a = new double[km];
-            var _jac = new double[n * ldjac];
-            var e = new double[nm1 * lde];
-            var _mas = new double[nm1 * ldmas];
+            var _jac = new double[n * n];
+            var e = new double[n * n];
+            var _mas = new double[n * n];
             var t = new double[n * km];
             var ifac = new double[km];
             var de = new double[(km + 2) * nrdens];
@@ -694,8 +663,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // CALL TO CORE INTEGRATOR
             int idid = seucor_(n, fcn, x, y, xend, hmax, h, km, rtol, atol,
                  itol, jac, ijac, mas,
-                 solout, iout, ijob, m1, m2, nm1, nmax, uround,
-                nsequ, autnms, implct, ldjac, lde, ldmas2, yh,
+                 solout, iout, ijob, nmax, uround,
+                nsequ, autnms, implct, yh,
                 dy, fx, yhh, dyh, del,
                  wh, scal, hh, w,
                 a, _jac, e, _mas, t, ip,
@@ -709,19 +678,18 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             iwork[18] = nrejct;
             iwork[19] = ndec;
             iwork[20] = nsol;
-            
+
             return idid;
         }
 
         // ... AND HERE IS THE CORE INTEGRATOR
-        
+
         int seucor_(int n, S_fp fcn, double x, double[] y,
             double xend, double hmax, double h, int km,
             double[] rtol, double[] atol, int itol, J_fp jac, int ijac,
             M_fp mas, S_fp solout, int iout, int ijob,
-            int m1, int m2, int nm1, int nmax, double uround,
-            int nsequ, bool autnms, bool implct,
-            int lfjac, int le, int ldmas, double[] yh,
+            int nmax, double uround,
+            int nsequ, bool autnms, bool implct, double[] yh,
             double[] dy, double[] fx, double[] yhh, double[] dyh,
             double[] del, double[] wh, double[] scal, double[] hh,
             double[] w, double[] a, double[] fjac, double[] e,
@@ -735,7 +703,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         {
             int i1, i2, i3;
             double d1;
-            
+
             int i, j, k, l, kc = 0, ii, kk, i_n, mm, kx;
             double t1i, fac = 0, err;
             int ipt, klr, krn, lbeg, lend, lrde;
@@ -755,10 +723,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double factor;
             double errold = 0, posneg;
 
-            
+
             // CORE INTEGRATOR FOR SEULEX
             // PARAMETERS SAME AS IN SEULEX WITH WORKSPACE ADDED
-            
+
             if (iout == 2)
             {
                 coseu_1.nnrd = nrd;
@@ -772,16 +740,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // COMPUTE MASS MATRIX FOR IMPLICIT CASE
             if (implct)
             {
-                mas(nm1, fmas, ldmas);
+                mas(n, fmas, n);
             }
 
             // INITIALISATIONS
             lrde = (km + 2) * nrd;
-
-            if (m1 > 0)
-            {
-                ijob += 10;
-            }
 
             // DEFINE THE STEP SIZE SEQUENCE
             if (nsequ == 1)
@@ -901,9 +864,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
                         y[i] = ysafe + delt;
                         fcn(n, x, y, yh);
-                        for (j = m1; j < n; ++j)
+                        for (j = 0; j < n; ++j)
                         {
-                            fjac[j - m1 + i * lfjac] = (yh[j] - dy[j]) / delt;
+                            fjac[j + i * n] = (yh[j] - dy[j]) / delt;
                         }
                         y[i] = ysafe;
                     }
@@ -911,7 +874,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 else
                 {
                     // COMPUTE JACOBIAN MATRIX ANALYTICALLY 
-                    jac(n, x, y, fjac, lfjac);
+                    jac(n, x, y, fjac, n);
                 }
                 caljac = true;
                 calhes = true;
@@ -926,14 +889,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
                     kc = j;
                     seul_(j, n, fcn, x, y, dy, fx, fjac,
-                        lfjac, fmas, ldmas, e,
-                         le, ip, h, km, hmaxn, t, scal,
-                         nj, hh, w, a, yhh, dyh, del,
+                        fmas, e, ip, h, km, hmaxn, t, scal,
+                        nj, hh, w, a, yhh, dyh, del,
                         wh, err, safe1, fac, fac1, fac2, safe2, theta,
                         ref ndec, ref nsol, errold,
                         iphes, icomp, autnms, implct, reject,
-                        atov, fsafe, km2, nrd, iout, ipt, m1, m2,
-                        nm1, ijob, calhes);
+                        atov, fsafe, km2, nrd, iout, ipt, ijob, calhes);
                     if (atov)
                     {
                         goto L10;
@@ -958,13 +919,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             for (j = 0; j < kc; ++j)
             {
                 seul_(j, n, fcn, x, y, dy, fx, fjac,
-                    lfjac, fmas, ldmas, e, le, ip,
-                    h, km, hmaxn, t, scal, nj, hh, w
-                    , a, yhh, dyh, del, wh, err, safe1, fac,
-                     fac1, fac2, safe2, theta, ref ndec, ref nsol,
+                    fmas, e, ip,
+                    h, km, hmaxn, t, scal, nj, hh, w,
+                    a, yhh, dyh, del, wh, err, safe1, fac,
+                    fac1, fac2, safe2, theta, ref ndec, ref nsol,
                     errold, iphes, icomp, autnms, implct,
                     reject, atov, fsafe, km2, nrd, iout,
-                    ipt, m1, m2, nm1, ijob, calhes);
+                    ipt, ijob, calhes);
                 if (atov)
                 {
                     goto L10;
@@ -986,12 +947,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             L50:
             seul_(k, n, fcn, x, y, dy, fx, fjac,
-                lfjac, fmas, ldmas, e, le, ip, h,
+                fmas, e, ip, h,
                 km, hmaxn, t, scal, nj, hh, w, a,
                 yhh, dyh, del, wh, err, safe1, fac, fac1, fac2,
                 safe2, theta, ref ndec, ref nsol, errold,
                 iphes, icomp, autnms, implct, reject, atov,
-                fsafe, km2, nrd, iout, ipt, m1, m2, nm1, ijob,
+                fsafe, km2, nrd, iout, ipt, ijob,
                 calhes);
             if (atov)
             {
@@ -1010,12 +971,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             kc = k + 1;
             seul_(kc, n, fcn, x, y, dy, fx, fjac,
-                lfjac, fmas, ldmas, e, le, ip, h,
+                fmas, e, ip, h,
                 km, hmaxn, t, scal, nj, hh, w, a,
                 yhh, dyh, del, wh, err, safe1, fac, fac1, fac2,
                 safe2, theta, ref ndec, ref nsol, errold,
                 iphes, icomp, autnms, implct, reject, atov,
-                fsafe, km2, nrd, iout, ipt, m1, m2, nm1, ijob,
+                fsafe, km2, nrd, iout, ipt, ijob,
                 calhes);
             if (atov)
             {
@@ -1062,13 +1023,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     dens[nrd + i] = y[icomp[i]];
                 }
                 i1 = coseu_1.kright - 1;
-                for (klr = 1; klr <= i1; ++klr)
+                for (klr = 0; klr < i1; ++klr)
                 {
                     // COMPUTE DIFFERENCES 
                     if (klr >= 2)
                     {
                         i2 = kc;
-                        for (kk = klr; kk <= i2; ++kk)
+                        for (kk = klr - 1; kk < i2; ++kk)
                         {
                             lbeg = (kk + 1) * kk / 2;
                             lend = lbeg - kk + 2;
@@ -1082,8 +1043,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         }
                     }
                     // COMPUTE DERIVATIVES AT RIGHT END
-                    i2 = kc;
-                    for (kk = klr + lambda; kk <= i2; ++kk)
+                    for (kk = klr + lambda - 1; kk < kc; ++kk)
                     {
                         facnj = (double)nj[kk];
                         facnj = Math.Pow(facnj, klr) / facul[klr + 1]; // TODO: pow_di()
@@ -1223,11 +1183,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             //do_fio("", x, h);
             return -1;
         }
-        
+
+        // THIS SUBROUTINE COMPUTES THE J-TH LINE OF THE 
+        // EXTRAPOLATION TABLE AND PROVIDES AN ESTIMATE 
+        // OF THE OPTIMAL STEP SIZE 
         int seul_(int jj, int n, S_fp fcn, double x,
             double[] y, double[] dy, double[] fx, double[] fjac,
-            int lfjac, double[] fmas, int ldmas, double[] e,
-            int le, int[] ip, double h, int km, double hmaxn,
+            double[] fmas, double[] e,
+            int[] ip, double h, int km, double hmaxn,
             double[] t, double[] scal, int[] nj, double[] hh,
             double[] w, double[] a, double[] yh, double[] dyh,
             double[] del, double[] wh, double err, double safe1,
@@ -1236,10 +1199,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double errold, int[] iphes, int[] icomp, bool autnms,
             bool implct, bool reject, bool atov,
             double[] fsafe, int km2, int nrd, int iout, int ipt,
-            int m1, int m2, int nm1, int ijob, bool calhes)
+            int ijob, bool calhes)
         {
             double d1, d2;
-            
+
             int i, j, l, m;
             double hj;
             int mm;
@@ -1248,13 +1211,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double sum, del1, del2, expo;
             double facmin;
 
-            // THIS SUBROUTINE COMPUTES THE J-TH LINE OF THE 
-            // EXTRAPOLATION TABLE AND PROVIDES AN ESTIMATE 
-            // OF THE OPTIMAL STEP SIZE 
-            
             hj = h / nj[jj];
             hji = 1.0 / hj;
-            dc_decsol.decomr_(n, fjac, lfjac, fmas, ldmas, m1, m2, nm1, hji, e, le, ip, ref ier, ijob, calhes, iphes);
+            dc_decsol.decomr_(n, fjac, fmas, hji, e, ip, ref ier, ijob, calhes, iphes);
             if (ier != 0)
             {
                 goto L79;
@@ -1272,7 +1231,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 yh[i] = y[i];
                 del[i] = dy[i];
             }
-            dc_decsol.slvseu_(n, fjac, lfjac, fmas, ldmas, m1, m2, nm1, hji, e, le, ip, iphes, del, ijob);
+            dc_decsol.slvseu_(n, fjac, fmas, hji, e, ip, iphes, del, ijob);
             ++(nsol);
             m = nj[jj];
             if (iout == 2 && m == jj)
@@ -1314,20 +1273,20 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         del1 = Math.Sqrt(del1);
                         if (implct)
                         {
-                            for (i = 0; i < nm1; ++i)
+                            for (i = 0; i < n; ++i)
                             {
-                                wh[i] = del[i + m1];
+                                wh[i] = del[i];
                             }
                             //if (mlb == nm1)
                             {
-                                for (i = 0; i < nm1; ++i)
+                                for (i = 0; i < n; ++i)
                                 {
                                     sum = 0.0;
-                                    for (j = 0; j < nm1; ++j)
+                                    for (j = 0; j < n; ++j)
                                     {
-                                        sum += fmas[i + j * ldmas] * wh[j];
+                                        sum += fmas[i + j * n] * wh[j];
                                     }
-                                    del[i + m1] = sum;
+                                    del[i] = sum;
                                 }
                             }
                         }
@@ -1347,7 +1306,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                                 del[i] = dyh[i] - del[i] * hji;
                             }
                         }
-                        dc_decsol.slvseu_(n, fjac, lfjac, fmas, ldmas, m1, m2, nm1, hji, e, le, ip, iphes, del, ijob);
+                        dc_decsol.slvseu_(n, fjac, fmas, hji, e, ip, iphes, del, ijob);
                         ++(nsol);
                         del2 = 0.0;
                         for (i = 0; i < n; ++i)
@@ -1363,7 +1322,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                             goto L79;
                         }
                     }
-                    dc_decsol.slvseu_(n, fjac, lfjac, fmas, ldmas, m1, m2, nm1, hji, e, le, ip, iphes, dyh, ijob);
+                    dc_decsol.slvseu_(n, fjac, fmas, hji, e, ip, iphes, dyh, ijob);
                     ++(nsol);
                     for (i = 0; i < n; ++i)
                     {
@@ -1385,11 +1344,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             // POLYNOMIAL EXTRAPOLATION 
-            if (jj == 1)
+            if (jj == 0)
             {
                 return 0;
             }
-            for (l = jj; l >= 2; --l)
+            for (l = jj; l >= 1; --l)
             {
                 fac = nj[jj] / (double)nj[l - 1] - 1.0;
                 for (i = 0; i < n; ++i)
@@ -1430,7 +1389,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             reject = true;
             return 0;
         }
-        
+
         //  THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT IN CONECTION 
         //  WITH THE OUTPUT-SUBROUTINE FOR SEULEX. IT PROVIDES AN 
         //  APPROXIMATION TO THE II-TH COMPONENT OF THE SOLUTION AT X. 
@@ -1438,12 +1397,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             int[] ic, int lic)
         {
             double ret_val = 0;
-            
+
             int i, j;
             double theta;
 
             // COMPUTE PLACE OF II-TH COMPONENT 
-            
+
             i = 0;
             for (j = 0; j < coseu_2.nrd; ++j)
             {
