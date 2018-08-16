@@ -44,22 +44,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         coseu__1 coseu_1;
         coseu__2 coseu_2;
 
-        struct linal_
-        {
-            public int mle, mue, mbjac, mbb, mdiag, mdiff, mbdiag;
-        }
-
-        linal_ linal_1;
-
         /* Table of constant values */
 
         /* Subroutine */
         public int seulex_(int n, S_fp fcn, int ifcn, double x,
-            double[] y, double xend, double h, double[] rtol,
-double[] atol, int itol,
-J_fp jac, int ijac, int mljac, int mujac,
-M_fp mas, int imas, int mlmas, int mumas,
-S_fp solout, int iout, double[] work, int lwork, int[] iwork, int liwork, int idid)
+            double[] y, double xend, double h, double[] rtol, double[] atol, int itol,
+            J_fp jac, int ijac, M_fp mas, int imas, S_fp solout, int iout,
+            double[] work, int lwork, int[] iwork, int liwork, int idid)
         {
             /* Local variables */
             int i, m1, m2, km, km2, nm1, lde, nrd;
@@ -672,58 +663,24 @@ S_fp solout, int iout, double[] work, int lwork, int[] iwork, int liwork, int id
             /* ---- AUTONOMOUS, IMPLICIT, BANDED OR NOT ? */
             autnms = ifcn == 0;
             implct = imas != 0;
-            jband = mljac < nm1;
+
             /* -------- COMPUTATION OF THE ROW-DIMENSIONS OF THE 2-ARRAYS --- */
             /* -- JACOBIAN AND MATRIX E */
-            if (jband)
             {
-                ldjac = mljac + mujac + 1;
-                lde = mljac + ldjac;
-            }
-            else
-            {
-                mljac = nm1;
-                mujac = nm1;
                 ldjac = nm1;
                 lde = nm1;
             }
             /* -- MASS MATRIX */
             if (implct)
             {
-                if (mlmas != nm1)
-                {
-                    ldmas = mlmas + mumas + 1;
-                    if (jband)
-                    {
-                        ijob = 4;
-                    }
-                    else
-                    {
-                        ijob = 3;
-                    }
-                }
-                else
                 {
                     ldmas = nm1;
                     ijob = 5;
-                }
-                /* ------ BANDWITH OF "MAS" NOT LARGER THAN BANDWITH OF "JAC" */
-                if (mlmas > mljac || mumas > mujac)
-                {
-
-                    Console.WriteLine("BANDWITH OF \"MAS\" NOT LARGER THAN BANDWITH OF \"JAC\"");
-
-                    arret = true;
                 }
             }
             else
             {
                 ldmas = 0;
-                if (jband)
-                {
-                    ijob = 2;
-                }
-                else
                 {
                     ijob = 1;
                     if (n > 2 && iwork[0] != 0)
@@ -734,7 +691,7 @@ S_fp solout, int iout, double[] work, int lwork, int[] iwork, int liwork, int id
             }
             ldmas2 = Math.Max(1, ldmas);
             /* ------ HESSENBERG OPTION ONLY FOR EXPLICIT EQU. WITH FULL JACOBIAN */
-            if ((implct || jband) && ijob == 7)
+            if (implct && ijob == 7)
             {
 
                 Console.WriteLine(" HESSENBERG OPTION ONLY FOR EXPLICIT EQUATIONS WITH FULL JACOBIAN");
@@ -793,9 +750,9 @@ S_fp solout, int iout, double[] work, int lwork, int[] iwork, int liwork, int id
             nrd = Math.Max(1, nrdens);
             /* -------- CALL TO CORE INTEGRATOR ------------ */
             seucor_(n, fcn, x, y, xend, hmax, h, km, rtol, atol,
-                 itol, jac, ijac, mljac, mujac, mas, mlmas, mumas,
+                 itol, jac, ijac, mas,
                  solout, iout, idid, ijob, m1, m2, nm1, nmax, uround,
-                nsequ, autnms, implct, jband, ldjac, lde, ldmas2, yh,
+                nsequ, autnms, implct, ldjac, lde, ldmas2, yh,
                 dy, fx, yhh, dyh, del,
                  wh, scal, hh, w,
                 a, _jac, e, _mas, t, ip,
@@ -821,11 +778,10 @@ S_fp solout, int iout, double[] work, int lwork, int[] iwork, int liwork, int id
         int seucor_(int n, S_fp fcn, double x, double[]
 y, double xend, double hmax, double h, int km,
 double[] rtol, double[] atol, int itol, J_fp jac, int
-ijac, int mljac, int mujac, M_fp mas, int mlb, int
- mub, S_fp solout, int iout, int idid, int ijob,
+ijac, M_fp mas,S_fp solout, int iout, int idid, int ijob,
 int m1, int m2, int nm1, int nmax, double
-uround, int nsequ, bool autnms, bool implct, bool
-banded, int lfjac, int le, int ldmas, double[] yh,
+uround, int nsequ, bool autnms, bool implct,
+int lfjac, int le, int ldmas, double[] yh,
 double[] dy, double[] fx, double[] yhh, double[] dyh,
 double[] del, double[] wh, double[] scal, double[] hh,
 double[] w, double[] a, double[] fjac, double[] e,
@@ -841,14 +797,14 @@ double[] dens, int[] icomp)
             //static char fmt_979[] = "(\002 EXIT OF SEULEX AT X=\002,d14.7,\002   H=\002,d14.7)";
 
             /* System generated locals */
-            int i1, i2, i3, i4;
+            int i1, i2, i3;
             double d1;
 
             /* Builtin functions */
             //double d_sign(double *, double *), d_lg10(double *), Math.Sqrt(double), pow_di(double *, int *);
 
             /* Local variables */
-            int i, j, k, l, j1, kc = 0, md, ii, kk, i_n, mm, kx;
+            int i, j, k, l, kc = 0, ii, kk, i_n, mm, kx;
             double t1i, fac = 0, err;
             int ipt, klr, krn, lbeg, lend, lrde;
             double delt;
@@ -863,10 +819,8 @@ double[] dens, int[] icomp)
             bool caljac;
             double dblenj;
             bool calhes = false;
-            int mujacj;
             bool reject;
             double factor;
-            int mujacp;
             double errold = 0, posneg;
 
 
@@ -928,13 +882,7 @@ double[] dens, int[] icomp)
             /*  INITIALISATIONS */
             /* *** *** *** *** *** *** *** */
             lrde = (km + 2) * nrd;
-            linal_1.mle = mljac;
-            linal_1.mue = mujac;
-            linal_1.mbjac = mljac + mujac + 1;
-            linal_1.mbb = mlb + mub + 1;
-            linal_1.mdiag = linal_1.mle + linal_1.mue + 1;
-            linal_1.mdiff = linal_1.mle + linal_1.mue - mub;
-            linal_1.mbdiag = mub + 1;
+
             if (m1 > 0)
             {
                 ijob += 10;
@@ -1052,74 +1000,19 @@ double[] dens, int[] icomp)
                     {
                         fcn(n, x, y, dy);
                     }
-                    if (banded)
+
+                    /* --- JACOBIAN IS FULL */
+                    for (i = 0; i < n; ++i)
                     {
-                        /* --- JACOBIAN IS BANDED
-                        mujacp = mujac + 1;
-                        md = Math.Min(linal_1.mbjac, n);
-                        i1 = m1 / m2 + 1;
-                        for (mm = 1; mm <= i1; ++mm)
+                        ysafe = y[i];
+                        delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
+                        y[i] = ysafe + delt;
+                        fcn(n, x, y, yh);
+                        for (j = m1; j < n; ++j)
                         {
-                            i2 = md;
-                            for (kx = 1; kx <= i2; ++kx)
-                            {
-                                j = kx + (mm - 1) * m2;
-                                L12:
-                                yhh[j] = y[j];
-                                // Computing MAX
-                                d2 = 1e-5, d3 = (d1 = y[j], Math.Abs(d1));
-                                del[j] = Math.Sqrt(*uround * Math.Max(d2, d3));
-                                y[j] += del[j];
-                                j += md;
-                                if (j <= mm * m2)
-                                {
-                                    goto L12;
-                                }
-                                fcn(n, x, y, yh);
-                                j = kx + (mm - 1) * m2;
-                                j1 = kx;
-                                // Computing MAX
-                                i3 = 1, i4 = j1 - mujac;
-                                lbeg = Math.Max(i3, i4) + m1;
-                                L14:
-                                // Computing MIN
-                                i3 = m2, i4 = j1 + mljac;
-                                lend = Math.Min(i3, i4) + m1;
-                                y[j] = yhh[j];
-                                mujacj = mujacp - j1 - m1;
-                                i3 = lend;
-                                for (l = lbeg; l <= i3; ++l)
-                                {
-                                    fjac[l + mujacj + j * lfjac] = (yh[l] - dy[l])
-                                         / del[j];
-                                }
-                                j += md;
-                                j1 += md;
-                                lbeg = lend + 1;
-                                if (j <= mm * m2)
-                                {
-                                    goto L14;
-                                }
-                            }
+                            fjac[j - m1 + i * lfjac] = (yh[j] - dy[j]) / delt;
                         }
-                        //*/
-                    }
-                    else
-                    {
-                        /* --- JACOBIAN IS FULL */
-                        for (i = 0; i < n; ++i)
-                        {
-                            ysafe = y[i];
-                            delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
-                            y[i] = ysafe + delt;
-                            fcn(n, x, y, yh);
-                            for (j = m1; j < n; ++j)
-                            {
-                                fjac[j - m1 + i * lfjac] = (yh[j] - dy[j]) / delt;
-                            }
-                            y[i] = ysafe;
-                            mljac = nm1;
-                        }
+                        y[i] = ysafe;
                     }
                 }
                 else
@@ -1145,8 +1038,8 @@ double[] dens, int[] icomp)
                          le, ip, h, km, hmaxn, t, scal,
                          nj, hh, w, a, yhh, dyh, del,
                         wh, err, safe1, fac, fac1, fac2, safe2, theta,
-                        mljac, mujac, ref ndec, ref nsol, mlb, mub, errold,
-                        iphes, icomp, autnms, implct, banded, reject,
+                        ref ndec, ref nsol, errold,
+                        iphes, icomp, autnms, implct, reject,
                         atov, fsafe, km2, nrd, iout, ipt, m1, m2,
                         nm1, ijob, calhes);
                     if (atov)
@@ -1175,9 +1068,9 @@ double[] dens, int[] icomp)
                     lfjac, fmas, ldmas, e, le, ip,
                     h, km, hmaxn, t, scal, nj, hh, w
                     , a, yhh, dyh, del, wh, err, safe1, fac,
-                     fac1, fac2, safe2, theta, mljac, mujac, ref ndec, ref nsol,
-                    mlb, mub, errold, iphes, icomp, autnms, implct,
-                    banded, reject, atov, fsafe, km2, nrd, iout,
+                     fac1, fac2, safe2, theta, ref ndec, ref nsol,
+                    errold, iphes, icomp, autnms, implct,
+                    reject, atov, fsafe, km2, nrd, iout,
                     ipt, m1, m2, nm1, ijob, calhes);
                 if (atov)
                 {
@@ -1204,8 +1097,8 @@ double[] dens, int[] icomp)
                 lfjac, fmas, ldmas, e, le, ip, h,
                 km, hmaxn, t, scal, nj, hh, w, a,
                 yhh, dyh, del, wh, err, safe1, fac, fac1, fac2,
-                safe2, theta, mljac, mujac, ref ndec, ref nsol, mlb, mub, errold,
-                iphes, icomp, autnms, implct, banded, reject, atov,
+                safe2, theta, ref ndec, ref nsol, errold,
+                iphes, icomp, autnms, implct, reject, atov,
                 fsafe, km2, nrd, iout, ipt, m1, m2, nm1, ijob,
                 calhes);
             if (atov)
@@ -1228,8 +1121,8 @@ double[] dens, int[] icomp)
                 lfjac, fmas, ldmas, e, le, ip, h,
                 km, hmaxn, t, scal, nj, hh, w, a,
                 yhh, dyh, del, wh, err, safe1, fac, fac1, fac2,
-                safe2, theta, mljac, mujac, ref ndec, ref nsol, mlb, mub, errold,
-                iphes, icomp, autnms, implct, banded, reject, atov,
+                safe2, theta, ref ndec, ref nsol, errold,
+                iphes, icomp, autnms, implct, reject, atov,
                 fsafe, km2, nrd, iout, ipt, m1, m2, nm1, ijob,
                 calhes);
             if (atov)
@@ -1459,17 +1352,16 @@ hmaxn, double[] t, double[] scal, int[] nj, double[] hh,
 double[] w, double[] a, double[] yh, double[] dyh,
 double[] del, double[] wh, double err, double safe1,
 double fac, double fac1, double fac2, double
-safe2, double theta, int mljac, int mujac,
-ref int ndec, ref int nsol, int mlb, int mub,
+safe2, double theta,
+ref int ndec, ref int nsol,
 double errold, int[] iphes, int[] icomp, bool autnms,
-bool implct, bool banded, bool reject, bool atov,
+bool implct, bool reject, bool atov,
 double[] fsafe, int km2, int nrd, int iout, int
  ipt, int m1, int m2, int nm1, int ijob, bool
 calhes)
         {
             /* System generated locals */
-            int i1, i2, i3, i5;
-            double d1, d2, d3;
+            double d1, d2;
 
             /* Builtin functions */
             //double Math.Sqrt(double), Math.Pow(double *, double *);
@@ -1481,7 +1373,6 @@ calhes)
             double hji;
             int ier = 0;
             double sum, del1, del2, expo;
-            int mlmas = 0, mumas = 0;
             double facmin;
 
             /* --- THIS SUBROUTINE COMPUTES THE J-TH LINE OF THE */
@@ -1527,7 +1418,7 @@ calhes)
             /* Function Body */
             hj = h / nj[jj];
             hji = 1.0 / hj;
-            dc_decsol.decomr_(n, fjac, lfjac, fmas, ldmas, mlb, mub, m1, m2, nm1, hji, e, le, ip, ref ier, ijob, calhes, iphes);
+            dc_decsol.decomr_(n, fjac, lfjac, fmas, ldmas, m1, m2, nm1, hji, e, le, ip, ref ier, ijob, calhes, iphes);
             if (ier != 0)
             {
                 goto L79;
@@ -1546,7 +1437,7 @@ calhes)
                 yh[i] = y[i];
                 del[i] = dy[i];
             }
-            dc_decsol.slvseu_(n, fjac, lfjac, mljac, mujac, fmas, ldmas, mlmas, mumas, m1, m2, nm1, hji, e, le, ip, iphes, del, ijob);
+            dc_decsol.slvseu_(n, fjac, lfjac, fmas, ldmas, m1, m2, nm1, hji, e, le, ip, iphes, del, ijob);
             ++(nsol);
             m = nj[jj];
             if (iout == 2 && m == jj)
@@ -1593,7 +1484,7 @@ calhes)
                             {
                                 wh[i] = del[i + m1];
                             }
-                            if (mlb == nm1)
+                            //if (mlb == nm1)
                             {
                                 for (i = 0; i < nm1; ++i)
                                 {
@@ -1601,19 +1492,6 @@ calhes)
                                     for (j = 0; j < nm1; ++j)
                                     {
                                         sum += fmas[i + j * ldmas] * wh[j];
-                                    }
-                                    del[i + m1] = sum;
-                                }
-                            }
-                            else
-                            {
-                                for (i = 0; i < nm1; ++i)
-                                {
-                                    sum = 0.0;
-                                    i5 = Math.Min(nm1, i + mub);
-                                    for (j = Math.Max(1, i - mlb); j <= i5; ++j)
-                                    {
-                                        sum += fmas[i - j + linal_1.mbdiag + j * ldmas] * wh[j];
                                     }
                                     del[i + m1] = sum;
                                 }
@@ -1635,7 +1513,7 @@ calhes)
                                 del[i] = dyh[i] - del[i] * hji;
                             }
                         }
-                        dc_decsol.slvseu_(n, fjac, lfjac, mljac, mujac, fmas, ldmas, mlmas, mumas, m1, m2, nm1, hji, e, le, ip, iphes, del, ijob);
+                        dc_decsol.slvseu_(n, fjac, lfjac, fmas, ldmas, m1, m2, nm1, hji, e, le, ip, iphes, del, ijob);
                         ++(nsol);
                         del2 = 0.0;
                         for (i = 0; i < n; ++i)
@@ -1651,7 +1529,7 @@ calhes)
                             goto L79;
                         }
                     }
-                    dc_decsol.slvseu_(n, fjac, lfjac, mljac, mujac, fmas, ldmas, mlmas, mumas, m1, m2, nm1, hji, e, le, ip, iphes, dyh, ijob);
+                    dc_decsol.slvseu_(n, fjac, lfjac, fmas, ldmas, m1, m2, nm1, hji, e, le, ip, iphes, dyh, ijob);
                     ++(nsol);
                     for (i = 0; i < n; ++i)
                     {
