@@ -11,16 +11,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
     using J_fp = System.Action<int, double, double[], double[], int>;
     using M_fp = System.Action<int, double[], int>;
 
-    /// <summary>
-    /// 
-    /// Authors: E. Hairer and G. Wanner
+    // <summary>
+    // 
+    // Authors: E. Hairer and G. Wanner
     ///
-    /// This code is part of the book:
-    ///         E. Hairer and G. Wanner
-    ///         Solving Ordinary Differential Equations II.
-    ///         Stiff and differential-algebraic problems. (2nd edition)
-    ///         Springer-Verlag (1996)
-    /// </summary>
+    // This code is part of the book:
+    //      E. Hairer and G. Wanner
+    //      Solving Ordinary Differential Equations II.
+    //      Stiff and differential-algebraic problems. (2nd edition)
+    //      Springer-Verlag (1996)
+    // </summary>
     public class SemiImplicitEuler
     {
 
@@ -43,16 +43,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         coseu__1 coseu_1;
         coseu__2 coseu_2;
-
-        /* Table of constant values */
-
-        /* Subroutine */
+        
         public int seulex_(int n, S_fp fcn, int ifcn, double x,
             double[] y, double xend, double h, double[] rtol, double[] atol, int itol,
             J_fp jac, int ijac, M_fp mas, int imas, S_fp solout, int iout,
-            double[] work, int lwork, int[] iwork, int liwork, int idid)
+            double[] work, int[] iwork)
         {
-            /* Local variables */
             int i, m1, m2, km, km2, nm1, lde, nrd;
             double fac1, fac2, fac3, fac4;
             int ndec, ijob;
@@ -62,12 +58,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             int nsol;
             double safe1, safe2;
             int ldjac;
-            bool jband;
             double wkdec;
             double wkjac;
             int ldmas;
             double wkfcn;
-            bool arret;
             int nstep, nsequ;
             double wksol, wkrow;
             int ldmas2, lambda, naccpt, nrejct;
@@ -282,7 +276,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                 CAN BE USED FOR COMMUNICATION BETWEEN YOUR CALLING
              *                 PROGRAM AND THE FCN, JAC, MAS, SOLOUT SUBROUTINES.
              *
-             * ----------------------------------------------------------------------
+             // ----------------------------------------------------------------
              *
              *     SOPHISTICATED SETTING OF PARAMETERS
              *     -----------------------------------
@@ -389,7 +383,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *             DEFAULT VALUES ARE: WORK(10)=1.D0, WORK(11)=5.D0,
              *             WORK(12)=1.D0, WORK(13)=1.D0.
              *
-             * -----------------------------------------------------------------------
+             // -----------------------------------------------------------------
              *
              *     OUTPUT PARAMETERS
              *     -----------------
@@ -415,24 +409,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *   IWORK(19)  NDEC    NUMBER OF LU-DECOMPOSITIONS (N-DIMENSIONAL MATRIX)
              *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS
              */
-
-            /* Parameter adjustments */
-            //--y;
-            //--rtol;
-            //--atol;
-            //--work;
-            //--iwork;
-            //--rpar;
-            //--ipar;
-
-            /* Function Body */
+             
             nstep = 0;
             naccpt = 0;
             nrejct = 0;
             ndec = 0;
             nsol = 0;
-            arret = false;
-            /* -------- NMAX , THE MAXIMAL NUMBER OF STEPS ----- */
+
+            // NMAX , THE MAXIMAL NUMBER OF STEPS
             if (iwork[1] == 0)
             {
                 nmax = 100000;
@@ -442,13 +426,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 nmax = iwork[1];
                 if (nmax <= 0)
                 {
-
                     Console.WriteLine(" WRONG INPUT IWORK(2)=", iwork[1]);
-
-                    arret = true;
+                    return -1;
                 }
             }
-            /* -------- KM     MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION */
+            // KM     MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION
             if (iwork[2] == 0)
             {
                 km = 12;
@@ -458,13 +440,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 km = iwork[2];
                 if (km <= 2)
                 {
-
                     Console.WriteLine(" CURIOUS INPUT IWORK(3)=", iwork[2]);
-
-                    arret = true;
+                    return -1;
                 }
             }
-            /* -------- NSEQU     CHOICE OF STEP SIZE SEQUENCE */
+            // NSEQU     CHOICE OF STEP SIZE SEQUENCE
             nsequ = iwork[3];
             if (iwork[3] == 0)
             {
@@ -472,30 +452,24 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             if (nsequ <= 0 || nsequ >= 5)
             {
-
                 Console.WriteLine(" CURIOUS INPUT IWORK(4)=", iwork[3]);
-
-                arret = true;
+                return -1;
             }
-            /* -------- LAMBDA   PARAMETER FOR DENSE OUTPUT */
+            // LAMBDA   PARAMETER FOR DENSE OUTPUT
             lambda = iwork[4];
             if (lambda < 0 || lambda >= 2)
             {
-
                 Console.WriteLine(" CURIOUS INPUT IWORK(5)=", iwork[4]);
-
-                arret = true;
+                return -1;
             }
-            /* -------- NRDENS   NUMBER OF DENSE OUTPUT COMPONENTS */
+            // NRDENS   NUMBER OF DENSE OUTPUT COMPONENTS
             nrdens = iwork[5];
             if (nrdens < 0 || nrdens > n)
             {
-
                 Console.WriteLine(" CURIOUS INPUT IWORK(6)=", iwork[5]);
-
-                arret = true;
+                return -1;
             }
-            /* -------- PARAMETER FOR SECOND ORDER EQUATIONS */
+            // PARAMETER FOR SECOND ORDER EQUATIONS
             m1 = iwork[8];
             m2 = iwork[9];
             nm1 = n - m1;
@@ -509,12 +483,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             if (m1 < 0 || m2 < 0 || m1 + m2 > n)
             {
-
                 Console.WriteLine(" CURIOUS INPUT FOR IWORK(9,10)=", m1, m2);
-
-                arret = true;
+                return -1;
             }
-            /* -------- UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0 */
+            // UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0
             if (work[0] == 0.0)
             {
                 uround = 1e-16;
@@ -524,13 +496,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 uround = work[0];
                 if (uround <= 0.0 || uround >= 1.0)
                 {
-
                     Console.WriteLine("  UROUND=", work);
-
-                    arret = true;
+                    return -1;
                 }
             }
-            /* -------- MAXIMAL STEP SIZE */
+            // MAXIMAL STEP SIZE
             if (work[1] == 0.0)
             {
                 hmax = xend - x;
@@ -539,7 +509,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 hmax = work[1];
             }
-            /* ------ THET     DECIDES WHETHER THE JACOBIAN SHOULD BE RECOMPUTED; */
+            // THET     DECIDES WHETHER THE JACOBIAN SHOULD BE RECOMPUTED;
             if (work[2] == 0.0)
             {
                 thet = Math.Min(1e-4, rtol[0]);
@@ -548,7 +518,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 thet = work[2];
             }
-            /* -------  FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION */
+            // FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION
             if (work[3] == 0.0)
             {
                 fac1 = 0.1;
@@ -565,7 +535,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 fac2 = work[4];
             }
-            /* -------  FAC3, FAC4   PARAMETERS FOR THE ORDER SELECTION */
+            // FAC3, FAC4   PARAMETERS FOR THE ORDER SELECTION
             if (work[5] == 0.0)
             {
                 fac3 = 0.7;
@@ -582,7 +552,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 fac4 = work[6];
             }
-            /* ------- SAFE1, SAFE2 SAFETY FACTORS FOR STEP SIZE PREDICTION */
+            // SAFE1, SAFE2 SAFETY FACTORS FOR STEP SIZE PREDICTION
             if (work[7] == 0.0)
             {
                 safe1 = 0.6;
@@ -599,7 +569,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 safe2 = work[8];
             }
-            /* ------- WKFCN,WKJAC,WKDEC,WKSOL  ESTIMATED WORK FOR  FCN,JAC,DEC,SOL */
+            // WKFCN,WKJAC,WKDEC,WKSOL  ESTIMATED WORK FOR  FCN,JAC,DEC,SOL
             if (work[9] == 0.0)
             {
                 wkfcn = 1.0;
@@ -633,15 +603,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 wksol = work[12];
             }
             wkrow = wkfcn + wksol;
-            /* --------- CHECK IF TOLERANCES ARE O.K. */
+            // CHECK IF TOLERANCES ARE O.K.
             if (itol == 0)
             {
                 if (atol[0] <= 0.0 || rtol[0] <= uround * 10.0)
                 {
-
                     Console.WriteLine(" TOLERANCES ARE TOO SMALL");
-
-                    arret = true;
+                    return -1;
                 }
             }
             else
@@ -650,27 +618,23 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
                     if (atol[i] <= 0.0 || rtol[i] <= uround * 10.0)
                     {
-
                         Console.WriteLine(" TOLERANCES(" + i + ") ARE TOO SMALL");
-
-                        arret = true;
+                        return -1;
                     }
                 }
             }
-            /* *** *** *** *** *** *** *** *** *** *** *** *** *** */
-            /*         COMPUTATION OF ARRAY ENTRIES */
-            /* *** *** *** *** *** *** *** *** *** *** *** *** *** */
-            /* ---- AUTONOMOUS, IMPLICIT, BANDED OR NOT ? */
+
+            // AUTONOMOUS, IMPLICIT, BANDED OR NOT ?
             autnms = ifcn == 0;
             implct = imas != 0;
 
-            /* -------- COMPUTATION OF THE ROW-DIMENSIONS OF THE 2-ARRAYS --- */
-            /* -- JACOBIAN AND MATRIX E */
+            // COMPUTATION OF THE ROW-DIMENSIONS OF THE 2-ARRAYS
+            // JACOBIAN AND MATRIX E
             {
                 ldjac = nm1;
                 lde = nm1;
             }
-            /* -- MASS MATRIX */
+            // MASS MATRIX
             if (implct)
             {
                 {
@@ -690,68 +654,47 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
             }
             ldmas2 = Math.Max(1, ldmas);
-            /* ------ HESSENBERG OPTION ONLY FOR EXPLICIT EQU. WITH FULL JACOBIAN */
+
+            // HESSENBERG OPTION ONLY FOR EXPLICIT EQU. WITH FULL JACOBIAN
             if (implct && ijob == 7)
             {
-
                 Console.WriteLine(" HESSENBERG OPTION ONLY FOR EXPLICIT EQUATIONS WITH FULL JACOBIAN");
-
-                arret = true;
+                return -1;
             }
-            /* ------- PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK ----- */
+
+            // PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK
             km2 = km * (km + 1) / 2;
-            var yh = new double[n];// 21;
-            var dy = new double[n];// yh + n;
-            var fx = new double[n];// dy + n;
-            var yhh = new double[n];// fx + n;
-            var dyh = new double[n];// yhh + n;
-            var del = new double[n];// dyh + n;
-            var wh = new double[n];// del + n;
-            var scal = new double[n];// wh + n;
-            var hh = new double[km];// scal + n;
-            var w = new double[km];// hh + km;
-            var a = new double[km];// w + km;
-            var _jac = new double[n * ldjac];// a + km;
-            var e = new double[nm1 * lde];// jac + n * ldjac;
-            var _mas = new double[nm1 * ldmas];// e + nm1 * lde;
-            var t = new double[n * km];// mas + nm1 * ldmas;
-            var ifac = new double[km];// t + n * km;
-            var de = new double[(km + 2) * nrdens];// ifac + km;
-            var fsafe = new double[km2 * nrdens];// de + (km + 2) * nrdens;
+            var yh = new double[n];
+            var dy = new double[n];
+            var fx = new double[n];
+            var yhh = new double[n];
+            var dyh = new double[n];
+            var del = new double[n];
+            var wh = new double[n];
+            var scal = new double[n];
+            var hh = new double[km];
+            var w = new double[km];
+            var a = new double[km];
+            var _jac = new double[n * ldjac];
+            var e = new double[nm1 * lde];
+            var _mas = new double[nm1 * ldmas];
+            var t = new double[n * km];
+            var ifac = new double[km];
+            var de = new double[(km + 2) * nrdens];
+            var fsafe = new double[km2 * nrdens];
 
-            /* ------ TOTAL STORAGE REQUIREMENT ----------- */
-            //istore = fsafe + km2 * nrdens - 1;
-            //if (istore > lwork)
-            //{
-            //    Console.WriteLine(" INSUFFICIENT STORAGE FOR WORK, MIN. LWORK=", istore);
-            //    arret = true;
-            //}
+            // ENTRY POINTS FOR int WORKSPACE
+            var co = new int[nrdens];
+            var ip = new int[n];
+            var nj = new int[km];
+            var iph = new int[km];
 
-            /* ------- ENTRY POINTS FOR int WORKSPACE ----- */
-            var co = new int[nrdens];// 21;
-            var ip = new int[n];// nrdens + 21;
-            var nj = new int[km];// ip + n;
-            var iph = new int[km];// nj + km;
-
-            /* --------- TOTAL REQUIREMENT --------------- */
-            //istore = co + km - 1;
-            //if (istore > liwork)
-            //{
-            //    Console.WriteLine(" INSUFF. STORAGE FOR IWORK, MIN. LIWORK=", istore);
-            //    arret = true;
-            //}
-
-            /* ------ WHEN A FAIL HAS OCCURED, WE RETURN WITH IDID=-1 */
-            if (arret)
-            {
-                idid = -1;
-                return 0;
-            }
             nrd = Math.Max(1, nrdens);
-            /* -------- CALL TO CORE INTEGRATOR ------------ */
-            seucor_(n, fcn, x, y, xend, hmax, h, km, rtol, atol,
+
+            // CALL TO CORE INTEGRATOR
+            int idid = seucor_(n, fcn, x, y, xend, hmax, h, km, rtol, atol,
                  itol, jac, ijac, mas,
-                 solout, iout, idid, ijob, m1, m2, nm1, nmax, uround,
+                 solout, iout, ijob, m1, m2, nm1, nmax, uround,
                 nsequ, autnms, implct, ldjac, lde, ldmas2, yh,
                 dy, fx, yhh, dyh, del,
                  wh, scal, hh, w,
@@ -766,44 +709,33 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             iwork[18] = nrejct;
             iwork[19] = ndec;
             iwork[20] = nsol;
-            /* ----------- RETURN ----------- */
-            return 0;
-        } /* seulex_ */
+            
+            return idid;
+        }
 
-
-
-        /*  ----- ... AND HERE IS THE CORE INTEGRATOR  ---------- */
-
-        /* Subroutine */
-        int seucor_(int n, S_fp fcn, double x, double[]
-y, double xend, double hmax, double h, int km,
-double[] rtol, double[] atol, int itol, J_fp jac, int
-ijac, M_fp mas,S_fp solout, int iout, int idid, int ijob,
-int m1, int m2, int nm1, int nmax, double
-uround, int nsequ, bool autnms, bool implct,
-int lfjac, int le, int ldmas, double[] yh,
-double[] dy, double[] fx, double[] yhh, double[] dyh,
-double[] del, double[] wh, double[] scal, double[] hh,
-double[] w, double[] a, double[] fjac, double[] e,
-double[] fmas, double[] t, int[] ip, int[] nj, int[]
-iphes, double fac1, double fac2, double fac3,
-double fac4, double thet, double safe1, double
-safe2, double wkjac, double wkdec, double wkrow,
-int km2, int nrd, double[] facul, double[] fsafe,
-int lambda, ref int nstep, ref int naccpt, ref int nrejct, ref int ndec, ref int nsol,
-double[] dens, int[] icomp)
+        // ... AND HERE IS THE CORE INTEGRATOR
+        
+        int seucor_(int n, S_fp fcn, double x, double[] y,
+            double xend, double hmax, double h, int km,
+            double[] rtol, double[] atol, int itol, J_fp jac, int ijac,
+            M_fp mas, S_fp solout, int iout, int ijob,
+            int m1, int m2, int nm1, int nmax, double uround,
+            int nsequ, bool autnms, bool implct,
+            int lfjac, int le, int ldmas, double[] yh,
+            double[] dy, double[] fx, double[] yhh, double[] dyh,
+            double[] del, double[] wh, double[] scal, double[] hh,
+            double[] w, double[] a, double[] fjac, double[] e,
+            double[] fmas, double[] t, int[] ip, int[] nj, int[] iphes,
+            double fac1, double fac2, double fac3,
+            double fac4, double thet, double safe1, double safe2,
+            double wkjac, double wkdec, double wkrow,
+            int km2, int nrd, double[] facul, double[] fsafe,
+            int lambda, ref int nstep, ref int naccpt, ref int nrejct, ref int ndec, ref int nsol,
+            double[] dens, int[] icomp)
         {
-            /* Format strings */
-            //static char fmt_979[] = "(\002 EXIT OF SEULEX AT X=\002,d14.7,\002   H=\002,d14.7)";
-
-            /* System generated locals */
             int i1, i2, i3;
             double d1;
-
-            /* Builtin functions */
-            //double d_sign(double *, double *), d_lg10(double *), Math.Sqrt(double), pow_di(double *, int *);
-
-            /* Local variables */
+            
             int i, j, k, l, kc = 0, ii, kk, i_n, mm, kx;
             double t1i, fac = 0, err;
             int ipt, klr, krn, lbeg, lend, lrde;
@@ -823,71 +755,35 @@ double[] dens, int[] icomp)
             double factor;
             double errold = 0, posneg;
 
-
-            /* ---------------------------------------------------------- */
-            /*     CORE INTEGRATOR FOR SEULEX */
-            /*     PARAMETERS SAME AS IN SEULEX WITH WORKSPACE ADDED */
-            /* ---------------------------------------------------------- */
-            /*         DECLARATIONS */
-            /* ---------------------------------------------------------- */
-            /* --- COMPUTE COEFFICIENTS FOR DENSE OUTPUT */
-            /* Parameter adjustments */
-            //--iphes;
-            //--scal;
-            //--wh;
-            //--del;
-            //--dyh;
-            //--yhh;
-            //--fx;
-            //--dy;
-            //--yh;
-            //--y;
-            //--facul;
-            //--nj;
-            //t -= 1 + km;
-            //--a;
-            //--w;
-            //--hh;
-            //--rtol;
-            //--atol;
-            //--ip;
-            //fjac -= 1 + lfjac;
-            //1 + le = 1 + le;
-            //e -= 1 + le;
-            //1 + ldmas = 1 + ldmas;
-            //fmas -= 1 + ldmas;
-            //--icomp;
-            //--dens;
-            //fsafe -= 1 + km2;
-            //--rpar;
-            //--ipar;
-
-            /* Function Body */
+            
+            // CORE INTEGRATOR FOR SEULEX
+            // PARAMETERS SAME AS IN SEULEX WITH WORKSPACE ADDED
+            
             if (iout == 2)
             {
                 coseu_1.nnrd = nrd;
-                /* --- COMPUTE THE FACTORIALS -------- */
+                // COMPUTE THE FACTORIALS
                 facul[0] = 1.0;
                 for (i = 0; i < km - 1; ++i)
                 {
                     facul[i + 1] = i * facul[i];
                 }
             }
-            /* ------- COMPUTE MASS MATRIX FOR IMPLICIT CASE ---------- */
+            // COMPUTE MASS MATRIX FOR IMPLICIT CASE
             if (implct)
             {
                 mas(nm1, fmas, ldmas);
             }
-            /* *** *** *** *** *** *** *** */
-            /*  INITIALISATIONS */
-            /* *** *** *** *** *** *** *** */
+
+            // INITIALISATIONS
             lrde = (km + 2) * nrd;
 
             if (m1 > 0)
             {
                 ijob += 10;
             }
-            /* --- DEFINE THE STEP SIZE SEQUENCE */
+
+            // DEFINE THE STEP SIZE SEQUENCE
             if (nsequ == 1)
             {
                 nj[0] = 1;
@@ -970,9 +866,8 @@ double[] dens, int[] icomp)
                 theta = Math.Abs(thet) * 2;
             }
             atov = false;
-            /* *** *** *** *** *** *** *** */
-            /* --- IS XEND REACHED IN THE NEXT STEP? */
-            /* *** *** *** *** *** *** *** */
+
+            // IS XEND REACHED IN THE NEXT STEP? 
             if (Math.Abs(xend - x) * 0.1 <= Math.Abs(x) * uround)
             {
                 goto L110;
@@ -990,18 +885,16 @@ double[] dens, int[] icomp)
             }
             if (theta > thet && !caljac)
             {
-                /* *** *** *** *** *** *** *** */
-                /*  COMPUTATION OF THE JACOBIAN */
-                /* *** *** *** *** *** *** *** */
+                // COMPUTATION OF THE JACOBIAN
                 if (ijac == 0)
                 {
-                    /* --- COMPUTE JACOBIAN MATRIX NUMERICALLY */
+                    // COMPUTE JACOBIAN MATRIX NUMERICALLY 
                     if (!(autnms))
                     {
                         fcn(n, x, y, dy);
                     }
 
-                    /* --- JACOBIAN IS FULL */
+                    // JACOBIAN IS FULL 
                     for (i = 0; i < n; ++i)
                     {
                         ysafe = y[i];
@@ -1017,15 +910,14 @@ double[] dens, int[] icomp)
                 }
                 else
                 {
-                    /* --- COMPUTE JACOBIAN MATRIX ANALYTICALLY */
+                    // COMPUTE JACOBIAN MATRIX ANALYTICALLY 
                     jac(n, x, y, fjac, lfjac);
                 }
                 caljac = true;
                 calhes = true;
             }
-            /* *** *** *** *** *** *** *** */
-            /* --- THE FIRST AND LAST STEP */
-            /* *** *** *** *** *** *** *** */
+
+            // THE FIRST AND LAST STEP 
             if (nstep == 0 || last)
             {
                 ipt = 0;
@@ -1053,7 +945,8 @@ double[] dens, int[] icomp)
                 }
                 goto L55;
             }
-            /* --- BASIC INTEGRATION STEP */
+
+            // BASIC INTEGRATION STEP 
             L30:
             ipt = 0;
             ++(nstep);
@@ -1077,9 +970,8 @@ double[] dens, int[] icomp)
                     goto L10;
                 }
             }
-            /* *** *** *** *** *** *** *** */
-            /* --- CONVERGENCE MONITOR */
-            /* *** *** *** *** *** *** *** */
+
+            // CONVERGENCE MONITOR 
             if (k == 2 || reject)
             {
                 goto L50;
@@ -1110,7 +1002,7 @@ double[] dens, int[] icomp)
             {
                 goto L60;
             }
-            /* --- HOPE FOR CONVERGENCE IN LINE K+1 */
+            // HOPE FOR CONVERGENCE IN LINE K+1 
             L55:
             if (err > (double)nj[k + 1] * 2.0)
             {
@@ -1133,9 +1025,8 @@ double[] dens, int[] icomp)
             {
                 goto L100;
             }
-            /* *** *** *** *** *** *** *** */
-            /* --- STEP IS ACCEPTED */
-            /* *** *** *** *** *** *** *** */
+
+            // STEP IS ACCEPTED 
             L60:
             xold = x;
             x += h;
@@ -1173,7 +1064,7 @@ double[] dens, int[] icomp)
                 i1 = coseu_1.kright - 1;
                 for (klr = 1; klr <= i1; ++klr)
                 {
-                    /* --- COMPUTE DIFFERENCES */
+                    // COMPUTE DIFFERENCES 
                     if (klr >= 2)
                     {
                         i2 = kc;
@@ -1190,7 +1081,7 @@ double[] dens, int[] icomp)
                             }
                         }
                     }
-                    /* --- COMPUTE DERIVATIVES AT RIGHT END ---- */
+                    // COMPUTE DERIVATIVES AT RIGHT END
                     i2 = kc;
                     for (kk = klr + lambda; kk <= i2; ++kk)
                     {
@@ -1218,7 +1109,7 @@ double[] dens, int[] icomp)
                         }
                     }
                 }
-                /* ---  COMPUTE THE COEFFICIENTS OF THE INTERPOLATION POLYNOMIAL */
+                // COMPUTE THE COEFFICIENTS OF THE INTERPOLATION POLYNOMIAL 
                 for (i_n = 0; i_n < nrd; ++i_n)
                 {
                     for (j = 0; j < coseu_1.kright; ++j)
@@ -1244,7 +1135,7 @@ double[] dens, int[] icomp)
                     goto L120;
                 }
             }
-            /* --- COMPUTE OPTIMAL ORDER */
+            // COMPUTE OPTIMAL ORDER 
             if (kc == 2)
             {
                 kopt = Math.Min(3, km - 1);
@@ -1278,7 +1169,7 @@ double[] dens, int[] icomp)
                     kopt = Math.Min(kc, km - 1);
                 }
             }
-            /* --- AFTER A REJECTED STEP */
+            // AFTER A REJECTED STEP 
             L80:
             if (reject)
             {
@@ -1287,7 +1178,7 @@ double[] dens, int[] icomp)
                 reject = false;
                 goto L10;
             }
-            /* --- COMPUTE STEP SIZE FOR NEXT STEP */
+            // COMPUTE STEP SIZE FOR NEXT STEP 
             if (kopt <= kc)
             {
                 h = hh[kopt];
@@ -1306,9 +1197,8 @@ double[] dens, int[] icomp)
             k = kopt;
             h = posneg * Math.Abs(h);
             goto L10;
-            /* *** *** *** *** *** *** *** */
-            /* --- STEP IS REJECTED */
-            /* *** *** *** *** *** *** *** */
+
+            // STEP IS REJECTED 
             L100:
             k = Math.Min(Math.Min(k, kc), km - 1);
             if (k > 2 && w[k - 1] < w[k] * fac3)
@@ -1324,49 +1214,32 @@ double[] dens, int[] icomp)
                 goto L30;
             }
             goto L10;
-            /* --- SOLUTION EXIT */
+            // SOLUTION EXIT 
             L110:
             h = hopt;
-            idid = 1;
-            return 0;
-            /* --- FAIL EXIT */
+            return 1;
+            // FAIL EXIT 
             L120:
-            //do_fio(x);
-            //do_fio(h);
-            idid = -1;
-            return 0;
-        } /* seucor_ */
-
-
-
-        /* *** *** *** *** *** *** *** */
-        /*     S U B R O U T I N E    S E U L */
-        /* *** *** *** *** *** *** *** */
-
-        /* Subroutine */
+            //do_fio("", x, h);
+            return -1;
+        }
+        
         int seul_(int jj, int n, S_fp fcn, double x,
-double[] y, double[] dy, double[] fx, double[] fjac,
-int lfjac, double[] fmas, int ldmas, double[] e,
-int le, int[] ip, double h, int km, double
-hmaxn, double[] t, double[] scal, int[] nj, double[] hh,
-double[] w, double[] a, double[] yh, double[] dyh,
-double[] del, double[] wh, double err, double safe1,
-double fac, double fac1, double fac2, double
-safe2, double theta,
-ref int ndec, ref int nsol,
-double errold, int[] iphes, int[] icomp, bool autnms,
-bool implct, bool reject, bool atov,
-double[] fsafe, int km2, int nrd, int iout, int
- ipt, int m1, int m2, int nm1, int ijob, bool
-calhes)
+            double[] y, double[] dy, double[] fx, double[] fjac,
+            int lfjac, double[] fmas, int ldmas, double[] e,
+            int le, int[] ip, double h, int km, double hmaxn,
+            double[] t, double[] scal, int[] nj, double[] hh,
+            double[] w, double[] a, double[] yh, double[] dyh,
+            double[] del, double[] wh, double err, double safe1,
+            double fac, double fac1, double fac2, double safe2, double theta,
+            ref int ndec, ref int nsol,
+            double errold, int[] iphes, int[] icomp, bool autnms,
+            bool implct, bool reject, bool atov,
+            double[] fsafe, int km2, int nrd, int iout, int ipt,
+            int m1, int m2, int nm1, int ijob, bool calhes)
         {
-            /* System generated locals */
             double d1, d2;
-
-            /* Builtin functions */
-            //double Math.Sqrt(double), Math.Pow(double *, double *);
-
-            /* Local variables */
+            
             int i, j, l, m;
             double hj;
             int mm;
@@ -1375,47 +1248,10 @@ calhes)
             double sum, del1, del2, expo;
             double facmin;
 
-            /* --- THIS SUBROUTINE COMPUTES THE J-TH LINE OF THE */
-            /* --- EXTRAPOLATION TABLE AND PROVIDES AN ESTIMATE */
-            /* --- OF THE OPTIMAL STEP SIZE */
-            /* *** *** *** *** *** *** *** */
-            /*  COMPUTE THE MATRIX E AND ITS DECOMPOSITION */
-            /* *** *** *** *** *** *** *** */
-            /* Parameter adjustments */
-            //--iphes;
-            //--wh;
-            //--del;
-            //--dyh;
-            //--yh;
-            //--scal;
-            //--ip;
-            //--fx;
-            //--dy;
-            //--y;
-            //lfjac = lfjac;
-            //1 + lfjac = 1 + lfjac;
-            //fjac -= 1 + lfjac;
-            //ldmas = ldmas;
-            //1 + ldmas = 1 + ldmas;
-            //fmas -= 1 + ldmas;
-            //le = le;
-            //1 + le = 1 + le;
-            //e -= 1 + le;
-            //--a;
-            //--w;
-            //--hh;
-            //--nj;
-            //km = km;
-            //1 + km = 1 + km;
-            //t -= 1 + km;
-            //km2 = km2;
-            //1 + km2 = 1 + km2;
-            //fsafe -= 1 + km2;
-            //--icomp;
-            //--rpar;
-            //--ipar;
-
-            /* Function Body */
+            // THIS SUBROUTINE COMPUTES THE J-TH LINE OF THE 
+            // EXTRAPOLATION TABLE AND PROVIDES AN ESTIMATE 
+            // OF THE OPTIMAL STEP SIZE 
+            
             hj = h / nj[jj];
             hji = 1.0 / hj;
             dc_decsol.decomr_(n, fjac, lfjac, fmas, ldmas, m1, m2, nm1, hji, e, le, ip, ref ier, ijob, calhes, iphes);
@@ -1424,9 +1260,8 @@ calhes)
                 goto L79;
             }
             ++(ndec);
-            /* *** *** *** *** *** *** *** */
-            /* --- STARTING PROCEDURE */
-            /* *** *** *** *** *** *** *** */
+
+            // STARTING PROCEDURE 
             if (!(autnms))
             {
                 d1 = x + hj;
@@ -1448,9 +1283,8 @@ calhes)
                     fsafe[ipt + i * km2] = del[icomp[i]];
                 }
             }
-            /* *** *** *** *** *** *** *** */
-            /* --- SEMI-IMPLICIT EULER METHOD */
-            /* *** *** *** *** *** *** *** */
+
+            // SEMI-IMPLICIT EULER METHOD 
             if (m > 1)
             {
                 for (mm = 0; mm < m - 1; ++mm)
@@ -1469,7 +1303,7 @@ calhes)
                     }
                     if (mm == 1 && jj <= 2)
                     {
-                        /* --- STABILITY CHECK */
+                        // STABILITY CHECK 
                         del1 = 0.0;
                         for (i = 0; i < n; ++i)
                         {
@@ -1549,9 +1383,8 @@ calhes)
             {
                 t[jj + i * km] = yh[i] + del[i];
             }
-            /* *** *** *** *** *** *** *** */
-            /* --- POLYNOMIAL EXTRAPOLATION */
-            /* *** *** *** *** *** *** *** */
+
+            // POLYNOMIAL EXTRAPOLATION 
             if (jj == 1)
             {
                 return 0;
@@ -1580,10 +1413,9 @@ calhes)
             {
                 goto L79;
             }
-            /* Computing MAX */
             d1 = err * 4;
             errold = Math.Max(d1, 1.0);
-            /* --- COMPUTE OPTIMAL STEP SIZES */
+            // COMPUTE OPTIMAL STEP SIZES 
             expo = 1.0 / jj;
             facmin = Math.Pow(fac1, expo);
             fac = Math.Min(fac2 / facmin, Math.Max(facmin, Math.Pow(err / safe1, expo) / safe2));
@@ -1597,30 +1429,21 @@ calhes)
             h *= 0.5;
             reject = true;
             return 0;
-        } /* seul_ */
-
-
+        }
+        
+        //  THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT IN CONECTION 
+        //  WITH THE OUTPUT-SUBROUTINE FOR SEULEX. IT PROVIDES AN 
+        //  APPROXIMATION TO THE II-TH COMPONENT OF THE SOLUTION AT X. 
         double contex_(int ii, double x, double[] rc, int lrc,
             int[] ic, int lic)
         {
-            /* System generated locals */
             double ret_val = 0;
-
-            /* Local variables */
+            
             int i, j;
             double theta;
 
-            /* ---------------------------------------------------------- */
-            /*     THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT IN CONECTION */
-            /*     WITH THE OUTPUT-SUBROUTINE FOR SEULEX. IT PROVIDES AN */
-            /*     APPROXIMATION TO THE II-TH COMPONENT OF THE SOLUTION AT X. */
-            /* ---------------------------------------------------------- */
-            /* ----- COMPUTE PLACE OF II-TH COMPONENT */
-            /* Parameter adjustments */
-            //--rc;
-            //--ic;
-
-            /* Function Body */
+            // COMPUTE PLACE OF II-TH COMPONENT 
+            
             i = 0;
             for (j = 0; j < coseu_2.nrd; ++j)
             {
@@ -1634,7 +1457,7 @@ calhes)
                 Console.WriteLine(" NO DENSE OUTPUT AVAILABLE FOR COMP.", ii);
                 return ret_val;
             }
-            /* ----- COMPUTE THE INTERPOLATED VALUE */
+            // COMPUTE THE INTERPOLATED VALUE 
             theta = (x - coseu_2.xold) / coseu_2.h;
             ret_val = rc[coseu_2.ir * coseu_2.nrd + i];
             for (j = 1; j < coseu_2.ir; ++j)
@@ -1643,6 +1466,6 @@ calhes)
             }
             ret_val = rc[i] + ret_val * theta;
             return ret_val;
-        } /* contex_ */
+        }
     }
 }
