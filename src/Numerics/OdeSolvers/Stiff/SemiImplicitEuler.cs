@@ -30,28 +30,24 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return b >= 0 ? x : -x;
         }
 
-        struct coseu__1
-        {
-            public double xoldd, hhh;
-            public int nnrd, kright;
-        }
-        struct coseu__2
+        struct coseu
         {
             public double xold, h;
-            public int nrd, ir;
+            public int nrd, kright;
         }
 
-        coseu__1 coseu_1;
-        coseu__2 coseu_2;
-        
+        coseu coseu_1;
+
         double fac1, fac2, fac3, fac4, safe1, safe2;
 
+        double rtol, atol;
+
         public int seulex_(int n, S_fp fcn, int ifcn, double x,
-            double[] y, double xend, double h, double[] rtol, double[] atol, int itol,
+            double[] y, double xend, double h, double rtol, double atol,
             J_fp jac, int ijac, M_fp mas, int imas, S_fp solout, int iout,
             double[] work, int[] iwork)
         {
-            int i, km, km2, nrd;
+            int i, km, km2;
             int ndec, ijob;
             double hmax;
             int nmax;
@@ -493,7 +489,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // THET     DECIDES WHETHER THE JACOBIAN SHOULD BE RECOMPUTED;
             if (work[2] == 0.0)
             {
-                thet = Math.Min(1e-4, rtol[0]);
+                thet = Math.Min(1e-4, rtol);
             }
             else
             {
@@ -547,24 +543,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             wkrow = wkfcn + wksol;
             // CHECK IF TOLERANCES ARE O.K.
-            if (itol == 0)
+            if (atol <= 0.0 || rtol <= uround * 10.0)
             {
-                if (atol[0] <= 0.0 || rtol[0] <= uround * 10.0)
-                {
-                    Console.WriteLine(" TOLERANCES ARE TOO SMALL");
-                    return -1;
-                }
-            }
-            else
-            {
-                for (i = 0; i < n; ++i)
-                {
-                    if (atol[i] <= 0.0 || rtol[i] <= uround * 10.0)
-                    {
-                        Console.WriteLine(" TOLERANCES(" + i + ") ARE TOO SMALL");
-                        return -1;
-                    }
-                }
+                Console.WriteLine(" TOLERANCES ARE TOO SMALL");
+                return -1;
             }
 
             // AUTONOMOUS, IMPLICIT, BANDED OR NOT ?
@@ -619,11 +601,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var ip = new int[n];
             var nj = new int[km];
             var iph = new int[km];
-            
+
             // CALL TO CORE INTEGRATOR
-            int idid = seucor_(n, fcn, x, y, xend, hmax, h, km, rtol, atol,
-                 itol, jac, ijac, mas,
-                 solout, iout, ijob, nmax, uround,
+            int idid = seucor_(n, fcn, x, y, xend, hmax, h, km,
+                jac, ijac, mas, solout, iout, ijob, nmax, uround,
                 nsequ, autnms, implct, yh,
                 dy, fx, yhh, dyh, del,
                  wh, scal, hh, w,
@@ -645,8 +626,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         int seucor_(int n, S_fp fcn, double x, double[] y,
             double xend, double hmax, double h, int km,
-            double[] rtol, double[] atol, int itol, J_fp jac, int ijac,
-            M_fp mas, S_fp solout, int iout, int ijob,
+            J_fp jac, int ijac, M_fp mas, S_fp solout, int iout, int ijob,
             int nmax, double uround,
             int nsequ, bool autnms, bool implct, double[] yh,
             double[] dy, double[] fx, double[] yhh, double[] dyh,
@@ -686,7 +666,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             if (iout == 2)
             {
-                coseu_1.nnrd = n;
+                coseu_1.nrd = n;
                 // COMPUTE THE FACTORIALS
                 facul[0] = 1.0;
                 for (i = 0; i < km - 1; ++i)
@@ -741,7 +721,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             d1 = xend - x;
             posneg = d_sign(1.0, d1);
-            k = Math.Max(2, Math.Min(km - 2, (int)(-Math.Log10(rtol[0] + atol[0]) * 0.6 + 1.5)));
+            k = Math.Max(2, Math.Min(km - 2, (int)(-Math.Log10(rtol + atol) * 0.6 + 1.5)));
             hmaxn = Math.Min(Math.Abs(hmax), Math.Abs(xend - x));
             h = Math.Max(Math.Abs(h), 1e-6);
             h = posneg * Math.Min(h, hmaxn);
@@ -768,14 +748,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             w[0] = 1e30;
             for (i = 0; i < n; ++i)
             {
-                if (itol == 0)
-                {
-                    scal[i] = atol[0] + rtol[0] * Math.Abs(y[i]);
-                }
-                else
-                {
-                    scal[i] = atol[i] + rtol[i] * Math.Abs(y[i]);
-                }
+                scal[i] = atol + rtol * Math.Abs(y[i]);
             }
             caljac = false;
             reject = false;
@@ -956,22 +929,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             for (i = 0; i < n; ++i)
             {
                 t1i = t[i * km];
-                if (itol == 0)
-                {
-                    scal[i] = atol[0] + rtol[0] * Math.Abs(t1i);
-                }
-                else
-                {
-                    scal[i] = atol[i] + rtol[i] * Math.Abs(t1i);
-                }
+                scal[i] = atol + rtol * Math.Abs(t1i);
                 y[i] = t1i;
             }
             ++(naccpt);
             caljac = false;
             if (iout == 2)
             {
-                coseu_1.xoldd = xold;
-                coseu_1.hhh = h;
+                coseu_1.xold = xold;
+                coseu_1.h = h;
                 for (i = 0; i < n; ++i)
                 {
                     dens[n + i] = y[i];
@@ -1184,7 +1150,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 yh[i] = y[i];
                 del[i] = dy[i];
             }
-            dc_decsol.slvseu_(n, fjac, fmas, hji, e, ip, iphes, del, ijob);
+            dc_decsol.slvseu_(n, e, ip, del, ijob);
             ++(nsol);
             m = nj[jj];
             if (iout == 2 && m == jj + 1)
@@ -1259,7 +1225,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                                 del[i] = dyh[i] - del[i] * hji;
                             }
                         }
-                        dc_decsol.slvseu_(n, fjac, fmas, hji, e, ip, iphes, del, ijob);
+                        dc_decsol.slvseu_(n, e, ip, del, ijob);
                         ++(nsol);
                         del2 = 0.0;
                         for (i = 0; i < n; ++i)
@@ -1275,7 +1241,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                             goto L79;
                         }
                     }
-                    dc_decsol.slvseu_(n, fjac, fmas, hji, e, ip, iphes, dyh, ijob);
+                    dc_decsol.slvseu_(n, e, ip, dyh, ijob);
                     ++(nsol);
                     for (i = 0; i < n; ++i)
                     {
@@ -1349,11 +1315,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         double contex_(int i, double x, double[] rc)
         {
             // COMPUTE THE INTERPOLATED VALUE 
-            double theta = (x - coseu_2.xold) / coseu_2.h;
-            double ret_val = rc[coseu_2.ir * coseu_2.nrd + i];
-            for (int j = 1; j < coseu_2.ir; ++j)
+            double theta = (x - coseu_1.xold) / coseu_1.h;
+            double ret_val = rc[coseu_1.kright * coseu_1.nrd + i];
+            for (int j = 1; j < coseu_1.kright; ++j)
             {
-                ret_val = rc[(coseu_2.ir + 1 - j) * coseu_2.nrd + i] + ret_val * (theta - 1.0);
+                ret_val = rc[(coseu_1.kright + 1 - j) * coseu_1.nrd + i] + ret_val * (theta - 1.0);
             }
             return rc[i] + ret_val * theta;
         }
