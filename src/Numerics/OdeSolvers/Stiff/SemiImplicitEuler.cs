@@ -43,6 +43,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         coseu__1 coseu_1;
         coseu__2 coseu_2;
+        
+        double fac1, fac2, fac3, fac4, safe1, safe2;
 
         public int seulex_(int n, S_fp fcn, int ifcn, double x,
             double[] y, double xend, double h, double[] rtol, double[] atol, int itol,
@@ -50,13 +52,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] work, int[] iwork)
         {
             int i, km, km2, nrd;
-            double fac1, fac2, fac3, fac4;
             int ndec, ijob;
             double hmax;
             int nmax;
             double thet;
             int nsol;
-            double safe1, safe2;
             double wkdec;
             double wkjac;
             double wkfcn;
@@ -499,57 +499,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 thet = work[2];
             }
-            // FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION
-            if (work[3] == 0.0)
-            {
-                fac1 = 0.1;
-            }
-            else
-            {
-                fac1 = work[3];
-            }
-            if (work[4] == 0.0)
-            {
-                fac2 = 4.0;
-            }
-            else
-            {
-                fac2 = work[4];
-            }
+
+            // FAC1,FAC2    PARAMETERS FOR STEP SIZE SELECTION
+            fac1 = 0.1;
+            fac2 = 4.0;
+
             // FAC3, FAC4   PARAMETERS FOR THE ORDER SELECTION
-            if (work[5] == 0.0)
-            {
-                fac3 = 0.7;
-            }
-            else
-            {
-                fac3 = work[5];
-            }
-            if (work[6] == 0.0)
-            {
-                fac4 = 0.9;
-            }
-            else
-            {
-                fac4 = work[6];
-            }
+            fac3 = 0.7;
+            fac4 = 0.9;
+
             // SAFE1, SAFE2 SAFETY FACTORS FOR STEP SIZE PREDICTION
-            if (work[7] == 0.0)
-            {
-                safe1 = 0.6;
-            }
-            else
-            {
-                safe1 = work[7];
-            }
-            if (work[8] == 0.0)
-            {
-                safe2 = 0.93;
-            }
-            else
-            {
-                safe2 = work[8];
-            }
+            safe1 = 0.6;
+            safe2 = 0.93;
+
             // WKFCN,WKJAC,WKDEC,WKSOL  ESTIMATED WORK FOR  FCN,JAC,DEC,SOL
             if (work[9] == 0.0)
             {
@@ -668,16 +630,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 dy, fx, yhh, dyh, del,
                  wh, scal, hh, w,
                 a, _jac, e, _mas, t, ip,
-                 nj, iph, fac1, fac2, fac3, fac4,
-                 thet, safe1, safe2, wkjac, wkdec, wkrow, km2, nrd, ifac,
+                 nj, iph, thet, wkjac, wkdec, wkrow, km2, nrd, ifac,
                  fsafe, lambda, ref nstep, ref naccpt,
                  ref nrejct, ref ndec, ref nsol, de, co);
 
-            iwork[16] = nstep;
-            iwork[17] = naccpt;
-            iwork[18] = nrejct;
-            iwork[19] = ndec;
-            iwork[20] = nsol;
+            iwork[15] = nstep;
+            iwork[16] = naccpt;
+            iwork[17] = nrejct;
+            iwork[18] = ndec;
+            iwork[19] = nsol;
 
             return idid;
         }
@@ -694,9 +655,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] del, double[] wh, double[] scal, double[] hh,
             double[] w, double[] a, double[] fjac, double[] e,
             double[] fmas, double[] t, int[] ip, int[] nj, int[] iphes,
-            double fac1, double fac2, double fac3,
-            double fac4, double thet, double safe1, double safe2,
-            double wkjac, double wkdec, double wkrow,
+            double thet, double wkjac, double wkdec, double wkrow,
             int km2, int nrd, double[] facul, double[] fsafe,
             int lambda, ref int nstep, ref int naccpt, ref int nrejct, ref int ndec, ref int nsol,
             double[] dens, int[] icomp)
@@ -704,8 +663,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             int i1, i2, i3;
             double d1;
 
-            int i, j, k, l, kc = 0, ii, kk, i_n, mm, kx;
-            double t1i, fac = 0, err;
+            int i, j, k, l, kc = 0, ii, kk, i_n;
+            double t1i, err;
             int ipt, klr, krn, lbeg, lend, lrde;
             double delt;
             bool last;
@@ -887,19 +846,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ++(nstep);
                 for (j = 0; j < k; ++j)
                 {
-                    kc = j;
+                    kc = j + 1;
                     seul_(j, n, fcn, x, y, dy, fx, fjac,
-                        fmas, e, ip, h, km, hmaxn, t, scal,
+                        fmas, e, ip, ref h, km, hmaxn, t, scal,
                         nj, hh, w, a, yhh, dyh, del,
-                        wh, err, safe1, fac, fac1, fac2, safe2, theta,
-                        ref ndec, ref nsol, errold,
-                        iphes, icomp, autnms, implct, reject,
-                        atov, fsafe, km2, nrd, iout, ipt, ijob, calhes);
+                        wh, ref err, ref theta,
+                        ref ndec, ref nsol, ref errold,
+                        iphes, icomp, autnms, implct, ref reject,
+                        ref atov, fsafe, km2, nrd, iout, ipt, ijob, calhes);
                     if (atov)
                     {
                         goto L10;
                     }
-                    if (j > 1 && err <= 1.0)
+                    if (j > 0 && err <= 1.0)
                     {
                         goto L60;
                     }
@@ -920,11 +879,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 seul_(j, n, fcn, x, y, dy, fx, fjac,
                     fmas, e, ip,
-                    h, km, hmaxn, t, scal, nj, hh, w,
-                    a, yhh, dyh, del, wh, err, safe1, fac,
-                    fac1, fac2, safe2, theta, ref ndec, ref nsol,
-                    errold, iphes, icomp, autnms, implct,
-                    reject, atov, fsafe, km2, nrd, iout,
+                    ref h, km, hmaxn, t, scal, nj, hh, w,
+                    a, yhh, dyh, del, wh, ref err, ref theta, ref ndec, ref nsol,
+                    ref errold, iphes, icomp, autnms, implct,
+                    ref reject, ref atov, fsafe, km2, nrd, iout,
                     ipt, ijob, calhes);
                 if (atov)
                 {
@@ -941,17 +899,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 goto L60;
             }
-            if (err > (double)(nj[k + 1] * nj[k]) * 4.0)
+            if (err > (nj[k] * nj[k - 1]) * 4.0)
             {
                 goto L100;
             }
             L50:
-            seul_(k, n, fcn, x, y, dy, fx, fjac,
-                fmas, e, ip, h,
+            seul_(k - 1, n, fcn, x, y, dy, fx, fjac,
+                fmas, e, ip, ref h,
                 km, hmaxn, t, scal, nj, hh, w, a,
-                yhh, dyh, del, wh, err, safe1, fac, fac1, fac2,
-                safe2, theta, ref ndec, ref nsol, errold,
-                iphes, icomp, autnms, implct, reject, atov,
+                yhh, dyh, del, wh, ref err, ref theta, ref ndec, ref nsol, ref errold,
+                iphes, icomp, autnms, implct, ref reject, ref atov,
                 fsafe, km2, nrd, iout, ipt, ijob,
                 calhes);
             if (atov)
@@ -965,17 +922,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             // HOPE FOR CONVERGENCE IN LINE K+1 
             L55:
-            if (err > (double)nj[k + 1] * 2.0)
+            if (err > (double)nj[k] * 2.0)
             {
                 goto L100;
             }
             kc = k + 1;
-            seul_(kc, n, fcn, x, y, dy, fx, fjac,
-                fmas, e, ip, h,
+            seul_(kc - 1, n, fcn, x, y, dy, fx, fjac,
+                fmas, e, ip, ref h,
                 km, hmaxn, t, scal, nj, hh, w, a,
-                yhh, dyh, del, wh, err, safe1, fac, fac1, fac2,
-                safe2, theta, ref ndec, ref nsol, errold,
-                iphes, icomp, autnms, implct, reject, atov,
+                yhh, dyh, del, wh, ref err, ref theta, ref ndec, ref nsol, ref errold,
+                iphes, icomp, autnms, implct, ref reject, ref atov,
                 fsafe, km2, nrd, iout, ipt, ijob,
                 calhes);
             if (atov)
@@ -1001,7 +957,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             for (i = 0; i < n; ++i)
             {
-                t1i = t[i * km + 1];
+                t1i = t[i * km];
                 if (itol == 0)
                 {
                     scal[i] = atol[0] + rtol[0] * Math.Abs(t1i);
@@ -1045,8 +1001,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     // COMPUTE DERIVATIVES AT RIGHT END
                     for (kk = klr + lambda - 1; kk < kc; ++kk)
                     {
-                        facnj = (double)nj[kk];
-                        facnj = Math.Pow(facnj, klr) / facul[klr + 1]; // TODO: pow_di()
+                        facnj = Math.Pow(nj[kk], klr) / facul[klr + 1]; // TODO: pow_di()
                         ipt = (kk + 1) * kk / 2;
                         for (i = 0; i < nrd; ++i)
                         {
@@ -1108,11 +1063,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (kc <= k)
             {
                 kopt = kc;
-                if (w[kc - 1] < w[kc] * fac3)
+                if (w[kc - 2] < w[kc - 1] * fac3)
                 {
                     kopt = kc - 1;
                 }
-                if (w[kc] < w[kc - 1] * fac4)
+                if (w[kc - 1] < w[kc - 2] * fac4)
                 {
                     kopt = Math.Min(kc + 1, km - 1);
                 }
@@ -1120,11 +1075,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             else
             {
                 kopt = kc - 1;
-                if (kc > 3 && w[kc - 2] < w[kc - 1] * fac3)
+                if (kc > 3 && w[kc - 3] < w[kc - 2] * fac3)
                 {
                     kopt = kc - 2;
                 }
-                if (w[kc] < w[kopt] * fac4)
+                if (w[kc - 1] < w[kopt - 1] * fac4)
                 {
                     kopt = Math.Min(kc, km - 1);
                 }
@@ -1134,24 +1089,24 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (reject)
             {
                 k = Math.Min(kopt, kc);
-                h = posneg * Math.Min(Math.Abs(h), Math.Abs(hh[k]));
+                h = posneg * Math.Min(Math.Abs(h), Math.Abs(hh[k - 1]));
                 reject = false;
                 goto L10;
             }
             // COMPUTE STEP SIZE FOR NEXT STEP 
             if (kopt <= kc)
             {
-                h = hh[kopt];
+                h = hh[kopt - 1];
             }
             else
             {
-                if (kc < k && w[kc] < w[kc - 1] * fac4)
+                if (kc < k && w[kc - 1] < w[kc - 2] * fac4)
                 {
-                    h = hh[kc] * a[kopt + 1] / a[kc];
+                    h = hh[kc - 1] * a[kopt] / a[kc - 1];
                 }
                 else
                 {
-                    h = hh[kc] * a[kopt] / a[kc];
+                    h = hh[kc - 1] * a[kopt - 1] / a[kc - 1];
                 }
             }
             k = kopt;
@@ -1161,12 +1116,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // STEP IS REJECTED 
             L100:
             k = Math.Min(Math.Min(k, kc), km - 1);
-            if (k > 2 && w[k - 1] < w[k] * fac3)
+            if (k > 2 && w[k - 2] < w[k - 1] * fac3)
             {
                 --k;
             }
             ++(nrejct);
-            h = posneg * hh[k];
+            h = posneg * hh[k - 1];
             last = false;
             reject = true;
             if (caljac)
@@ -1190,14 +1145,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         int seul_(int jj, int n, S_fp fcn, double x,
             double[] y, double[] dy, double[] fx, double[] fjac,
             double[] fmas, double[] e,
-            int[] ip, double h, int km, double hmaxn,
+            int[] ip, ref double h, int km, double hmaxn,
             double[] t, double[] scal, int[] nj, double[] hh,
             double[] w, double[] a, double[] yh, double[] dyh,
-            double[] del, double[] wh, double err, double safe1,
-            double fac, double fac1, double fac2, double safe2, double theta,
+            double[] del, double[] wh, ref double err,
+            ref double theta,
             ref int ndec, ref int nsol,
-            double errold, int[] iphes, int[] icomp, bool autnms,
-            bool implct, bool reject, bool atov,
+            ref double errold, int[] iphes, int[] icomp, bool autnms,
+            bool implct, ref bool reject, ref bool atov,
             double[] fsafe, int km2, int nrd, int iout, int ipt,
             int ijob, bool calhes)
         {
@@ -1208,8 +1163,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             int mm;
             double hji;
             int ier = 0;
-            double sum, del1, del2, expo;
-            double facmin;
+            double sum, del1, del2;
+            double fac, facmin, expo;
 
             hj = h / nj[jj];
             hji = 1.0 / hj;
@@ -1234,7 +1189,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             dc_decsol.slvseu_(n, fjac, fmas, hji, e, ip, iphes, del, ijob);
             ++(nsol);
             m = nj[jj];
-            if (iout == 2 && m == jj)
+            if (iout == 2 && m == jj + 1)
             {
                 ++(ipt);
                 for (i = 0; i < nrd; ++i)
@@ -1254,13 +1209,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                     if (autnms)
                     {
-                        fcn(n, x + hj * mm, yh, dyh);
+                        fcn(n, x + hj * (mm + 1), yh, dyh);
                     }
                     else
                     {
-                        fcn(n, x + hj * (mm + 1), yh, dyh);
+                        fcn(n, x + hj * (mm + 2), yh, dyh);
                     }
-                    if (mm == 1 && jj <= 2)
+                    if (mm == 0 && jj < 2)
                     {
                         // STABILITY CHECK 
                         del1 = 0.0;
@@ -1328,7 +1283,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     {
                         del[i] = dyh[i];
                     }
-                    if (iout == 2 && mm >= m - jj)
+                    if (iout == 2 && mm + 1 >= m - jj - 1)
                     {
                         ++(ipt);
                         for (i = 0; i < nrd; ++i)
@@ -1360,7 +1315,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             for (i = 0; i < n; ++i)
             {
                 /* Computing 2nd power */
-                d2 = Math.Min(Math.Abs(t[i * km + 1] - t[i * km + 2]) / scal[i], 1e15);
+                d2 = Math.Min(Math.Abs(t[i * km] - t[i * km + 1]) / scal[i], 1e15);
                 err += d2 * d2;
             }
             if (err >= 1e30)
@@ -1368,14 +1323,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L79;
             }
             err = Math.Sqrt(err / (double)(n));
-            if (jj > 2 && err >= errold)
+            if (jj > 1 && err >= errold)
             {
                 goto L79;
             }
             d1 = err * 4;
             errold = Math.Max(d1, 1.0);
             // COMPUTE OPTIMAL STEP SIZES 
-            expo = 1.0 / jj;
+            expo = 1.0 / (jj + 1);
             facmin = Math.Pow(fac1, expo);
             fac = Math.Min(fac2 / facmin, Math.Max(facmin, Math.Pow(err / safe1, expo) / safe2));
             fac = 1.0 / fac;
