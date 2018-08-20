@@ -11,16 +11,21 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
     using J_fp = System.Action<int, double, double[], double[], int>;
     using M_fp = System.Action<int, double[], int>;
 
-    // <summary>
-    // 
-    // Authors: E. Hairer and G. Wanner
+    /// <summary>
+    /// Numerical solution of a stiff (or differential algebraic) system of first order
+    /// ordinary differential equations My'=f(x,y).
     ///
-    // This code is part of the book:
-    //      E. Hairer and G. Wanner
-    //      Solving Ordinary Differential Equations II.
-    //      Stiff and differential-algebraic problems. (2nd edition)
-    //      Springer-Verlag (1996)
-    // </summary>
+    /// This is an extrapolation-algorithm, based on the linearly implicit euler method
+    /// (with step size control and order selection).
+    ///
+    /// Authors: E. Hairer and G. Wanner (inclusion of dense output by E. Hairer and A. Ostermann)
+    ///
+    /// This code is part of the book:
+    ///      E. Hairer and G. Wanner
+    ///      Solving Ordinary Differential Equations II.
+    ///      Stiff and differential-algebraic problems. (2nd edition)
+    ///      Springer-Verlag (1996)
+    /// </summary>
     public class SemiImplicitEuler
     {
 
@@ -42,519 +47,193 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         double rtol, atol;
 
+        public int nstep, naccpt, nrejct, nsol, ndec; // TODO: remove
+
+        /**
+         *     N           DIMENSION OF THE SYSTEM
+         *
+         *     FCN         NAME (EXTERNAL) OF SUBROUTINE COMPUTING THE
+         *                 VALUE OF F(X,Y)
+         *
+         *     IFCN        GIVES INFORMATION ON FCN:
+         *                    IFCN=0: F(X,Y) INDEPENDENT OF X (AUTONOMOUS)
+         *                    IFCN=1: F(X,Y) MAY DEPEND ON X (NON-AUTONOMOUS)
+         *
+         *     X           INITIAL X-VALUE
+         *
+         *     Y(N)        INITIAL VALUES FOR Y
+         *
+         *     XEND        FINAL X-VALUE (XEND-X MAY BE POSITIVE OR NEGATIVE)
+         *
+         *     H           INITIAL STEP SIZE GUESS;
+         *                 FOR STIFF EQUATIONS WITH INITIAL TRANSIENT,
+         *                 H=1.D0/(NORM OF F'), USUALLY 1.D-2 OR 1.D-3, IS GOOD.
+         *                 THIS CHOICE IS NOT VERY IMPORTANT, THE CODE QUICKLY
+         *                 ADAPTS ITS STEP SIZE (IF H=0.D0, THE CODE PUTS H=1.D-6).
+         *
+         *     RTOL,ATOL   RELATIVE AND ABSOLUTE ERROR TOLERANCES.
+         *
+         *     JAC         NAME (EXTERNAL) OF THE SUBROUTINE WHICH COMPUTES
+         *                 THE PARTIAL DERIVATIVES OF F(X,Y) WITH RESPECT TO Y
+         *                 (THIS ROUTINE IS ONLY CALLED IF IJAC=1; SUPPLY
+         *                 A DUMMY SUBROUTINE IN THE CASE IJAC=0).
+         *                 FOR IJAC=1, THIS SUBROUTINE MUST HAVE THE FORM
+         *                    SUBROUTINE JAC(N,X,Y,DFY,LDFY,RPAR,IPAR)
+         *                 IF (MLJAC.EQ.N) THE JACOBIAN IS SUPPOSED TO
+         *                    BE FULL AND THE PARTIAL DERIVATIVES ARE
+         *                    STORED IN DFY AS
+         *                       DFY(I,J) = PARTIAL F(I) / PARTIAL Y(J)
+         *
+         *     IJAC        SWITCH FOR THE COMPUTATION OF THE JACOBIAN:
+         *                    IJAC=0: JACOBIAN IS COMPUTED INTERNALLY BY FINITE
+         *                       DIFFERENCES, SUBROUTINE "JAC" IS NEVER CALLED.
+         *                    IJAC=1: JACOBIAN IS SUPPLIED BY SUBROUTINE JAC.
+         *
+         *     MAS         NAME (EXTERNAL) OF SUBROUTINE COMPUTING THE MASS-
+         *                 MATRIX M.
+         *                 IF IMAS=0, THIS MATRIX IS ASSUMED TO BE THE IDENTITY
+         *                 MATRIX AND NEEDS NOT TO BE DEFINED;
+         *                 IF IMAS=1, THE SUBROUTINE MAS IS OF THE FORM
+         *                    SUBROUTINE MAS(N,AM,LMAS,RPAR,IPAR)
+         *                 IF (MLMAS.EQ.N) THE MASS-MATRIX IS STORED
+         *                    AS FULL MATRIX LIKE
+         *                         AM(I,J) = M(I,J)
+         *
+         *     IMAS       GIVES INFORMATION ON THE MASS-MATRIX:
+         *                    IMAS=0: M IS SUPPOSED TO BE THE IDENTITY
+         *                       MATRIX, MAS IS NEVER CALLED.
+         *                    IMAS=1: MASS-MATRIX  IS SUPPLIED.
+         *
+         *     IOUT        GIVES INFORMATION ON THE SUBROUTINE SOLOUT:
+         *                    IOUT=0: SUBROUTINE IS NEVER CALLED
+         *                    IOUT=1: SUBROUTINE IS USED FOR OUTPUT
+         *                    IOUT=2: DENSE OUTPUT IS PERFORMED IN SOLOUT
+         *
+         *     OUTPUT PARAMETERS
+         *     -----------------
+         *     X           X-VALUE WHERE THE SOLUTION IS COMPUTED
+         *                 (AFTER SUCCESSFUL RETURN X=XEND)
+         *
+         *     Y(N)        SOLUTION AT X
+         *
+         *     H           PREDICTED STEP SIZE OF THE LAST ACCEPTED STEP
+         *
+         *     IDID        REPORTS ON SUCCESSFULNESS UPON RETURN:
+         *                   IDID=1  COMPUTATION SUCCESSFUL,
+         *                   IDID=-1 COMPUTATION UNSUCCESSFUL.
+         */
         public int seulex_(int n, S_fp fcn, int ifcn, double x,
             double[] y, double xend, double h, double rtol, double atol,
-            J_fp jac, int ijac, M_fp mas, int imas, S_fp solout, int iout,
-            double[] work, int[] iwork)
+            J_fp jac, int ijac, M_fp mas, int imas, S_fp solout, int iout)
         {
-            int i, km, km2;
-            int ndec, ijob;
+            int km, km2;
+            int ijob;
             double hmax;
             int nmax;
             double thet;
-            int nsol;
             double wkdec;
             double wkjac;
             double wkfcn;
-            int nstep, nsequ;
+            int lambda, nsequ;
             double wksol, wkrow;
-            int lambda, naccpt, nrejct;
             bool implct;
-            int nrdens;
 
             bool autnms;
             double uround;
-
-            /**
-             *     NUMERICAL SOLUTION OF A STIFF (OR DIFFERENTIAL ALGEBRAIC)
-             *     SYSTEM OF FIRST 0RDER ORDINARY DIFFERENTIAL EQUATIONS  MY'=F(X,Y).
-             *     THIS IS AN EXTRAPOLATION-ALGORITHM, BASED ON THE
-             *     LINEARLY IMPLICIT EULER METHOD (WITH STEP SIZE CONTROL
-             *     AND ORDER SELECTION).
-             *
-             *     AUTHORS: E. HAIRER AND G. WANNER
-             *              UNIVERSITE DE GENEVE, DEPT. DE MATHEMATIQUES
-             *              CH-1211 GENEVE 24, SWITZERLAND
-             *              E-MAIL:  Ernst.Hairer@math.unige.ch
-             *                       Gerhard.Wanner@math.unige.ch
-             *              INCLUSION OF DENSE OUTPUT BY E. HAIRER AND A. OSTERMANN
-             *
-             *     THIS CODE IS PART OF THE BOOK:
-             *         E. HAIRER AND G. WANNER, SOLVING ORDINARY DIFFERENTIAL
-             *         EQUATIONS II. STIFF AND DIFFERENTIAL-ALGEBRAIC PROBLEMS.
-             *         SPRINGER SERIES IN COMPUTATIONAL MATHEMATICS 14,
-             *         SPRINGER-VERLAG 1991, SECOND EDITION 1996.
-             *
-             *     VERSION OF SEPTEMBER 30, 1995
-             *         SMALL CORRECTIONS ON JUNE 11, 1999
-             *
-             *     INPUT PARAMETERS
-             *     ----------------
-             *     N           DIMENSION OF THE SYSTEM
-             *
-             *     FCN         NAME (EXTERNAL) OF SUBROUTINE COMPUTING THE
-             *                 VALUE OF F(X,Y):
-             *                    SUBROUTINE FCN(N,X,Y,F,RPAR,IPAR)
-             *                    DOUBLE PRECISION X,Y(N),F(N)
-             *                    F(1)=...   ETC.
-             *                 RPAR, IPAR (SEE BELOW)
-             *
-             *     IFCN        GIVES INFORMATION ON FCN:
-             *                    IFCN=0: F(X,Y) INDEPENDENT OF X (AUTONOMOUS)
-             *                    IFCN=1: F(X,Y) MAY DEPEND ON X (NON-AUTONOMOUS)
-             *
-             *     X           INITIAL X-VALUE
-             *
-             *     Y(N)        INITIAL VALUES FOR Y
-             *
-             *     XEND        FINAL X-VALUE (XEND-X MAY BE POSITIVE OR NEGATIVE)
-             *
-             *     H           INITIAL STEP SIZE GUESS;
-             *                 FOR STIFF EQUATIONS WITH INITIAL TRANSIENT,
-             *                 H=1.D0/(NORM OF F'), USUALLY 1.D-2 OR 1.D-3, IS GOOD.
-             *                 THIS CHOICE IS NOT VERY IMPORTANT, THE CODE QUICKLY
-             *                 ADAPTS ITS STEP SIZE (IF H=0.D0, THE CODE PUTS H=1.D-6).
-             *
-             *     RTOL,ATOL   RELATIVE AND ABSOLUTE ERROR TOLERANCES. THEY
-             *                 CAN BE BOTH SCALARS OR ELSE BOTH VECTORS OF LENGTH N.
-             *
-             *     ITOL        SWITCH FOR RTOL AND ATOL:
-             *                   ITOL=0: BOTH RTOL AND ATOL ARE SCALARS.
-             *                     THE CODE KEEPS, ROUGHLY, THE LOCAL ERROR OF
-             *                     Y(I) BELOW RTOLaBS(Y(I))+ATOL
-             *                   ITOL=1: BOTH RTOL AND ATOL ARE VECTORS.
-             *                     THE CODE KEEPS THE LOCAL ERROR OF Y(I) BELOW
-             *                     RTOL(I)aBS(Y(I))+ATOL(I).
-             *
-             *     JAC         NAME (EXTERNAL) OF THE SUBROUTINE WHICH COMPUTES
-             *                 THE PARTIAL DERIVATIVES OF F(X,Y) WITH RESPECT TO Y
-             *                 (THIS ROUTINE IS ONLY CALLED IF IJAC=1; SUPPLY
-             *                 A DUMMY SUBROUTINE IN THE CASE IJAC=0).
-             *                 FOR IJAC=1, THIS SUBROUTINE MUST HAVE THE FORM
-             *                    SUBROUTINE JAC(N,X,Y,DFY,LDFY,RPAR,IPAR)
-             *                    DOUBLE PRECISION X,Y(N),DFY(LDFY,N)
-             *                    DFY(1,1)= 0...
-             *                 LDFY, THE COLOMN-LENGTH OF THE ARRAY, IS
-             *                 FURNISHED BY THE CALLING PROGRAM.
-             *                 IF (MLJAC.EQ.N) THE JACOBIAN IS SUPPOSED TO
-             *                    BE FULL AND THE PARTIAL DERIVATIVES ARE
-             *                    STORED IN DFY AS
-             *                       DFY(I,J) = PARTIAL F(I) / PARTIAL Y(J)
-             *                 ELSE, THE JACOBIAN IS TAKEN AS BANDED AND
-             *                    THE PARTIAL DERIVATIVES ARE STORED
-             *                    DIAGONAL-WISE AS
-             *                       DFY(I-J+MUJAC+1,J) = PARTIAL F(I) / PARTIAL Y(J).
-             *
-             *     IJAC        SWITCH FOR THE COMPUTATION OF THE JACOBIAN:
-             *                    IJAC=0: JACOBIAN IS COMPUTED INTERNALLY BY FINITE
-             *                       DIFFERENCES, SUBROUTINE "JAC" IS NEVER CALLED.
-             *                    IJAC=1: JACOBIAN IS SUPPLIED BY SUBROUTINE JAC.
-             *
-             *     MLJAC       SWITCH FOR THE BANDED STRUCTURE OF THE JACOBIAN:
-             *                    MLJAC=N: JACOBIAN IS A FULL MATRIX. THE LINEAR
-             *                       ALGEBRA IS DONE BY FULL-MATRIX GAUSS-ELIMINATION.
-             *                    0&lt;=MLJAC&lt;N: MLJAC IS THE LOWER BANDWITH OF JACOBIAN
-             *                       MATRIX (>= NUMBER OF NON-ZERO DIAGONALS BELOW
-             *                       THE MAIN DIAGONAL).
-             *
-             *     MUJAC       UPPER BANDWITH OF JACOBIAN  MATRIX (>= NUMBER OF NON-
-             *                 ZERO DIAGONALS ABOVE THE MAIN DIAGONAL).
-             *                 NEED NOT BE DEFINED IF MLJAC=N.
-             *
-             *     ----   MAS,IMAS,MLMAS, AND MUMAS HAVE ANALOG MEANINGS      -----
-             *     ----   FOR THE "MASS MATRIX" (THE MATRIX "M" OF SECTION IV.8): -
-             *
-             *     MAS         NAME (EXTERNAL) OF SUBROUTINE COMPUTING THE MASS-
-             *                 MATRIX M.
-             *                 IF IMAS=0, THIS MATRIX IS ASSUMED TO BE THE IDENTITY
-             *                 MATRIX AND NEEDS NOT TO BE DEFINED;
-             *                 SUPPLY A DUMMY SUBROUTINE IN THIS CASE.
-             *                 IF IMAS=1, THE SUBROUTINE MAS IS OF THE FORM
-             *                    SUBROUTINE MAS(N,AM,LMAS,RPAR,IPAR)
-             *                    DOUBLE PRECISION AM(LMAS,N)
-             *                    AM(1,1)= 0....
-             *                    IF (MLMAS.EQ.N) THE MASS-MATRIX IS STORED
-             *                    AS FULL MATRIX LIKE
-             *                         AM(I,J) = M(I,J)
-             *                    ELSE, THE MATRIX IS TAKEN AS BANDED AND STORED
-             *                    DIAGONAL-WISE AS
-             *                         AM(I-J+MUMAS+1,J) = M(I,J).
-             *
-             *     IMAS       GIVES INFORMATION ON THE MASS-MATRIX:
-             *                    IMAS=0: M IS SUPPOSED TO BE THE IDENTITY
-             *                       MATRIX, MAS IS NEVER CALLED.
-             *                    IMAS=1: MASS-MATRIX  IS SUPPLIED.
-             *
-             *     MLMAS       SWITCH FOR THE BANDED STRUCTURE OF THE MASS-MATRIX:
-             *                    MLMAS=N: THE FULL MATRIX CASE. THE LINEAR
-             *                       ALGEBRA IS DONE BY FULL-MATRIX GAUSS-ELIMINATION.
-             *                    0&lt;=MLMAS&lt;N: MLMAS IS THE LOWER BANDWITH OF THE
-             *                       MATRIX (>= NUMBER OF NON-ZERO DIAGONALS BELOW
-             *                       THE MAIN DIAGONAL).
-             *                 MLMAS IS SUPPOSED TO BE .LE. MLJAC.
-             *
-             *     MUMAS       UPPER BANDWITH OF MASS-MATRIX (>= NUMBER OF NON-
-             *                 ZERO DIAGONALS ABOVE THE MAIN DIAGONAL).
-             *                 NEED NOT BE DEFINED IF MLMAS=N.
-             *                 MUMAS IS SUPPOSED TO BE .LE. MUJAC.
-             *
-             *     SOLOUT      NAME (EXTERNAL) OF SUBROUTINE PROVIDING THE
-             *                 NUMERICAL SOLUTION DURING INTEGRATION.
-             *                 IF IOUT>=1, IT IS CALLED AFTER EVERY SUCCESSFUL STEP.
-             *                 SUPPLY A DUMMY SUBROUTINE IF IOUT=0.
-             *                 IT MUST HAVE THE FORM
-             *                    SUBROUTINE SOLOUT (NR,XOLD,X,Y,RC,LRC,IC,LIC,N,
-             *                                       RPAR,IPAR,IRTRN)
-             *                    DOUBLE PRECISION X,Y(N),RC(LRC),IC(LIC)
-             *                    ....
-             *                 SOLOUT FURNISHES THE SOLUTION "Y" AT THE NR-TH
-             *                    GRID-POINT "X" (THEREBY THE INITIAL VALUE IS
-             *                    THE FIRST GRID-POINT).
-             *                 "XOLD" IS THE PRECEEDING GRID-POINT.
-             *                 "IRTRN" SERVES TO INTERRUPT THE INTEGRATION. IF IRTRN
-             *                    IS SET &lt;0, SEULEX RETURNS TO THE CALLING PROGRAM.
-             *                 DO NOT CHANGE THE ENTRIES OF RC(LRC),IC(LIC)!
-             *
-             *          -----  CONTINUOUS OUTPUT (IF IOUT=2): -----
-             *                 DURING CALLS TO "SOLOUT", A CONTINUOUS SOLUTION
-             *                 FOR THE INTERVAL [XOLD,X] IS AVAILABLE THROUGH
-             *                 THE DOUBLE PRECISION FUNCTION
-             *                        >>>   CONTEX(I,S,RC,LRC,IC,LIC)
-             *                 WHICH PROVIDES AN APPROXIMATION TO THE I-TH
-             *                 COMPONENT OF THE SOLUTION AT THE POINT S. THE VALUE
-             *                 S SHOULD LIE IN THE INTERVAL [XOLD,X].
-             *
-             *     IOUT        GIVES INFORMATION ON THE SUBROUTINE SOLOUT:
-             *                    IOUT=0: SUBROUTINE IS NEVER CALLED
-             *                    IOUT=1: SUBROUTINE IS USED FOR OUTPUT
-             *                    IOUT=2: DENSE OUTPUT IS PERFORMED IN SOLOUT
-             *
-             *     WORK        ARRAY OF WORKING SPACE OF LENGTH "LWORK".
-             *                 SERVES AS WORKING SPACE FOR ALL VECTORS AND MATRICES.
-             *                 "LWORK" MUST BE AT LEAST
-             *                        N*(LJAC+LMAS+LE1+KM+8)+4kM+20+KM2nRDENS
-             *                 WHERE
-             *                    KM2=2+KM*(KM+3)/2  AND  NRDENS=IWORK(6) (SEE BELOW)
-             *                 AND
-             *                    LJAC=N              IF MLJAC=N (FULL JACOBIAN)
-             *                    LJAC=MLJAC+MUJAC+1  IF MLJAC&lt;N (BANDED JAC.0)
-             *                 AND
-             *                    LMAS=0              IF IMAS=0
-             *                    LMAS=N              IF IMAS=1 AND MLMAS=N (FULL)
-             *                    LMAS=MLMAS+MUMAS+1  IF MLMAS&lt;N (BANDED MASS-M.0)
-             *                 AND
-             *                    LE1=N               IF MLJAC=N (FULL JACOBIAN)
-             *                    LE1=2mLJAC+MUJAC+1 IF MLJAC&lt;N (BANDED JAC.0).
-             *                 AND
-             *                    KM=12               IF IWORK(3)=0
-             *                    KM=IWORK(3)         IF IWORK(3).GT.0
-             *
-             *                 IN THE USUAL CASE WHERE THE JACOBIAN IS FULL AND THE
-             *                 MASS-MATRIX IS THE INDENTITY (IMAS=0), THE MINIMUM
-             *                 STORAGE REQUIREMENT IS
-             *                         LWORK = 2nn+(KM+8)n+4kM+13+KM2nRDENS.
-             *                 IF IWORK(9)=M1>0 THEN "LWORK" MUST BE AT LEAST
-             *                    N*(LJAC+KM+8)+(N-M1)*(LMAS+LE1)+4kM+20+KM2nRDENS
-             *                 WHERE IN THE DEFINITIONS OF LJAC, LMAS AND LE1 THE
-             *                 NUMBER N CAN BE REPLACED BY N-M1.
-             *
-             *     LWORK       DECLARED LENGTH OF ARRAY "WORK".
-             *
-             *     IWORK       int WORKING SPACE OF LENGTH "LIWORK".
-             *                 "LIWORK" MUST BE AT LEAST  2n+KM+20+NRDENS.
-             *
-             *     LIWORK      DECLARED LENGTH OF ARRAY "IWORK".
-             *
-             *     RPAR, IPAR  REAL AND int PARAMETERS (OR PARAMETER ARRAYS) WHICH
-             *                 CAN BE USED FOR COMMUNICATION BETWEEN YOUR CALLING
-             *                 PROGRAM AND THE FCN, JAC, MAS, SOLOUT SUBROUTINES.
-             *
-             * ----------------------------------------------------------------
-             *
-             *     SOPHISTICATED SETTING OF PARAMETERS
-             *     -----------------------------------
-             *              SEVERAL PARAMETERS OF THE CODE ARE TUNED TO MAKE IT WORK
-             *              WELL. THEY MAY BE DEFINED BY SETTING WORK(1),..,WORK(13)
-             *              AS WELL AS IWORK(1),..,IWORK(4) DIFFERENT FROM ZERO.
-             *              FOR ZERO INPUT, THE CODE CHOOSES DEFAULT VALUES:
-             *
-             *    IWORK(1)  IF IWORK(1).NE.0, THE CODE TRANSFORMS THE JACOBIAN
-             *              MATRIX TO HESSENBERG FORM. THIS IS PARTICULARLY
-             *              ADVANTAGEOUS FOR LARGE SYSTEMS WITH FULL JACOBIAN.
-             *              IT DOES NOT WORK FOR BANDED JACOBIAN (MLJAC&lt;N)
-             *              AND NOT FOR IMPLICIT SYSTEMS (IMAS=1).
-             *
-             *    IWORK(2)  THIS IS THE MAXIMAL NUMBER OF ALLOWED STEPS.
-             *              THE DEFAULT VALUE (FOR IWORK(2)=0) IS 100000.
-             *
-             *    IWORK(3)  THE MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION
-             *              TABLE. THE DEFAULT VALUE (FOR IWORK(3)=0) IS 12.
-             *              IF IWORK(3).NE.0 THEN IWORK(3) SHOULD BE .GE.3.
-             *
-             *    IWORK(4)  SWITCH FOR THE STEP SIZE SEQUENCE
-             *              IF IWORK(4).EQ.1 THEN 1,2,3,4,6,8,12,16,24,32,48,...
-             *              IF IWORK(4).EQ.2 THEN 2,3,4,6,8,12,16,24,32,48,64,...
-             *              IF IWORK(4).EQ.3 THEN 1,2,3,4,5,6,7,8,9,10,...
-             *              IF IWORK(4).EQ.4 THEN 2,3,4,5,6,7,8,9,10,11,...
-             *              THE DEFAULT VALUE (FOR IWORK(4)=0) IS IWORK(4)=2.
-             *
-             *    IWORK(5)  PARAMETER "LAMBDA" OF DENSE OUTPUT; POSSIBLE VALUES
-             *              ARE 0 AND 1; DEFAULT IWORK(5)=0.
-             *
-             *    IWORK(6)  = NRDENS = NUMBER OF COMPONENTS, FOR WHICH DENSE OUTPUT
-             *              IS REQUIRED
-             *
-             *    IWORK(21),...,IWORK(NRDENS+20) INDICATE THE COMPONENTS, FOR WHICH
-             *              DENSE OUTPUT IS REQUIRED
-             *
-             *       IF THE DIFFERENTIAL SYSTEM HAS THE SPECIAL STRUCTURE THAT
-             *            Y(I)' = Y(I+M2)   FOR  I=1,...,M1,
-             *       WITH M1 A MULTIPLE OF M2, A SUBSTANTIAL GAIN IN COMPUTERTIME
-             *       CAN BE ACHIEVED BY SETTING THE PARAMETERS IWORK(9) AND IWORK(10).
-             *       E.G., FOR SECOND ORDER SYSTEMS P'=V, V'=G(P,V), WHERE P AND V ARE
-             *       VECTORS OF DIMENSION N/2, ONE HAS TO PUT M1=M2=N/2.
-             *       FOR M1>0 SOME OF THE INPUT PARAMETERS HAVE DIFFERENT MEANINGS:
-             *       - JAC: ONLY THE ELEMENTS OF THE NON-TRIVIAL PART OF THE
-             *              JACOBIAN HAVE TO BE STORED
-             *              IF (MLJAC.EQ.N-M1) THE JACOBIAN IS SUPPOSED TO BE FULL
-             *                 DFY(I,J) = PARTIAL F(I+M1) / PARTIAL Y(J)
-             *                FOR I=1,N-M1 AND J=1,N.
-             *              ELSE, THE JACOBIAN IS BANDED ( M1 = M2 * MM )
-             *                 DFY(I-J+MUJAC+1,J+Km2) = PARTIAL F(I+M1) / PARTIAL Y(J+Km2)
-             *                FOR I=1,MLJAC+MUJAC+1 AND J=1,M2 AND K=0,MM.
-             *       - MLJAC: MLJAC=N-M1: IF THE NON-TRIVIAL PART OF THE JACOBIAN IS FULL
-             *                0&lt;=MLJAC&lt;N-M1: IF THE (MM+1) SUBMATRICES (FOR K=0,MM)
-             *                     PARTIAL F(I+M1) / PARTIAL Y(J+Km2),  I,J=1,M2
-             *                    ARE BANDED, MLJAC IS THE MAXIMAL LOWER BANDWIDTH
-             *                    OF THESE MM+1 SUBMATRICES
-             *       - MUJAC: MAXIMAL UPPER BANDWIDTH OF THESE MM+1 SUBMATRICES
-             *                NEED NOT BE DEFINED IF MLJAC=N-M1
-             *       - MAS: IF IMAS=0 THIS MATRIX IS ASSUMED TO BE THE IDENTITY AND
-             *              NEED NOT BE DEFINED. SUPPLY A DUMMY SUBROUTINE IN THIS CASE.
-             *              IT IS ASSUMED THAT ONLY THE ELEMENTS OF RIGHT LOWER BLOCK OF
-             *              DIMENSION N-M1 DIFFER FROM THAT OF THE IDENTITY MATRIX.
-             *              IF (MLMAS.EQ.N-M1) THIS SUBMATRIX IS SUPPOSED TO BE FULL
-             *                 AM(I,J) = M(I+M1,J+M1)     FOR I=1,N-M1 AND J=1,N-M1.
-             *              ELSE, THE MASS MATRIX IS BANDED
-             *                 AM(I-J+MUMAS+1,J) = M(I+M1,J+M1)
-             *       - MLMAS: MLMAS=N-M1: IF THE NON-TRIVIAL PART OF M IS FULL
-             *                0&lt;=MLMAS&lt;N-M1: LOWER BANDWIDTH OF THE MASS MATRIX
-             *       - MUMAS: UPPER BANDWIDTH OF THE MASS MATRIX
-             *                NEED NOT BE DEFINED IF MLMAS=N-M1
-             *
-             *    IWORK(9)  THE VALUE OF M1.  DEFAULT M1=0.
-             *
-             *    IWORK(10) THE VALUE OF M2.  DEFAULT M2=M1.
-             *
-             *    WORK(1)   UROUND, THE ROUNDING UNIT, DEFAULT 1.D-16.
-             *
-             *    WORK(2)   MAXIMAL STEP SIZE, DEFAULT XEND-X.
-             *
-             *    WORK(3)   DECIDES WHETHER THE JACOBIAN SHOULD BE RECOMPUTED;
-             *              INCREASE WORK(3), TO 0.01 SAY, WHEN JACOBIAN EVALUATIONS
-             *              ARE COSTLY. FOR SMALL SYSTEMS WORK(3) SHOULD BE SMALLER.
-             *              DEFAULT MIN(1.0D-4,RTOL(1))
-             *
-             *    WORK(4), WORK(5)   PARAMETERS FOR STEP SIZE SELECTION
-             *              THE NEW STEP SIZE FOR THE J-TH DIAGONAL ENTRY IS
-             *              CHOSEN SUBJECT TO THE RESTRICTION
-             *                 FACMIN/WORK(5) &lt;= HNEW(J)/HOLD &lt;= 1/FACMIN
-             *              WHERE FACMIN=WORK(4)**(1/(J-1))
-             *              DEFAULT VALUES: WORK(4)=0.1D0, WORK(5)=4.D0
-             *
-             *    WORK(6), WORK(7)   PARAMETERS FOR THE ORDER SELECTION
-             *              ORDER IS DECREASED IF    W(K-1) &lt;= W(K)*WORK(6)
-             *              ORDER IS INCREASED IF    W(K) &lt;= W(K-1)*WORK(7)
-             *              DEFAULT VALUES: WORK(6)=0.7D0, WORK(7)=0.9D0
-             *
-             *    WORK(8), WORK(9)   SAFETY FACTORS FOR STEP CONTROL ALGORITHM
-             *             HNEW=H*WORK(9)*(WORK(8)tOL/ERR)**(1/(J-1))
-             *              DEFAULT VALUES: WORK(8)=0.8D0, WORK(9)=0.93D0
-             *
-             *    WORK(10), WORK(11), WORK(12), WORK(13)   ESTIMATED WORKS FOR
-             *             A CALL TO  FCN, JAC, DEC, SOL, RESPECTIVELY.
-             *             DEFAULT VALUES ARE: WORK(10)=1.D0, WORK(11)=5.D0,
-             *             WORK(12)=1.D0, WORK(13)=1.D0.
-             *
-             * -----------------------------------------------------------------
-             *
-             *     OUTPUT PARAMETERS
-             *     -----------------
-             *     X           X-VALUE WHERE THE SOLUTION IS COMPUTED
-             *                 (AFTER SUCCESSFUL RETURN X=XEND)
-             *
-             *     Y(N)        SOLUTION AT X
-             *
-             *     H           PREDICTED STEP SIZE OF THE LAST ACCEPTED STEP
-             *
-             *     IDID        REPORTS ON SUCCESSFULNESS UPON RETURN:
-             *                   IDID=1  COMPUTATION SUCCESSFUL,
-             *                   IDID=-1 COMPUTATION UNSUCCESSFUL.
-             *
-             *   IWORK(14)  NFCN    NUMBER OF FUNCTION EVALUATIONS (THOSE FOR NUMERICAL
-             *                      EVALUATION OF THE JACOBIAN ARE NOT COUNTED)
-             *   IWORK(15)  NJAC    NUMBER OF JACOBIAN EVALUATIONS (EITHER ANALYTICALLY
-             *                      OR NUMERICALLY)
-             *   IWORK(16)  NSTEP   NUMBER OF COMPUTED STEPS
-             *   IWORK(17)  NACCPT  NUMBER OF ACCEPTED STEPS
-             *   IWORK(18)  NREJCT  NUMBER OF REJECTED STEPS (AFTER AT LEAST ONE STEP
-             *                      HAS BEEN ACCEPTED)
-             *   IWORK(19)  NDEC    NUMBER OF LU-DECOMPOSITIONS (N-DIMENSIONAL MATRIX)
-             *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS
-             */
-
+            
             nstep = 0;
             naccpt = 0;
             nrejct = 0;
             ndec = 0;
             nsol = 0;
 
-            // NMAX , THE MAXIMAL NUMBER OF STEPS
-            if (iwork[1] == 0)
+            this.rtol = rtol;
+            this.atol = atol;
+
+            // NMAX - The maximal number of steps
+            nmax = 100000;
+
+            // KM - Maximum number of columns in the extrapolation table.
+            km = 12;
+
+            if (km <= 2)
             {
-                nmax = 100000;
+                Console.WriteLine(" CURIOUS INPUT KM=", km);
+                return -1;
             }
-            else
-            {
-                nmax = iwork[1];
-                if (nmax <= 0)
-                {
-                    Console.WriteLine(" WRONG INPUT IWORK(2)=", iwork[1]);
-                    return -1;
-                }
-            }
-            // KM     MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION
-            if (iwork[2] == 0)
-            {
-                km = 12;
-            }
-            else
-            {
-                km = iwork[2];
-                if (km <= 2)
-                {
-                    Console.WriteLine(" CURIOUS INPUT IWORK(3)=", iwork[2]);
-                    return -1;
-                }
-            }
-            // NSEQU     CHOICE OF STEP SIZE SEQUENCE
-            nsequ = iwork[3];
-            if (iwork[3] == 0)
-            {
-                nsequ = 2;
-            }
+
+            // NSEQU - Choice of step size sequence
+            //     IF NSEQU = 1 THEN 1,2,3,4,6,8,12,16,24,32,48...
+            //     IF NSEQU = 2 THEN 2,3,4,6,8,12,16,24,32,48,64...
+            //     IF NSEQU = 3 THEN 1,2,3,4,5,6,7,8,9,10...
+            //     IF NSEQU = 4 THEN 2,3,4,5,6,7,8,9,10,11...
+            nsequ = 2;
+
             if (nsequ < 1 || nsequ > 4)
             {
-                Console.WriteLine(" CURIOUS INPUT IWORK(4)=", iwork[3]);
+                Console.WriteLine(" CURIOUS INPUT NSEQU=", nsequ);
                 return -1;
             }
-            // LAMBDA   PARAMETER FOR DENSE OUTPUT
-            lambda = iwork[4];
+
+            // LAMBDA - Parameter for dense output
+            lambda = 0;
+
             if (lambda < 0 || lambda > 1)
             {
-                Console.WriteLine(" CURIOUS INPUT IWORK(5)=", iwork[4]);
-                return -1;
-            }
-            // NRDENS   NUMBER OF DENSE OUTPUT COMPONENTS
-            nrdens = iwork[5];
-            if (nrdens < 0 || nrdens > n)
-            {
-                Console.WriteLine(" CURIOUS INPUT IWORK(6)=", iwork[5]);
+                Console.WriteLine(" CURIOUS INPUT LAMBDA=", lambda);
                 return -1;
             }
 
-            // UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0
-            if (work[0] == 0.0)
-            {
-                uround = 1e-16;
-            }
-            else
-            {
-                uround = work[0];
-                if (uround <= 0.0 || uround >= 1.0)
-                {
-                    Console.WriteLine("  UROUND=", work);
-                    return -1;
-                }
-            }
-            // MAXIMAL STEP SIZE
-            if (work[1] == 0.0)
-            {
-                hmax = xend - x;
-            }
-            else
-            {
-                hmax = work[1];
-            }
-            // THET     DECIDES WHETHER THE JACOBIAN SHOULD BE RECOMPUTED;
-            if (work[2] == 0.0)
-            {
-                thet = Math.Min(1e-4, rtol);
-            }
-            else
-            {
-                thet = work[2];
-            }
+            // UROUND   Smallest number satisfying 1.0+UROUND>1.0
+            uround = 1e-16;
 
-            // FAC1,FAC2    PARAMETERS FOR STEP SIZE SELECTION
+            // Maximal step size
+            hmax = xend - x;
+
+            // THET - Decides whether the jacobian should be recomputed;
+            //     Increase THET, to 0.01 say, when jacobian evaluations are costly.
+            //     For small systems THET should be smaller.
+            thet = Math.Min(1e-4, rtol);
+
+            // FAC1,FAC2 - Parameters for step size selection
+            //     The new step size for the j-th diagonal entry is chosen subject
+            //     to the restriction
+            //         facmin / FAC2 <= hnew(j) / hold <= 1 / facmin
+            //     where
+            //         facmin = FAC1 * (1 / (j-1))
             fac1 = 0.1;
             fac2 = 4.0;
 
-            // FAC3, FAC4   PARAMETERS FOR THE ORDER SELECTION
+            // FAC3, FAC4 - Parameters for the order selection
+            //     Order is decreased if    w(k-1) <= w(k) * FAC3
+            //     Order is increased if    w(k) <= w(k-1) * FAC4
             fac3 = 0.7;
             fac4 = 0.9;
 
-            // SAFE1, SAFE2 SAFETY FACTORS FOR STEP SIZE PREDICTION
+            // SAFE1, SAFE2 - Safety factors for step size prediction
+            //     hnew = h * SAFE1 * (SAFE2 * tol / err)^(1/(j-1))
             safe1 = 0.6;
             safe2 = 0.93;
 
-            // WKFCN,WKJAC,WKDEC,WKSOL  ESTIMATED WORK FOR  FCN,JAC,DEC,SOL
-            if (work[9] == 0.0)
-            {
-                wkfcn = 1.0;
-            }
-            else
-            {
-                wkfcn = work[9];
-            }
-            if (work[10] == 0.0)
-            {
-                wkjac = 5.0;
-            }
-            else
-            {
-                wkjac = work[10];
-            }
-            if (work[11] == 0.0)
-            {
-                wkdec = 1.0;
-            }
-            else
-            {
-                wkdec = work[11];
-            }
-            if (work[12] == 0.0)
-            {
-                wksol = 1.0;
-            }
-            else
-            {
-                wksol = work[12];
-            }
+            // WKFCN,WKJAC,WKDEC,WKSOL  estimated work for  FCN,JAC,DEC,SOL
+            wkfcn = 1.0;
+            wkjac = 5.0;
+            wkdec = 1.0;
+            wksol = 1.0;
             wkrow = wkfcn + wksol;
-            // CHECK IF TOLERANCES ARE O.K.
+
+            // Check if tolerances are ok.
             if (atol <= 0.0 || rtol <= uround * 10.0)
             {
                 Console.WriteLine(" TOLERANCES ARE TOO SMALL");
                 return -1;
             }
 
-            // AUTONOMOUS, IMPLICIT, BANDED OR NOT ?
+            // Autonomous, implicit, banded or not ?
             autnms = ifcn == 0;
             implct = imas != 0;
 
-
-            // MASS MATRIX
+            // Mass matrix
             if (implct)
             {
                 ijob = 5;
@@ -562,20 +241,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             else
             {
                 ijob = 1;
-                //if (n > 2 && iwork[0] != 0)
-                //{
-                //    ijob = 7;
-                //}
             }
 
-            // HESSENBERG OPTION ONLY FOR EXPLICIT EQU. WITH FULL JACOBIAN
-            if (implct && ijob == 7)
-            {
-                Console.WriteLine(" HESSENBERG OPTION ONLY FOR EXPLICIT EQUATIONS WITH FULL JACOBIAN");
-                return -1;
-            }
-
-            // PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK
+            // Prepare the entry-points for the arrays in work
             km2 = km * (km + 1) / 2;
             var yh = new double[n];
             var dy = new double[n];
@@ -593,36 +261,31 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var _mas = new double[n * n];
             var t = new double[n * km];
             var ifac = new double[km];
-            var de = new double[(km + 2) * nrdens];
-            var fsafe = new double[km2 * nrdens];
 
-            // ENTRY POINTS FOR int WORKSPACE
-            //var co = new int[nrdens];
+            // TODO: if dense
+            var de = new double[(km + 2) * n];
+            var fsafe = new double[km2 * n];
+
+            // Entry points for int workspace
+            //var co = new int[n];
             var ip = new int[n];
             var nj = new int[km];
             var iph = new int[km];
 
-            // CALL TO CORE INTEGRATOR
+            // Call to core integrator
             int idid = seucor_(n, fcn, x, y, xend, hmax, h, km,
                 jac, ijac, mas, solout, iout, ijob, nmax, uround,
                 nsequ, autnms, implct, yh,
                 dy, fx, yhh, dyh, del,
                  wh, scal, hh, w,
                 a, _jac, e, _mas, t, ip,
-                 nj, iph, thet, wkjac, wkdec, wkrow, km2, ifac,
-                 fsafe, lambda, ref nstep, ref naccpt,
-                 ref nrejct, ref ndec, ref nsol, de);
-
-            iwork[15] = nstep;
-            iwork[16] = naccpt;
-            iwork[17] = nrejct;
-            iwork[18] = ndec;
-            iwork[19] = nsol;
+                 nj, thet, wkjac, wkdec, wkrow, km2, ifac,
+                 fsafe, lambda, de);
 
             return idid;
         }
 
-        // ... AND HERE IS THE CORE INTEGRATOR
+        // ... and here is the core integrator
 
         int seucor_(int n, S_fp fcn, double x, double[] y,
             double xend, double hmax, double h, int km,
@@ -632,11 +295,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] dy, double[] fx, double[] yhh, double[] dyh,
             double[] del, double[] wh, double[] scal, double[] hh,
             double[] w, double[] a, double[] fjac, double[] e,
-            double[] fmas, double[] t, int[] ip, int[] nj, int[] iphes,
+            double[] fmas, double[] t, int[] ip, int[] nj,
             double thet, double wkjac, double wkdec, double wkrow,
             int km2, double[] facul, double[] fsafe,
-            int lambda, ref int nstep, ref int naccpt, ref int nrejct, ref int ndec, ref int nsol,
-            double[] dens)
+            int lambda, double[] dens)
         {
             int i1, i2, i3;
             double d1;
@@ -655,35 +317,33 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             int nrsol, irtrn, nsolu;
             bool caljac;
             double dblenj;
-            bool calhes = false;
             bool reject;
             double factor;
             double errold = 0, posneg;
 
 
-            // CORE INTEGRATOR FOR SEULEX
-            // PARAMETERS SAME AS IN SEULEX WITH WORKSPACE ADDED
+            // Core integrator for seulex
 
             if (iout == 2)
             {
                 coseu_1.nrd = n;
-                // COMPUTE THE FACTORIALS
+                // Compute the factorials
                 facul[0] = 1.0;
                 for (i = 0; i < km - 1; ++i)
                 {
                     facul[i + 1] = i * facul[i];
                 }
             }
-            // COMPUTE MASS MATRIX FOR IMPLICIT CASE
+            // Compute mass matrix for implicit case
             if (implct)
             {
                 mas(n, fmas, n);
             }
 
-            // INITIALISATIONS
+            // Initializations
             lrde = (km + 2) * n;
 
-            // DEFINE THE STEP SIZE SEQUENCE
+            // Define the step size sequence
             if (nsequ == 1)
             {
                 nj[0] = 1;
@@ -760,7 +420,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             atov = false;
 
-            // IS XEND REACHED IN THE NEXT STEP? 
+            // Is xend reached in the next step? 
             if (Math.Abs(xend - x) * 0.1 <= Math.Abs(x) * uround)
             {
                 goto L110;
@@ -778,16 +438,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             if (theta > thet && !caljac)
             {
-                // COMPUTATION OF THE JACOBIAN
+                // Computation of the jacobian
                 if (ijac == 0)
                 {
-                    // COMPUTE JACOBIAN MATRIX NUMERICALLY 
+                    // Compute jacobian matrix numerically 
                     if (!(autnms))
                     {
                         fcn(n, x, y, dy);
                     }
 
-                    // JACOBIAN IS FULL 
+                    // Jacobian is full 
                     for (i = 0; i < n; ++i)
                     {
                         ysafe = y[i];
@@ -803,14 +463,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
                 else
                 {
-                    // COMPUTE JACOBIAN MATRIX ANALYTICALLY 
+                    // Compute jacobian matrix analytically 
                     jac(n, x, y, fjac, n);
                 }
                 caljac = true;
-                calhes = true;
             }
 
-            // THE FIRST AND LAST STEP 
+            // The first and last step 
             if (nstep == 0 || last)
             {
                 ipt = 0;
@@ -822,9 +481,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         fmas, e, ip, ref h, km, hmaxn, t, scal,
                         nj, hh, w, a, yhh, dyh, del,
                         wh, ref err, ref theta,
-                        ref ndec, ref nsol, ref errold,
-                        iphes, autnms, implct, ref reject,
-                        ref atov, fsafe, km2, iout, ipt, ijob, calhes);
+                        ref errold,
+                        autnms, implct, ref reject,
+                        ref atov, fsafe, km2, iout, ipt, ijob);
                     if (atov)
                     {
                         goto L10;
@@ -837,7 +496,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L55;
             }
 
-            // BASIC INTEGRATION STEP 
+            // Basic integration step 
             L30:
             ipt = 0;
             ++(nstep);
@@ -851,17 +510,17 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 seul_(j, n, fcn, x, y, dy, fx, fjac,
                     fmas, e, ip,
                     ref h, km, hmaxn, t, scal, nj, hh, w,
-                    a, yhh, dyh, del, wh, ref err, ref theta, ref ndec, ref nsol,
-                    ref errold, iphes, autnms, implct,
+                    a, yhh, dyh, del, wh, ref err, ref theta,
+                    ref errold, autnms, implct,
                     ref reject, ref atov, fsafe, km2, iout,
-                    ipt, ijob, calhes);
+                    ipt, ijob);
                 if (atov)
                 {
                     goto L10;
                 }
             }
 
-            // CONVERGENCE MONITOR 
+            // Convergence monitor 
             if (k == 2 || reject)
             {
                 goto L50;
@@ -878,10 +537,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             seul_(k - 1, n, fcn, x, y, dy, fx, fjac,
                 fmas, e, ip, ref h,
                 km, hmaxn, t, scal, nj, hh, w, a,
-                yhh, dyh, del, wh, ref err, ref theta, ref ndec, ref nsol, ref errold,
-                iphes, autnms, implct, ref reject, ref atov,
-                fsafe, km2, iout, ipt, ijob,
-                calhes);
+                yhh, dyh, del, wh, ref err, ref theta, ref errold,
+                autnms, implct, ref reject, ref atov,
+                fsafe, km2, iout, ipt, ijob);
             if (atov)
             {
                 goto L10;
@@ -891,7 +549,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 goto L60;
             }
-            // HOPE FOR CONVERGENCE IN LINE K+1 
+            // Hope for convergence in line K+1 
             L55:
             if (err > (double)nj[k] * 2.0)
             {
@@ -901,10 +559,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             seul_(kc - 1, n, fcn, x, y, dy, fx, fjac,
                 fmas, e, ip, ref h,
                 km, hmaxn, t, scal, nj, hh, w, a,
-                yhh, dyh, del, wh, ref err, ref theta, ref ndec, ref nsol, ref errold,
-                iphes, autnms, implct, ref reject, ref atov,
-                fsafe, km2, iout, ipt, ijob,
-                calhes);
+                yhh, dyh, del, wh, ref err, ref theta, ref errold,
+                autnms, implct, ref reject, ref atov,
+                fsafe, km2, iout, ipt, ijob);
             if (atov)
             {
                 goto L10;
@@ -914,7 +571,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L100;
             }
 
-            // STEP IS ACCEPTED 
+            // Step is accepted 
             L60:
             xold = x;
             x += h;
@@ -945,7 +602,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 i1 = coseu_1.kright - 1;
                 for (klr = 0; klr < i1; ++klr)
                 {
-                    // COMPUTE DIFFERENCES 
+                    // Compute differences 
                     if (klr >= 2)
                     {
                         i2 = kc;
@@ -962,7 +619,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                             }
                         }
                     }
-                    // COMPUTE DERIVATIVES AT RIGHT END
+                    // Compute derivatives at right end
                     for (kk = klr + lambda - 1; kk < kc; ++kk)
                     {
                         facnj = Math.Pow(nj[kk], klr) / facul[klr + 1]; // TODO: pow_di()
@@ -988,7 +645,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         }
                     }
                 }
-                // COMPUTE THE COEFFICIENTS OF THE INTERPOLATION POLYNOMIAL 
+                // Compute the coefficients of the interpolation polynomial 
                 for (i_n = 0; i_n < n; ++i_n)
                 {
                     for (j = 0; j < coseu_1.kright; ++j)
@@ -1014,7 +671,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     goto L120;
                 }
             }
-            // COMPUTE OPTIMAL ORDER 
+            // Compute optimal order 
             if (kc == 2)
             {
                 kopt = Math.Min(3, km - 1);
@@ -1048,7 +705,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     kopt = Math.Min(kc, km - 1);
                 }
             }
-            // AFTER A REJECTED STEP 
+            // After a rejected step 
             L80:
             if (reject)
             {
@@ -1057,7 +714,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 reject = false;
                 goto L10;
             }
-            // COMPUTE STEP SIZE FOR NEXT STEP 
+            // Compute step size for next step 
             if (kopt <= kc)
             {
                 h = hh[kopt - 1];
@@ -1077,7 +734,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             h = posneg * Math.Abs(h);
             goto L10;
 
-            // STEP IS REJECTED 
+            // Step is rejected 
             L100:
             k = Math.Min(Math.Min(k, kc), km - 1);
             if (k > 2 && w[k - 2] < w[k - 1] * fac3)
@@ -1093,19 +750,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L30;
             }
             goto L10;
-            // SOLUTION EXIT 
+            // Solution exit 
             L110:
             h = hopt;
             return 1;
-            // FAIL EXIT 
+            // Fail exit 
             L120:
             //do_fio("", x, h);
             return -1;
         }
 
-        // THIS SUBROUTINE COMPUTES THE J-TH LINE OF THE 
-        // EXTRAPOLATION TABLE AND PROVIDES AN ESTIMATE 
-        // OF THE OPTIMAL STEP SIZE 
+        // This subroutine computes the j-th line of the 
+        // extrapolation table and provides an estimate 
+        // of the optimal step size 
         int seul_(int jj, int n, S_fp fcn, double x,
             double[] y, double[] dy, double[] fx, double[] fjac,
             double[] fmas, double[] e,
@@ -1114,11 +771,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] w, double[] a, double[] yh, double[] dyh,
             double[] del, double[] wh, ref double err,
             ref double theta,
-            ref int ndec, ref int nsol,
-            ref double errold, int[] iphes, bool autnms,
+            ref double errold, bool autnms,
             bool implct, ref bool reject, ref bool atov,
             double[] fsafe, int km2, int iout, int ipt,
-            int ijob, bool calhes)
+            int ijob)
         {
             double d1, d2;
 
@@ -1132,14 +788,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             hj = h / nj[jj];
             hji = 1.0 / hj;
-            dc_decsol.decomr_(n, fjac, fmas, hji, e, ip, ref ier, ijob, calhes, iphes);
+            dc_decsol.decomr_(n, fjac, fmas, hji, e, ip, ref ier, ijob);
             if (ier != 0)
             {
                 goto L79;
             }
             ++(ndec);
 
-            // STARTING PROCEDURE 
+            // Starting procedure 
             if (!(autnms))
             {
                 d1 = x + hj;
@@ -1162,7 +818,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
             }
 
-            // SEMI-IMPLICIT EULER METHOD 
+            // Semi-implicit Euler method 
             if (m > 1)
             {
                 for (mm = 0; mm < m - 1; ++mm)
@@ -1181,7 +837,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                     if (mm == 0 && jj < 2)
                     {
-                        // STABILITY CHECK 
+                        // Stability check 
                         del1 = 0.0;
                         for (i = 0; i < n; ++i)
                         {
@@ -1262,7 +918,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 t[jj + i * km] = yh[i] + del[i];
             }
 
-            // POLYNOMIAL EXTRAPOLATION 
+            // Polynomial extrapolation 
             if (jj == 0)
             {
                 return 0;
@@ -1293,7 +949,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             d1 = err * 4;
             errold = Math.Max(d1, 1.0);
-            // COMPUTE OPTIMAL STEP SIZES 
+            // Compute optimal step sizes 
             expo = 1.0 / (jj + 1);
             facmin = Math.Pow(fac1, expo);
             fac = Math.Min(fac2 / facmin, Math.Max(facmin, Math.Pow(err / safe1, expo) / safe2));
@@ -1309,12 +965,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return 0;
         }
 
-        //  THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT IN CONECTION 
-        //  WITH THE OUTPUT-SUBROUTINE FOR SEULEX. IT PROVIDES AN 
-        //  APPROXIMATION TO THE II-TH COMPONENT OF THE SOLUTION AT X. 
+        //  This function can be used for coninuous output in conection 
+        //  with the output-subroutine for seulex. it provides an 
+        //  approximation to the ii-th component of the solution at x. 
         double contex_(int i, double x, double[] rc)
         {
-            // COMPUTE THE INTERPOLATED VALUE 
+            // Compute the interpolated value 
             double theta = (x - coseu_1.xold) / coseu_1.h;
             double ret_val = rc[coseu_1.kright * coseu_1.nrd + i];
             for (int j = 1; j < coseu_1.kright; ++j)
