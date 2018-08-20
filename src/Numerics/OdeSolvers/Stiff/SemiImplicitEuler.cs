@@ -140,7 +140,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             bool autnms;
             double uround;
-            
+
             nstep = 0;
             naccpt = 0;
             nrejct = 0;
@@ -271,11 +271,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var ip = new int[n];
             var nj = new int[km];
             var iph = new int[km];
+            
+            InitializeStepSizeSequence(nsequ, nj, km);
 
             // Call to core integrator
             int idid = seucor_(n, fcn, x, y, xend, hmax, h, km,
                 jac, ijac, mas, solout, iout, ijob, nmax, uround,
-                nsequ, autnms, implct, yh,
+                autnms, implct, yh,
                 dy, fx, yhh, dyh, del,
                  wh, scal, hh, w,
                 a, _jac, e, _mas, t, ip,
@@ -291,7 +293,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double xend, double hmax, double h, int km,
             J_fp jac, int ijac, M_fp mas, S_fp solout, int iout, int ijob,
             int nmax, double uround,
-            int nsequ, bool autnms, bool implct, double[] yh,
+            bool autnms, bool implct, double[] yh,
             double[] dy, double[] fx, double[] yhh, double[] dyh,
             double[] del, double[] wh, double[] scal, double[] hh,
             double[] w, double[] a, double[] fjac, double[] e,
@@ -300,12 +302,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             int km2, double[] facul, double[] fsafe,
             int lambda, double[] dens)
         {
-            int i1, i2, i3;
             double d1;
 
-            int i, j, k, l, kc = 0, ii, kk, i_n;
+            int i, j, k, kc = 0;
             double t1i, err;
-            int ipt, klr, krn, lbeg, lend, lrde;
+            int ipt, lrde;
             double delt;
             bool last;
             double xold;
@@ -313,12 +314,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double hopt = 0;
 
             int kopt;
-            double xsol, facnj, theta, ysafe, hmaxn;
-            int nrsol, irtrn, nsolu;
+            double xsol, theta, ysafe, hmaxn;
             bool caljac;
-            double dblenj;
             bool reject;
-            double factor;
             double errold = 0, posneg;
 
 
@@ -343,37 +341,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Initializations
             lrde = (km + 2) * n;
 
-            // Define the step size sequence
-            if (nsequ == 1)
-            {
-                nj[0] = 1;
-                nj[1] = 2;
-                nj[2] = 3;
-                for (i = 3; i < km; ++i)
-                {
-                    nj[i] = nj[i - 2] << 1;
-                }
-            }
-            if (nsequ == 2)
-            {
-                nj[0] = 2;
-                nj[1] = 3;
-                for (i = 2; i < km; ++i)
-                {
-                    nj[i] = nj[i - 2] << 1;
-                }
-            }
-            for (i = 0; i < km; ++i)
-            {
-                if (nsequ == 3)
-                {
-                    nj[i] = i;
-                }
-                if (nsequ == 4)
-                {
-                    nj[i] = i + 1;
-                }
-            }
             a[0] = wkjac + nj[0] * wkrow + wkdec;
             for (i = 1; i < km; ++i)
             {
@@ -388,20 +355,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             theta = Math.Abs(thet) * 2;
             if (iout != 0)
             {
-                irtrn = 1;
-                nrsol = 1;
                 xsol = x;
                 for (i = 0; i < n; ++i)
                 {
                     yh[i] = y[i];
                 }
-                nsolu = n;
                 xold = x;
-                //solout(nrsol, xold, xsol, yh, dens, lrde, icomp, nrd, nsolu, irtrn);
-                if (irtrn < 0)
-                {
-                    goto L120;
-                }
                 ipt = 0;
             }
             err = 0.0;
@@ -593,82 +552,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             caljac = false;
             if (iout == 2)
             {
-                coseu_1.xold = xold;
-                coseu_1.h = h;
-                for (i = 0; i < n; ++i)
-                {
-                    dens[n + i] = y[i];
-                }
-                i1 = coseu_1.kright - 1;
-                for (klr = 0; klr < i1; ++klr)
-                {
-                    // Compute differences 
-                    if (klr >= 2)
-                    {
-                        i2 = kc;
-                        for (kk = klr - 1; kk < i2; ++kk)
-                        {
-                            lbeg = (kk + 1) * kk / 2;
-                            lend = lbeg - kk + 2;
-                            for (l = lbeg; l >= lend; --l)
-                            {
-                                for (i = 0; i < n; ++i)
-                                {
-                                    fsafe[l + i * km2] -= fsafe[l - 1 + i * km2];
-                                }
-                            }
-                        }
-                    }
-                    // Compute derivatives at right end
-                    for (kk = klr + lambda - 1; kk < kc; ++kk)
-                    {
-                        facnj = Math.Pow(nj[kk], klr) / facul[klr + 1]; // TODO: pow_di()
-                        ipt = (kk + 1) * kk / 2;
-                        for (i = 0; i < n; ++i)
-                        {
-                            krn = (kk - lambda + 1) * n;
-                            dens[krn + i] = fsafe[ipt + i * km2] * facnj;
-                        }
-                    }
-                    for (j = klr + lambda; j < kc; ++j)
-                    {
-                        dblenj = (double)nj[j];
-                        i3 = klr + lambda + 1;
-                        for (l = j; l >= i3; --l)
-                        {
-                            factor = dblenj / nj[l - 1] - 1.0;
-                            for (i = 0; i < n; ++i)
-                            {
-                                krn = (l - lambda + 1) * n + i;
-                                dens[krn - n] = dens[krn] + (dens[krn] - dens[krn - n]) / factor;
-                            }
-                        }
-                    }
-                }
-                // Compute the coefficients of the interpolation polynomial 
-                for (i_n = 0; i_n < n; ++i_n)
-                {
-                    for (j = 0; j < coseu_1.kright; ++j)
-                    {
-                        ii = n * j + i_n;
-                        dens[ii] -= dens[ii - n];
-                    }
-                }
+                PrepareDenseOutput(h, x, xold, n, kc, km2, lambda, dens, y, fsafe, facul, nj);
             }
             if (iout != 0)
             {
-                irtrn = 1;
-                nrsol = naccpt + 1;
                 xsol = x;
                 for (i = 0; i < n; ++i)
                 {
                     yh[i] = y[i];
-                }
-                nsolu = n;
-                //solout(nrsol, xold, xsol, yh, dens, lrde, icomp, nrd, nsolu, irtrn);
-                if (irtrn < 0)
-                {
-                    goto L120;
                 }
             }
             // Compute optimal order 
@@ -758,6 +649,111 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             L120:
             //do_fio("", x, h);
             return -1;
+        }
+
+        private void PrepareDenseOutput(double h, double x, double xold, int n, int kc, int km2, int lambda,
+            double[] dens, double[] y, double[] fsafe, double[] facul, int[] nj)
+        {
+            coseu_1.xold = xold;
+            coseu_1.h = h;
+
+            for (int i = 0; i < n; ++i)
+            {
+                dens[n + i] = y[i];
+            }
+
+            int i1 = coseu_1.kright - 1;
+            for (int klr = 0; klr < i1; ++klr)
+            {
+                // Compute differences 
+                if (klr >= 2)
+                {
+                    for (int kk = klr - 1; kk < kc; ++kk)
+                    {
+                        int lbeg = (kk + 1) * kk / 2;
+                        int lend = lbeg - kk + 2;
+                        for (int l = lbeg; l >= lend; --l)
+                        {
+                            for (int i = 0; i < n; ++i)
+                            {
+                                fsafe[l + i * km2] -= fsafe[l - 1 + i * km2];
+                            }
+                        }
+                    }
+                }
+                // Compute derivatives at right end
+                for (int kk = klr + lambda - 1; kk < kc; ++kk)
+                {
+                    double facnj = Math.Pow(nj[kk], klr) / facul[klr + 1]; // TODO: pow_di()
+                    int ipt = (kk + 1) * kk / 2;
+                    for (int i = 0; i < n; ++i)
+                    {
+                        int krn = (kk - lambda + 1) * n;
+                        dens[krn + i] = fsafe[ipt + i * km2] * facnj;
+                    }
+                }
+                for (int j = klr + lambda; j < kc; ++j)
+                {
+                    double dblenj = (double)nj[j];
+                    int i3 = klr + lambda + 1;
+                    for (int l = j; l >= i3; --l)
+                    {
+                        double factor = dblenj / nj[l - 1] - 1.0;
+                        for (int i = 0; i < n; ++i)
+                        {
+                            int krn = (l - lambda + 1) * n + i;
+                            dens[krn - n] = dens[krn] + (dens[krn] - dens[krn - n]) / factor;
+                        }
+                    }
+                }
+            }
+            // Compute the coefficients of the interpolation polynomial 
+            for (int i = 0; i < n; ++i)
+            {
+                for (int j = 0; j < coseu_1.kright; ++j)
+                {
+                    int ii = n * j + i;
+                    dens[ii] -= dens[ii - n];
+                }
+            }
+        }
+
+        // Define the step size sequence
+        private void InitializeStepSizeSequence(int nsequ, int[] nj, int km)
+        {
+            if (nsequ == 1)
+            {
+                nj[0] = 1;
+                nj[1] = 2;
+                nj[2] = 3;
+                for (int i = 3; i < km; ++i)
+                {
+                    nj[i] = nj[i - 2] << 1;
+                }
+            }
+            else if (nsequ == 2)
+            {
+                nj[0] = 2;
+                nj[1] = 3;
+                for (int i = 2; i < km; ++i)
+                {
+                    nj[i] = nj[i - 2] << 1;
+                }
+            }
+            else if (nsequ == 3)
+            {
+                for (int i = 0; i < km; ++i)
+                {
+                    nj[i] = i;
+                }
+            }
+            else if (nsequ == 4)
+            {
+                for (int i = 0; i < km; ++i)
+                {
+                    nj[i] = i + 1;
+                }
+            }
         }
 
         // This subroutine computes the j-th line of the 
