@@ -157,7 +157,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *     MLJAC       SWITCH FOR THE BANDED STRUCTURE OF THE JACOBIAN:
              *                    MLJAC=N: JACOBIAN IS A FULL MATRIX. THE LINEAR
              *                       ALGEBRA IS DONE BY FULL-MATRIX GAUSS-ELIMINATION.
-             *                    0<=MLJAC<N: MLJAC IS THE LOWER BANDWITH OF JACOBIAN
+             *                    0&lt;=MLJAC&lt;N: MLJAC IS THE LOWER BANDWITH OF JACOBIAN
              *                       MATRIX (>= NUMBER OF NON-ZERO DIAGONALS BELOW
              *                       THE MAIN DIAGONAL).
              *
@@ -192,7 +192,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *     MLMAS       SWITCH FOR THE BANDED STRUCTURE OF THE MASS-MATRIX:
              *                    MLMAS=N: THE FULL MATRIX CASE. THE LINEAR
              *                       ALGEBRA IS DONE BY FULL-MATRIX GAUSS-ELIMINATION.
-             *                    0<=MLMAS<N: MLMAS IS THE LOWER BANDWITH OF THE
+             *                    0&lt;=MLMAS&lt;N: MLMAS IS THE LOWER BANDWITH OF THE
              *                       MATRIX (>= NUMBER OF NON-ZERO DIAGONALS BELOW
              *                       THE MAIN DIAGONAL).
              *                 MLMAS IS SUPPOSED TO BE .LE. MLJAC.
@@ -216,14 +216,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                    THE FIRST GRID-POINT).
              *                 "XOLD" IS THE PRECEEDING GRID-POINT.
              *                 "IRTRN" SERVES TO INTERRUPT THE INTEGRATION. IF IRTRN
-             *                    IS SET <0, SEULEX RETURNS TO THE CALLING PROGRAM.
+             *                    IS SET &lt;0, SEULEX RETURNS TO THE CALLING PROGRAM.
              *                 DO NOT CHANGE THE ENTRIES OF RC(LRC),IC(LIC)!
              *
              *          -----  CONTINUOUS OUTPUT (IF IOUT=2): -----
              *                 DURING CALLS TO "SOLOUT", A CONTINUOUS SOLUTION
              *                 FOR THE INTERVAL [XOLD,X] IS AVAILABLE THROUGH
              *                 THE DOUBLE PRECISION FUNCTION
-             *                        >>>   CONTEX(I,S,RC,LRC,IC,LIC)   <<<
+             *                        >>>   CONTEX(I,S,RC,LRC,IC,LIC)
              *                 WHICH PROVIDES AN APPROXIMATION TO THE I-TH
              *                 COMPONENT OF THE SOLUTION AT THE POINT S. THE VALUE
              *                 S SHOULD LIE IN THE INTERVAL [XOLD,X].
@@ -241,14 +241,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                    KM2=2+KM*(KM+3)/2  AND  NRDENS=IWORK(6) (SEE BELOW)
              *                 AND
              *                    LJAC=N              IF MLJAC=N (FULL JACOBIAN)
-             *                    LJAC=MLJAC+MUJAC+1  IF MLJAC<N (BANDED JAC.0)
+             *                    LJAC=MLJAC+MUJAC+1  IF MLJAC&lt;N (BANDED JAC.0)
              *                 AND
              *                    LMAS=0              IF IMAS=0
              *                    LMAS=N              IF IMAS=1 AND MLMAS=N (FULL)
-             *                    LMAS=MLMAS+MUMAS+1  IF MLMAS<N (BANDED MASS-M.0)
+             *                    LMAS=MLMAS+MUMAS+1  IF MLMAS&lt;N (BANDED MASS-M.0)
              *                 AND
              *                    LE1=N               IF MLJAC=N (FULL JACOBIAN)
-             *                    LE1=2mLJAC+MUJAC+1 IF MLJAC<N (BANDED JAC.0).
+             *                    LE1=2mLJAC+MUJAC+1 IF MLJAC&lt;N (BANDED JAC.0).
              *                 AND
              *                    KM=12               IF IWORK(3)=0
              *                    KM=IWORK(3)         IF IWORK(3).GT.0
@@ -273,7 +273,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                 CAN BE USED FOR COMMUNICATION BETWEEN YOUR CALLING
              *                 PROGRAM AND THE FCN, JAC, MAS, SOLOUT SUBROUTINES.
              *
-             // ----------------------------------------------------------------
+             * ----------------------------------------------------------------
              *
              *     SOPHISTICATED SETTING OF PARAMETERS
              *     -----------------------------------
@@ -285,7 +285,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *    IWORK(1)  IF IWORK(1).NE.0, THE CODE TRANSFORMS THE JACOBIAN
              *              MATRIX TO HESSENBERG FORM. THIS IS PARTICULARLY
              *              ADVANTAGEOUS FOR LARGE SYSTEMS WITH FULL JACOBIAN.
-             *              IT DOES NOT WORK FOR BANDED JACOBIAN (MLJAC<N)
+             *              IT DOES NOT WORK FOR BANDED JACOBIAN (MLJAC&lt;N)
              *              AND NOT FOR IMPLICIT SYSTEMS (IMAS=1).
              *
              *    IWORK(2)  THIS IS THE MAXIMAL NUMBER OF ALLOWED STEPS.
@@ -327,7 +327,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                 DFY(I-J+MUJAC+1,J+Km2) = PARTIAL F(I+M1) / PARTIAL Y(J+Km2)
              *                FOR I=1,MLJAC+MUJAC+1 AND J=1,M2 AND K=0,MM.
              *       - MLJAC: MLJAC=N-M1: IF THE NON-TRIVIAL PART OF THE JACOBIAN IS FULL
-             *                0<=MLJAC<N-M1: IF THE (MM+1) SUBMATRICES (FOR K=0,MM)
+             *                0&lt;=MLJAC&lt;N-M1: IF THE (MM+1) SUBMATRICES (FOR K=0,MM)
              *                     PARTIAL F(I+M1) / PARTIAL Y(J+Km2),  I,J=1,M2
              *                    ARE BANDED, MLJAC IS THE MAXIMAL LOWER BANDWIDTH
              *                    OF THESE MM+1 SUBMATRICES
@@ -342,7 +342,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *              ELSE, THE MASS MATRIX IS BANDED
              *                 AM(I-J+MUMAS+1,J) = M(I+M1,J+M1)
              *       - MLMAS: MLMAS=N-M1: IF THE NON-TRIVIAL PART OF M IS FULL
-             *                0<=MLMAS<N-M1: LOWER BANDWIDTH OF THE MASS MATRIX
+             *                0&lt;=MLMAS&lt;N-M1: LOWER BANDWIDTH OF THE MASS MATRIX
              *       - MUMAS: UPPER BANDWIDTH OF THE MASS MATRIX
              *                NEED NOT BE DEFINED IF MLMAS=N-M1
              *
@@ -362,13 +362,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *    WORK(4), WORK(5)   PARAMETERS FOR STEP SIZE SELECTION
              *              THE NEW STEP SIZE FOR THE J-TH DIAGONAL ENTRY IS
              *              CHOSEN SUBJECT TO THE RESTRICTION
-             *                 FACMIN/WORK(5) <= HNEW(J)/HOLD <= 1/FACMIN
+             *                 FACMIN/WORK(5) &lt;= HNEW(J)/HOLD &lt;= 1/FACMIN
              *              WHERE FACMIN=WORK(4)**(1/(J-1))
              *              DEFAULT VALUES: WORK(4)=0.1D0, WORK(5)=4.D0
              *
              *    WORK(6), WORK(7)   PARAMETERS FOR THE ORDER SELECTION
-             *              ORDER IS DECREASED IF    W(K-1) <= W(K)*WORK(6)
-             *              ORDER IS INCREASED IF    W(K) <= W(K-1)*WORK(7)
+             *              ORDER IS DECREASED IF    W(K-1) &lt;= W(K)*WORK(6)
+             *              ORDER IS INCREASED IF    W(K) &lt;= W(K-1)*WORK(7)
              *              DEFAULT VALUES: WORK(6)=0.7D0, WORK(7)=0.9D0
              *
              *    WORK(8), WORK(9)   SAFETY FACTORS FOR STEP CONTROL ALGORITHM
@@ -380,7 +380,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *             DEFAULT VALUES ARE: WORK(10)=1.D0, WORK(11)=5.D0,
              *             WORK(12)=1.D0, WORK(13)=1.D0.
              *
-             // -----------------------------------------------------------------
+             * -----------------------------------------------------------------
              *
              *     OUTPUT PARAMETERS
              *     -----------------
@@ -615,13 +615,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var fsafe = new double[km2 * nrdens];
 
             // ENTRY POINTS FOR int WORKSPACE
-            var co = new int[nrdens];
+            //var co = new int[nrdens];
             var ip = new int[n];
             var nj = new int[km];
             var iph = new int[km];
-
-            nrd = Math.Max(1, nrdens);
-
+            
             // CALL TO CORE INTEGRATOR
             int idid = seucor_(n, fcn, x, y, xend, hmax, h, km, rtol, atol,
                  itol, jac, ijac, mas,
@@ -630,9 +628,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 dy, fx, yhh, dyh, del,
                  wh, scal, hh, w,
                 a, _jac, e, _mas, t, ip,
-                 nj, iph, thet, wkjac, wkdec, wkrow, km2, nrd, ifac,
+                 nj, iph, thet, wkjac, wkdec, wkrow, km2, ifac,
                  fsafe, lambda, ref nstep, ref naccpt,
-                 ref nrejct, ref ndec, ref nsol, de, co);
+                 ref nrejct, ref ndec, ref nsol, de);
 
             iwork[15] = nstep;
             iwork[16] = naccpt;
@@ -656,9 +654,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] w, double[] a, double[] fjac, double[] e,
             double[] fmas, double[] t, int[] ip, int[] nj, int[] iphes,
             double thet, double wkjac, double wkdec, double wkrow,
-            int km2, int nrd, double[] facul, double[] fsafe,
+            int km2, double[] facul, double[] fsafe,
             int lambda, ref int nstep, ref int naccpt, ref int nrejct, ref int ndec, ref int nsol,
-            double[] dens, int[] icomp)
+            double[] dens)
         {
             int i1, i2, i3;
             double d1;
@@ -688,7 +686,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             if (iout == 2)
             {
-                coseu_1.nnrd = nrd;
+                coseu_1.nnrd = n;
                 // COMPUTE THE FACTORIALS
                 facul[0] = 1.0;
                 for (i = 0; i < km - 1; ++i)
@@ -703,7 +701,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             // INITIALISATIONS
-            lrde = (km + 2) * nrd;
+            lrde = (km + 2) * n;
 
             // DEFINE THE STEP SIZE SEQUENCE
             if (nsequ == 1)
@@ -852,8 +850,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         nj, hh, w, a, yhh, dyh, del,
                         wh, ref err, ref theta,
                         ref ndec, ref nsol, ref errold,
-                        iphes, icomp, autnms, implct, ref reject,
-                        ref atov, fsafe, km2, nrd, iout, ipt, ijob, calhes);
+                        iphes, autnms, implct, ref reject,
+                        ref atov, fsafe, km2, iout, ipt, ijob, calhes);
                     if (atov)
                     {
                         goto L10;
@@ -881,8 +879,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     fmas, e, ip,
                     ref h, km, hmaxn, t, scal, nj, hh, w,
                     a, yhh, dyh, del, wh, ref err, ref theta, ref ndec, ref nsol,
-                    ref errold, iphes, icomp, autnms, implct,
-                    ref reject, ref atov, fsafe, km2, nrd, iout,
+                    ref errold, iphes, autnms, implct,
+                    ref reject, ref atov, fsafe, km2, iout,
                     ipt, ijob, calhes);
                 if (atov)
                 {
@@ -908,8 +906,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 fmas, e, ip, ref h,
                 km, hmaxn, t, scal, nj, hh, w, a,
                 yhh, dyh, del, wh, ref err, ref theta, ref ndec, ref nsol, ref errold,
-                iphes, icomp, autnms, implct, ref reject, ref atov,
-                fsafe, km2, nrd, iout, ipt, ijob,
+                iphes, autnms, implct, ref reject, ref atov,
+                fsafe, km2, iout, ipt, ijob,
                 calhes);
             if (atov)
             {
@@ -931,8 +929,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 fmas, e, ip, ref h,
                 km, hmaxn, t, scal, nj, hh, w, a,
                 yhh, dyh, del, wh, ref err, ref theta, ref ndec, ref nsol, ref errold,
-                iphes, icomp, autnms, implct, ref reject, ref atov,
-                fsafe, km2, nrd, iout, ipt, ijob,
+                iphes, autnms, implct, ref reject, ref atov,
+                fsafe, km2, iout, ipt, ijob,
                 calhes);
             if (atov)
             {
@@ -950,9 +948,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (iout == 2)
             {
                 coseu_1.kright = kc;
-                for (i = 0; i < nrd; ++i)
+                for (i = 0; i < n; ++i)
                 {
-                    dens[i] = y[icomp[i]];
+                    dens[i] = y[i];
                 }
             }
             for (i = 0; i < n; ++i)
@@ -974,9 +972,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 coseu_1.xoldd = xold;
                 coseu_1.hhh = h;
-                for (i = 0; i < nrd; ++i)
+                for (i = 0; i < n; ++i)
                 {
-                    dens[nrd + i] = y[icomp[i]];
+                    dens[n + i] = y[i];
                 }
                 i1 = coseu_1.kright - 1;
                 for (klr = 0; klr < i1; ++klr)
@@ -991,7 +989,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                             lend = lbeg - kk + 2;
                             for (l = lbeg; l >= lend; --l)
                             {
-                                for (i = 0; i < nrd; ++i)
+                                for (i = 0; i < n; ++i)
                                 {
                                     fsafe[l + i * km2] -= fsafe[l - 1 + i * km2];
                                 }
@@ -1003,9 +1001,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     {
                         facnj = Math.Pow(nj[kk], klr) / facul[klr + 1]; // TODO: pow_di()
                         ipt = (kk + 1) * kk / 2;
-                        for (i = 0; i < nrd; ++i)
+                        for (i = 0; i < n; ++i)
                         {
-                            krn = (kk - lambda + 1) * nrd;
+                            krn = (kk - lambda + 1) * n;
                             dens[krn + i] = fsafe[ipt + i * km2] * facnj;
                         }
                     }
@@ -1016,21 +1014,21 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         for (l = j; l >= i3; --l)
                         {
                             factor = dblenj / nj[l - 1] - 1.0;
-                            for (i = 0; i < nrd; ++i)
+                            for (i = 0; i < n; ++i)
                             {
-                                krn = (l - lambda + 1) * nrd + i;
-                                dens[krn - nrd] = dens[krn] + (dens[krn] - dens[krn - nrd]) / factor;
+                                krn = (l - lambda + 1) * n + i;
+                                dens[krn - n] = dens[krn] + (dens[krn] - dens[krn - n]) / factor;
                             }
                         }
                     }
                 }
                 // COMPUTE THE COEFFICIENTS OF THE INTERPOLATION POLYNOMIAL 
-                for (i_n = 0; i_n < nrd; ++i_n)
+                for (i_n = 0; i_n < n; ++i_n)
                 {
                     for (j = 0; j < coseu_1.kright; ++j)
                     {
-                        ii = nrd * j + i_n;
-                        dens[ii] -= dens[ii - nrd];
+                        ii = n * j + i_n;
+                        dens[ii] -= dens[ii - n];
                     }
                 }
             }
@@ -1151,9 +1149,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] del, double[] wh, ref double err,
             ref double theta,
             ref int ndec, ref int nsol,
-            ref double errold, int[] iphes, int[] icomp, bool autnms,
+            ref double errold, int[] iphes, bool autnms,
             bool implct, ref bool reject, ref bool atov,
-            double[] fsafe, int km2, int nrd, int iout, int ipt,
+            double[] fsafe, int km2, int iout, int ipt,
             int ijob, bool calhes)
         {
             double d1, d2;
@@ -1192,9 +1190,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (iout == 2 && m == jj + 1)
             {
                 ++(ipt);
-                for (i = 0; i < nrd; ++i)
+                for (i = 0; i < n; ++i)
                 {
-                    fsafe[ipt + i * km2] = del[icomp[i]];
+                    fsafe[ipt + i * km2] = del[i];
                 }
             }
 
@@ -1286,9 +1284,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     if (iout == 2 && mm + 1 >= m - jj - 1)
                     {
                         ++(ipt);
-                        for (i = 0; i < nrd; ++i)
+                        for (i = 0; i < n; ++i)
                         {
-                            fsafe[ipt + i * km2] = del[icomp[i]];
+                            fsafe[ipt + i * km2] = del[i];
                         }
                     }
                 }
@@ -1348,38 +1346,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         //  THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT IN CONECTION 
         //  WITH THE OUTPUT-SUBROUTINE FOR SEULEX. IT PROVIDES AN 
         //  APPROXIMATION TO THE II-TH COMPONENT OF THE SOLUTION AT X. 
-        double contex_(int ii, double x, double[] rc, int lrc,
-            int[] ic, int lic)
+        double contex_(int i, double x, double[] rc)
         {
-            double ret_val = 0;
-
-            int i, j;
-            double theta;
-
-            // COMPUTE PLACE OF II-TH COMPONENT 
-
-            i = 0;
-            for (j = 0; j < coseu_2.nrd; ++j)
-            {
-                if (ic[j] == ii)
-                {
-                    i = j;
-                }
-            }
-            if (i == 0)
-            {
-                Console.WriteLine(" NO DENSE OUTPUT AVAILABLE FOR COMP.", ii);
-                return ret_val;
-            }
             // COMPUTE THE INTERPOLATED VALUE 
-            theta = (x - coseu_2.xold) / coseu_2.h;
-            ret_val = rc[coseu_2.ir * coseu_2.nrd + i];
-            for (j = 1; j < coseu_2.ir; ++j)
+            double theta = (x - coseu_2.xold) / coseu_2.h;
+            double ret_val = rc[coseu_2.ir * coseu_2.nrd + i];
+            for (int j = 1; j < coseu_2.ir; ++j)
             {
                 ret_val = rc[(coseu_2.ir + 1 - j) * coseu_2.nrd + i] + ret_val * (theta - 1.0);
             }
-            ret_val = rc[i] + ret_val * theta;
-            return ret_val;
+            return rc[i] + ret_val * theta;
         }
     }
 }
