@@ -42,16 +42,17 @@ namespace MathNet.Numerics.OdeSolvers
         conodx1 conodx_1;
         conodx2 conodx_2;
 
+        double rtol, atol;
+
         public int nstep, naccpt, nrejct; // TODO: remove
 
         public int odex_(int n, S_fp fcn, double x, double[] y,
-             double xend, double h, double[] rtol, double[]
-            atol, int itol, int iout, double[] work, int[] iwork)
+             double xend, double h, double rtol, double atol, int iout, double[] work, int[] iwork)
         {
-            int i, km;
+            int km;
             double fac1, fac2, fac3, fac4;
             double hmax;
-            int ncom = 0, nmax;
+            int nmax;
             double safe1, safe2, safe3;
             int jstab, mudif, iderr = 0, mstab;
             int nsequ, lfsafe;
@@ -82,8 +83,7 @@ namespace MathNet.Numerics.OdeSolvers
              *                 STEPS IN SUBROUTINE "SOLOUT".
              *                 (IF H=0.D0, THE CODE PUTS H=1.D-4).
              *
-             *     RTOL,ATOL   RELATIVE AND ABSOLUTE ERROR TOLERANCES. THEY
-             *                 CAN BE BOTH SCALARS OR ELSE BOTH VECTORS OF LENGTH N.
+             *     RTOL,ATOL   RELATIVE AND ABSOLUTE ERROR TOLERANCES.
              *
              *     ITOL        SWITCH FOR RTOL AND ATOL:
              *                   ITOL=0: BOTH RTOL AND ATOL ARE SCALARS.
@@ -209,6 +209,9 @@ namespace MathNet.Numerics.OdeSolvers
              *   IWORK(20)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
              *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
              */
+
+            this.rtol = rtol;
+            this.atol = atol;
 
             nstep = 0;
             naccpt = 0;
@@ -432,8 +435,7 @@ namespace MathNet.Numerics.OdeSolvers
             var ip = new int[km];
 
             // CALL TO CORE INTEGRATOR
-            odxcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
-                itol, km, iout, nmax, uround, dy,
+            odxcor_(n, fcn, x, y, xend, hmax, h, km, iout, nmax, uround, dy,
                 yh1, yh2, dz, scal, fs, ys, t, hh, w, a, co, nj, ip
                 , nsequ, mstab, jstab, lfsafe, safe1, safe2, safe3, fac1,
                 fac2, fac3, fac4, iderr, fac, mudif);
@@ -444,8 +446,7 @@ namespace MathNet.Numerics.OdeSolvers
         // ... AND HERE IS THE CORE INTEGRATOR
 
         int odxcor_(int n, S_fp fcn, double x, double[]
-            y, double xend, double hmax, double h, double[]
-            rtol, double[] atol, int itol, int km,
+            y, double xend, double hmax, double h, int km,
             int iout, int nmax, double uround,
             double[] dy, double[] yh1, double[] yh2, double[] dz,
             double[] scal, double[] fsafe, double[] ysafe, double[] t,
@@ -529,18 +530,11 @@ namespace MathNet.Numerics.OdeSolvers
             // INITIAL SCALING
             for (i = 0; i < n; ++i)
             {
-                if (itol == 0)
-                {
-                    scal[i] = atol[0] + rtol[0] * Math.Abs(y[i]);
-                }
-                else
-                {
-                    scal[i] = atol[i] + rtol[i] * Math.Abs(y[i]);
-                }
+                scal[i] = atol + rtol * Math.Abs(y[i]);
             }
             // INITIAL PREPARATIONS
             posneg = d_sign(1.0, xend - x);
-            k = Math.Max(2, Math.Min(km - 1, (int)(-Math.Log10(rtol[0] + 1e-40) * 0.6 + 1.5)));
+            k = Math.Max(2, Math.Min(km - 1, (int)(-Math.Log10(rtol + 1e-40) * 0.6 + 1.5)));
             hmax = Math.Abs(hmax);
             h = Math.Max(Math.Abs(h), 1e-4);
             h = posneg * Math.Min(Math.Min(h, hmax), Math.Abs(xend - x) / 2.0);
@@ -618,7 +612,7 @@ namespace MathNet.Numerics.OdeSolvers
                     kc = j;
                     midex_(j, x, y, h, hmax, n, (S_fp)fcn, dy, yh1, yh2, dz, t, nj, hh, w, ref err,
                          ref fac, a, safe1, uround, fac1, fac2, safe2, scal,
-                        ref atov, safe3, ref reject, km, rtol, atol, itol,
+                        ref atov, safe3, ref reject, km,
                         mstab, jstab, errold, fsafe, lfsafe, iout,
                          ipt, ysafe);
                     if (atov)
@@ -648,7 +642,7 @@ namespace MathNet.Numerics.OdeSolvers
                 midex_(j, x, y, h, hmax, n, (S_fp)fcn, dy, yh1, yh2
                     , dz, t, nj, hh, w, ref err, ref fac, a,
                      safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3,
-                    ref reject, km, rtol, atol, itol, mstab, jstab, errold,
+                    ref reject, km, mstab, jstab, errold,
                     fsafe, lfsafe, iout, ipt, ysafe);
                 if (atov)
                 {
@@ -674,7 +668,7 @@ namespace MathNet.Numerics.OdeSolvers
             midex_(k, x, y, h, hmax, n, fcn, dy, yh1, yh2, dz,
                  t, nj, hh, w, ref err, ref fac, a,
                 safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3, ref reject,
-                 km, rtol, atol, itol, mstab, jstab, errold, fsafe,
+                 km, mstab, jstab, errold, fsafe,
                  lfsafe, iout, ipt, ysafe);
             if (atov)
             {
@@ -697,7 +691,7 @@ namespace MathNet.Numerics.OdeSolvers
             midex_(kc, x, y, h, hmax, n, (S_fp)fcn, dy, yh1, yh2, dz,
                  t, nj, hh, w, ref err, ref fac, a,
                 safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3, ref reject,
-                 km, rtol, atol, itol, mstab, jstab, errold, fsafe,
+                 km, mstab, jstab, errold, fsafe,
                  lfsafe, iout, ipt, ysafe);
             if (atov)
             {
@@ -980,15 +974,14 @@ namespace MathNet.Numerics.OdeSolvers
         }
 
         int midex_(int j, double x, double[] y,
-            double h, double hmax, int n, S_fp fcn, double[]
-            dy, double[] yh1, double[] yh2, double[] dz, double[] t,
+            double h, double hmax, int n, S_fp fcn, double[] dy,
+            double[] yh1, double[] yh2, double[] dz, double[] t,
             int[] nj, double[] hh, double[] w, ref double err,
             ref double fac, double[] a, double safe1, double uround,
-            double fac1, double fac2, double safe2, double[]
-            scal, ref bool atov, double safe3, ref bool reject, int km,
-            double[] rtol, double[] atol, int itol, int mstab,
-            int jstab, double errold, double[] fsafe, int
-            lfsafe, int iout, int ipt, double[] ysafe)
+            double fac1, double fac2, double safe2, double[] scal,
+            ref bool atov, double safe3, ref bool reject, int km,
+            int mstab, int jstab, double errold, double[] fsafe,
+            int lfsafe, int iout, int ipt, double[] ysafe)
         {
             double d1;
 
@@ -1097,14 +1090,7 @@ namespace MathNet.Numerics.OdeSolvers
             for (i = 0; i < n; ++i)
             {
                 t1i = Math.Max(Math.Abs(y[i]), Math.Abs(t[i * km + 1]));
-                if (itol == 0)
-                {
-                    scal[i] = atol[0] + rtol[0] * t1i;
-                }
-                else
-                {
-                    scal[i] = atol[i] + rtol[i] * t1i;
-                }
+                scal[i] = atol + rtol * t1i;
                 // Computing 2nd power
                 d1 = (t[i * km + 1] - t[i * km + 2]) / scal[i];
                 err += d1 * d1;
