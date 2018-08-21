@@ -46,8 +46,7 @@ namespace MathNet.Numerics.OdeSolvers
 
         public int nstep, naccpt, nrejct; // TODO: remove
 
-        public int odex_(int n, S_fp fcn, double x, double[] y,
-             double xend, double h, double rtol, double atol, int iout, double[] work, int[] iwork)
+        public int odex_(int n, S_fp fcn, double x, double[] y, double xend, double h, double rtol, double atol, int iout)
         {
             int km;
             double fac1, fac2, fac3, fac4;
@@ -84,111 +83,15 @@ namespace MathNet.Numerics.OdeSolvers
              *                 (IF H=0.D0, THE CODE PUTS H=1.D-4).
              *
              *     RTOL,ATOL   RELATIVE AND ABSOLUTE ERROR TOLERANCES.
-             *
-             *     ITOL        SWITCH FOR RTOL AND ATOL:
-             *                   ITOL=0: BOTH RTOL AND ATOL ARE SCALARS.
              *                     THE CODE KEEPS, ROUGHLY, THE LOCAL ERROR OF
              *                     Y(I) BELOW RTOL*ABS(Y(I))+ATOL
-             *                   ITOL=1: BOTH RTOL AND ATOL ARE VECTORS.
-             *                     THE CODE KEEPS THE LOCAL ERROR OF Y(I) BELOW
-             *                     RTOL(I)*ABS(Y(I))+ATOL(I).
-             *
              *
              *     IOUT        SWITCH FOR CALLING THE SUBROUTINE SOLOUT:
              *                    IOUT=0: SUBROUTINE IS NEVER CALLED
              *                    IOUT=1: SUBROUTINE IS USED FOR OUTPUT
              *                    IOUT=2: DENSE OUTPUT IS PERFORMED IN SOLOUT
              *
-             *     WORK        ARRAY OF WORKING SPACE OF LENGTH "LWORK".
-             *                 SERVES AS WORKING SPACE FOR ALL VECTORS.
-             *                 "LWORK" MUST BE AT LEAST
-             *                    N*(KM+5)+5*KM+20+(2*KM*(KM+2)+5)*NRDENS
-             *                 WHERE NRDENS=IWORK(8) (SEE BELOW) AND
-             *                        KM=9                IF IWORK(2)=0
-             *                        KM=IWORK(2)         IF IWORK(2).GT.0
-             *                 WORK(1),...,WORK(20) SERVE AS PARAMETERS
-             *                 FOR THE CODE. FOR STANDARD USE, SET THESE
-             *                 PARAMETERS TO ZERO BEFORE CALLING.
-             *
-             *     IWORK       int WORKING SPACE OF LENGTH "LIWORK".
-             *                 "LIWORK" MUST BE AT LEAST
-             *                               2*KM+21+NRDENS
-             *                 IWORK(1),...,IWORK(20) SERVE AS PARAMETERS
-             *                 FOR THE CODE. FOR STANDARD USE, SET THESE
-             *                 PARAMETERS TO ZERO BEFORE CALLING.
-             *
-             * -----------------------------------------------------------------------
-             *
-             *     SOPHISTICATED SETTING OF PARAMETERS
-             *     -----------------------------------
-             *              SEVERAL PARAMETERS (WORK(1),...,IWORK(1),...0) ALLOW
-             *              TO ADAPT THE CODE TO THE PROBLEM AND TO THE NEEDS OF
-             *              THE USER. FOR ZERO INPUT, THE CODE CHOOSES DEFAULT VALUES.
-             *
-             *    WORK(1)   UROUND, THE ROUNDING UNIT, DEFAULT 2.3D-16.
-             *
-             *    WORK(2)   MAXIMAL STEP SIZE, DEFAULT XEND-X.
-             *
-             *    WORK(3)   STEP SIZE IS REDUCED BY FACTOR WORK(3), IF THE
-             *              STABILITY CHECK IS NEGATIVE, DEFAULT 0.5.
-             *
-             *    WORK(4), WORK(5)   PARAMETERS FOR STEP SIZE SELECTION
-             *              THE NEW STEP SIZE FOR THE J-TH DIAGONAL ENTRY IS
-             *              CHOSEN SUBJECT TO THE RESTRICTION
-             *                 FACMIN/WORK(5) <= HNEW(J)/HOLD <= 1/FACMIN
-             *              WHERE FACMIN=WORK(4)**(1/(2*J-1))
-             *              DEFAULT VALUES: WORK(4)=0.02D0, WORK(5)=4.D0
-             *
-             *    WORK(6), WORK(7)   PARAMETERS FOR THE ORDER SELECTION
-             *              STEP SIZE IS DECREASED IF    W(K-1) <= W(K)*WORK(6)
-             *              STEP SIZE IS INCREASED IF    W(K) <= W(K-1)*WORK(7)
-             *              DEFAULT VALUES: WORK(6)=0.8D0, WORK(7)=0.9D0
-             *
-             *    WORK(8), WORK(9)   SAFETY FACTORS FOR STEP CONTROL ALGORITHM
-             *             HNEW=H*WORK(9)*(WORK(8)*TOL/ERR)**(1/(J-1))
-             *             DEFAULT VALUES: WORK(8)=0.65D0,
-             *                        WORK(9)=0.94D0  IF "HOPE FOR CONVERGENCE"
-             *                        WORK(9)=0.90D0  IF "NO HOPE FOR CONVERGENCE"
-             *
-             *    IWORK(1)  THIS IS THE MAXIMAL NUMBER OF ALLOWED STEPS.
-             *              THE DEFAULT VALUE (FOR IWORK(1)=0) IS 10000.
-             *
-             *    IWORK(2)  THE MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION
-             *              TABLE. THE DEFAULT VALUE (FOR IWORK(2)=0) IS 9.
-             *              IF IWORK(2).NE.0 THEN IWORK(2) SHOULD BE .GE.3.
-             *
-             *    IWORK(3)  SWITCH FOR THE STEP SIZE SEQUENCE (EVEN NUMBERS ONLY)
-             *              IF IWORK(3).EQ.1 THEN 2,4,6,8,10,12,14,16,...
-             *              IF IWORK(3).EQ.2 THEN 2,4,8,12,16,20,24,28,...
-             *              IF IWORK(3).EQ.3 THEN 2,4,6,8,12,16,24,32,...
-             *              IF IWORK(3).EQ.4 THEN 2,6,10,14,18,22,26,30,...
-             *              IF IWORK(3).EQ.5 THEN 4,8,12,16,20,24,28,32,...
-             *              THE DEFAULT VALUE IS IWORK(3)=1 IF IOUT.LE.1;
-             *              THE DEFAULT VALUE IS IWORK(3)=4 IF IOUT.GE.2.
-             *
-             *    IWORK(4)  STABILITY CHECK IS ACTIVATED AT MOST IWORK(4) TIMES IN
-             *              ONE LINE OF THE EXTRAP. TABLE, DEFAULT IWORK(4)=1.
-             *
-             *    IWORK(5)  STABILITY CHECK IS ACTIVATED ONLY IN THE LINES
-             *              1 TO IWORK(5) OF THE EXTRAP. TABLE, DEFAULT IWORK(5)=1.
-             *
-             *    IWORK(6)  IF  IWORK(6)=0  ERROR ESTIMATOR IN THE DENSE
-             *              OUTPUT FORMULA IS ACTIVATED. IT CAN BE SUPPRESSED
-             *              BY PUTTING IWORK(6)=1.
-             *              DEFAULT IWORK(6)=0  (IF IOUT.GE.2).
-             *
-             *    IWORK(7)  DETERMINES THE DEGREE OF INTERPOLATION FORMULA
-             *              MU = 2 * KAPPA - IWORK(7) + 1
-             *              IWORK(7) SHOULD LIE BETWEEN 1 AND 6
-             *              DEFAULT IWORK(7)=4  (IF IWORK(7)=0).
-             *
-             *    IWORK(8)  = NRDENS = NUMBER OF COMPONENTS, FOR WHICH DENSE OUTPUT
-             *              IS REQUIRED
-             *
-             *    IWORK(21),...,IWORK(NRDENS+20) INDICATE THE COMPONENTS, FOR WHICH
-             *              DENSE OUTPUT IS REQUIRED
-             *
-             * ----------------------------------------------------------------------C
+             * ----------------------------------------------------------------------
              *     OUTPUT PARAMETERS
              *     -----------------
              *     X           X-VALUE FOR WHICH THE SOLUTION HAS BEEN COMPUTED
@@ -202,12 +105,6 @@ namespace MathNet.Numerics.OdeSolvers
              *                   IDID=1  COMPUTATION SUCCESSFUL,
              *                   IDID=2  COMPUT. SUCCESSFUL (INTERRUPTED BY SOLOUT)
              *                   IDID=-1 COMPUTATION UNSUCCESSFUL.
-             *
-             *   IWORK(17)  NFCN    NUMBER OF FUNCTION EVALUATIONS
-             *   IWORK(18)  NSTEP   NUMBER OF COMPUTED STEPS
-             *   IWORK(19)  NACCPT  NUMBER OF ACCEPTED STEPS
-             *   IWORK(20)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
-             *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
              */
 
             this.rtol = rtol;
@@ -218,201 +115,118 @@ namespace MathNet.Numerics.OdeSolvers
             nrejct = 0;
 
             // NMAX , THE MAXIMAL NUMBER OF STEPS
-            if (iwork[0] == 0)
+            nmax = 10000;
+
+            // KM     MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION TABLE.
+            // THE DEFAULT VALUE(FOR IWORK(2)= 0) IS 9.
+            // IF IWORK(2).NE.0 THEN IWORK(2) SHOULD BE .GE.3.
+            km = 9;
+
+            if (km <= 2)
             {
-                nmax = 10000;
-            }
-            else
-            {
-                nmax = iwork[0];
-                if (nmax <= 0)
-                {
-                    Console.WriteLine(" WRONG INPUT IWORK(1)=", iwork[0]);
-                    return -1;
-                }
-            }
-            // KM     MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION
-            if (iwork[2] == 0)
-            {
-                km = 9;
-            }
-            else
-            {
-                km = iwork[2];
-                if (km <= 2)
-                {
-                    Console.WriteLine(" CURIOUS INPUT IWORK(2)=", iwork[2]);
-                    return -1;
-                }
-            }
-            // NSEQU     CHOICE OF STEP SIZE SEQUENCE
-            nsequ = iwork[3];
-            if (iwork[3] == 0 && iout <= 1)
-            {
-                nsequ = 1;
+                Console.WriteLine(" CURIOUS INPUT KM=", km);
+                return -1;
             }
 
-            if (iwork[3] == 0 && iout >= 2)
-            {
-                nsequ = 4;
-            }
+            // NSEQU     CHOICE OF STEP SIZE SEQUENCE
+            // SWITCH FOR THE STEP SIZE SEQUENCE(EVEN NUMBERS ONLY)
+            // IF NSEQU = 1 THEN 2,4,6,8,10,12,14,16,...
+            // IF NSEQU = 2 THEN 2,4,8,12,16,20,24,28,...
+            // IF NSEQU = 3 THEN 2,4,6,8,12,16,24,32,...
+            // IF NSEQU = 4 THEN 2,6,10,14,18,22,26,30,...
+            // IF NSEQU = 5 THEN 4,8,12,16,20,24,28,32,...
+            // THE DEFAULT VALUE IS NSEQU = 1 IF IOUT <= 1;
+            // THE DEFAULT VALUE IS NSEQU = 4 IF IOUT >= 2.
+            nsequ = iout <= 1 ? 1 : 4;
 
             if (nsequ <= 0 || nsequ >= 6)
             {
-
-                Console.WriteLine(" CURIOUS INPUT IWORK(3)=", iwork[3]);
+                Console.WriteLine(" CURIOUS INPUT NSEQU=", nsequ);
                 return -1;
             }
 
             if (nsequ <= 3 && iout >= 2)
             {
-
-                Console.WriteLine(" IWORK(3) NOT COMPATIBLE WITH IOUT");
+                Console.WriteLine(" NSEQU NOT COMPATIBLE WITH IOUT");
                 return -1;
             }
+            
             // MSTAB     PARAMETER FOR STABILITY CHECK
-            if (iwork[4] == 0)
-            {
-                mstab = 1;
-            }
-            else
-            {
-                mstab = iwork[4];
-            }
+            // STABILITY CHECK IS ACTIVATED AT MOST IWORK(4) TIMES IN
+            // ONE LINE OF THE EXTRAP. TABLE, DEFAULT IWORK(4)= 1.
+            mstab = 1;
+
             // JSTAB     PARAMETER FOR STABILITY CHECK
-            if (iwork[5] == 0)
-            {
-                jstab = 2;
-            }
-            else
-            {
-                jstab = iwork[5];
-            }
+            // STABILITY CHECK IS ACTIVATED ONLY IN THE LINES
+            // 1 TO IWORK(5) OF THE EXTRAP.TABLE, DEFAULT IWORK(5)= 1.
+            jstab = 2;
+
             // IDERR  PARAMETER FOR ERROR ESTIMATION IN DENSE OUTPUT
-            if (iwork[6] == 0)
-            {
-                if (iout <= 1)
-                {
-                    iderr = 1;
-                }
-                if (iout >= 2)
-                {
-                    iderr = 0;
-                }
-            }
-            else
-            {
-                iderr = iwork[6];
-                if (iout <= 1)
-                {
-                    Console.WriteLine(" ERROR ESTIMATION IN DENSE OUTPUT NOT POSSIBLE, WRONG IWORK(6)=", iwork[6]);
-                    return -1;
-                }
-            }
-            // MUDIF
-            if (iwork[7] == 0)
-            {
-                mudif = 4;
-            }
-            else
-            {
-                mudif = iwork[7];
-                if (mudif <= 0 || mudif >= 7)
-                {
+            // IF IWORK(6)= 0  ERROR ESTIMATOR IN THE DENSE
+            // OUTPUT FORMULA IS ACTIVATED.IT CAN BE SUPPRESSED
+            // BY PUTTING IWORK(6)= 1.
+            // DEFAULT IWORK(6) = 0 (IF IOUT.GE.2).
+            iderr = (iout <= 1) ? 1 : 0;
 
-                    Console.WriteLine(" WRONG INPUT IWORK(7)=", iwork[7]);
-                    return -1;
-                }
+            if (iderr == 1 && iout <= 1)
+            {
+                Console.WriteLine(" ERROR ESTIMATION IN DENSE OUTPUT NOT POSSIBLE, WRONG IDERR=", iderr);
+                return -1;
             }
 
-            // UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0
-            if (work[0] == 0.0)
+            // MUDIF      DETERMINES THE DEGREE OF INTERPOLATION FORMULA
+            // MU = 2 * KAPPA - MUDIF + 1
+            // MUDIF SHOULD LIE BETWEEN 1 AND 6
+            // DEFAULT MUDIF = 4.
+            mudif = 2; // was 4
+
+            if (mudif <= 0 || mudif >= 7)
             {
-                uround = 2.3e-16;
+                Console.WriteLine(" WRONG INPUT MUDIF=", mudif);
+                return -1;
             }
-            else
-            {
-                uround = work[0];
-                if (uround <= 1e-35 || uround >= 1.0)
-                {
-                    Console.WriteLine(" WHICH MACHINE DO YOU HAVE? YOUR UROUND WAS:", work[0]);
-                    return -1;
-                }
-            }
+
+            // UROUND   SMALLEST NUMBER SATISFYING 1.0+UROUND > 1.0
+            uround = 2.3e-16;
+
             // MAXIMAL STEP SIZE
-            if (work[2] == 0.0)
-            {
-                hmax = xend - x;
-            }
-            else
-            {
-                hmax = Math.Abs(work[2]);
-            }
+            hmax = xend - x;
+
             // STEP SIZE REDUCTION FACTOR
-            if (work[3] == 0.0)
+            // STEP SIZE IS REDUCED BY FACTOR WORK(3), IF THE
+            // STABILITY CHECK IS NEGATIVE, DEFAULT 0.5.
+            safe3 = 0.5;
+
+            if (safe3 <= uround || safe3 >= 1.0)
             {
-                safe3 = 0.5;
+                Console.WriteLine(" CURIOUS INPUT safe3=", safe3);
+                return -1;
             }
-            else
-            {
-                safe3 = work[3];
-                if (safe3 <= uround || safe3 >= 1.0)
-                {
-                    Console.WriteLine(" CURIOUS INPUT WORK(3)=", work[3]);
-                    return -1;
-                }
-            }
+
             // FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION
-            if (work[4] == 0.0)
-            {
-                fac1 = 0.02;
-            }
-            else
-            {
-                fac1 = work[4];
-            }
-            if (work[5] == 0.0)
-            {
-                fac2 = 4.0;
-            }
-            else
-            {
-                fac2 = work[5];
-            }
+            // THE NEW STEP SIZE FOR THE J-TH DIAGONAL ENTRY IS
+            // CHOSEN SUBJECT TO THE RESTRICTION
+            //    FACMIN / WORK(5) <= HNEW(J) / HOLD <= 1 / FACMIN
+            // WHERE FACMIN = WORK(4) * *(1 / (2 * J - 1))
+            // DEFAULT VALUES: WORK(4) = 0.02, WORK(5) = 4.0
+            fac1 = 0.02;
+            fac2 = 4.0;
+
             // FAC3, FAC4   PARAMETERS FOR THE ORDER SELECTION
-            if (work[6] == 0.0)
-            {
-                fac3 = 0.8;
-            }
-            else
-            {
-                fac3 = work[6];
-            }
-            if (work[7] == 0.0)
-            {
-                fac4 = 0.9;
-            }
-            else
-            {
-                fac4 = work[7];
-            }
+            // STEP SIZE IS DECREASED IF    W(K - 1) <= W(K) * WORK(6)
+            // STEP SIZE IS INCREASED IF    W(K) <= W(K - 1) * WORK(7)
+            // DEFAULT VALUES: WORK(6) = 0.8, WORK(7) = 0.9
+            fac3 = 0.8;
+            fac4 = 0.9;
+
             // SAFE1, SAFE2 SAFETY FACTORS FOR STEP SIZE PREDICTION
-            if (work[8] == 0.0)
-            {
-                safe1 = 0.65;
-            }
-            else
-            {
-                safe1 = work[8];
-            }
-            if (work[9] == 0.0)
-            {
-                safe2 = 0.94;
-            }
-            else
-            {
-                safe2 = work[9];
-            }
+            //              SAFETY FACTORS FOR STEP CONTROL ALGORITHM
+            //    HNEW = H * WORK(9) * (WORK(8) * TOL / ERR) * *(1 / (J - 1))
+            // DEFAULT VALUES: WORK(8) = 0.65,
+            //    WORK(9) = 0.94  IF "HOPE FOR CONVERGENCE"
+            //    WORK(9) = 0.90  IF "NO HOPE FOR CONVERGENCE"
+            safe1 = 0.65;
+            safe2 = 0.94;
 
             // PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK
             lfsafe = (km << 1) * km + km;
@@ -707,7 +521,7 @@ namespace MathNet.Numerics.OdeSolvers
             x += h;
             if (iout >= 2)
             {
-                PrepareInterpolation(kc, n, km, nsequ, mudif, fcn, h, x, xold, 
+                PrepareInterpolation(kc, n, km, nsequ, mudif, fcn, h, x, xold,
                     y, dens, t, dz, nj, yh1, yh2, ysafe, fsafe, lfsafe, ipoint);
 
                 interp_(n, dens, conodx_1.kmit);
