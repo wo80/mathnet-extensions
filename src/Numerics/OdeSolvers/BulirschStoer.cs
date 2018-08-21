@@ -16,9 +16,9 @@ namespace MathNet.Numerics.OdeSolvers
     /// Authors: E. Hairer and G. Wanner (dense output written by E. Hairer and A. Ostermann)
     ///
     /// This code is described in:
-    ///         E. Hairer, S.P. Norsett and G. Wanner
-    ///         Solving Ordinary Differential Equations I. Nonstiff Problems (2nd edition)
-    ///         Springer-Verlag (1993)
+    /// E. Hairer, S.P. Norsett and G. Wanner
+    /// Solving Ordinary Differential Equations I. Nonstiff Problems (2nd edition)
+    /// Springer-Verlag (1993)
     /// </summary>
     public class BulirschStoer
     {
@@ -27,9 +27,7 @@ namespace MathNet.Numerics.OdeSolvers
             double x = Math.Abs(a);
             return b >= 0 ? x : -x;
         }
-
-        /* Common Block Declarations */
-
+        
         struct conodx1
         {
             public double xoldd, hhh;
@@ -48,9 +46,8 @@ namespace MathNet.Numerics.OdeSolvers
             
         public int odex_(int n, S_fp fcn, double x, double[] y,
              double xend, double h, double[] rtol, double[]
-            atol, int itol, S_fp solout, int iout, double[] work, int[] iwork)
+            atol, int itol, int iout, double[] work, int[] iwork)
         {
-            /* Local variables */
             int i, km, nrd;
             double fac1, fac2, fac3, fac4;
             double hmax;
@@ -61,30 +58,6 @@ namespace MathNet.Numerics.OdeSolvers
             double uround;
 
             /**
-             *     NUMERICAL SOLUTION OF A SYSTEM OF FIRST 0RDER
-             *     ORDINARY DIFFERENTIAL EQUATIONS  Y'=F(X,Y).
-             *     THIS IS AN EXTRAPOLATION-ALGORITHM (GBS), BASED ON THE
-             *     EXPLICIT MIDPOINT RULE (WITH STEPSIZE CONTROL,
-             *     ORDER SELECTION AND DENSE OUTPUT).
-             *
-             *     AUTHORS: E. HAIRER AND G. WANNER
-             *              UNIVERSITE DE GENEVE, DEPT. DE MATHEMATIQUES
-             *              CH-1211 GENEVE 24, SWITZERLAND
-             *              E-MAIL:  Ernst.Hairer@unige.ch
-             *                       Gerhard.Wanner@unige.ch
-             *              DENSE OUTPUT WRITTEN BY E. HAIRER AND A. OSTERMANN
-             *
-             *     THIS CODE IS DESCRIBED IN SECTION II.9 OF THE BOOK:
-             *         E. HAIRER, S.P. NORSETT AND G. WANNER, SOLVING ORDINARY
-             *         DIFFERENTIAL EQUATIONS I. NONSTIFF PROBLEMS. 2ND EDITION.
-             *         SPRINGER SERIES IN COMPUTATIONAL MATHEMATICS,
-             *         SPRINGER-VERLAG (1993)
-             *
-             *     BASED ON VERSION SEPTEMBER 30, 1995
-             *         SMALL CORRECTIONS ON OCTOBER 11, 2009
-             *         SMALL CHANGE FOR FEATURE IDID=2, OCTOBER 4, 2015
-             *               INTERRUPTED BY SOLOUT (BY C. LUDWIG)
-             *
              *     INPUT PARAMETERS
              *     ----------------
              *     N           DIMENSION OF THE SYSTEM
@@ -120,30 +93,6 @@ namespace MathNet.Numerics.OdeSolvers
              *                     THE CODE KEEPS THE LOCAL ERROR OF Y(I) BELOW
              *                     RTOL(I)*ABS(Y(I))+ATOL(I).
              *
-             *     SOLOUT      NAME (EXTERNAL) OF SUBROUTINE PROVIDING THE
-             *                 NUMERICAL SOLUTION DURING INTEGRATION.
-             *                 IF IOUT.GE.1, IT IS CALLED AFTER EVERY SUCCESSFUL STEP.
-             *                 SUPPLY A DUMMY SUBROUTINE IF IOUT=0.
-             *                 IT MUST HAVE THE FORM
-             *                    SUBROUTINE SOLOUT (NR,XOLD,X,Y,N,CON,NCON,ICOMP,ND,
-             *                                       RPAR,IPAR,IRTRN)
-             *                    DIMENSION X,Y(N),CON(NCON),ICOMP(ND)
-             *                    ....
-             *                 SOLOUT FURNISHES THE SOLUTION "Y" AT THE NR-TH
-             *                    GRID-POINT "X" (THEREBY THE INITIAL VALUE IS
-             *                    THE FIRST GRID-POINT).
-             *                 "XOLD" IS THE PRECEEDING GRID-POINT.
-             *                 "IRTRN" SERVES TO INTERRUPT THE INTEGRATION. IF IRTRN
-             *                    IS SET <0, ODEX WILL RETURN TO THE CALLING PROGRAM.
-             *
-             *          -----  CONTINUOUS OUTPUT (IF IOUT=2): -----
-             *                 DURING CALLS TO "SOLOUT", A CONTINUOUS SOLUTION
-             *                 FOR THE INTERVAL [XOLD,X] IS AVAILABLE THROUGH
-             *                 THE DOUBLE PRECISION FUNCTION
-             *                    >>>   CONTEX(I,S,CON,NCON,ICOMP,ND)
-             *                 WHICH PROVIDES AN APPROXIMATION TO THE I-TH
-             *                 COMPONENT OF THE SOLUTION AT THE POINT S. THE VALUE
-             *                 S SHOULD LIE IN THE INTERVAL [XOLD,X].
              *
              *     IOUT        SWITCH FOR CALLING THE SUBROUTINE SOLOUT:
              *                    IOUT=0: SUBROUTINE IS NEVER CALLED
@@ -161,20 +110,12 @@ namespace MathNet.Numerics.OdeSolvers
              *                 FOR THE CODE. FOR STANDARD USE, SET THESE
              *                 PARAMETERS TO ZERO BEFORE CALLING.
              *
-             *     LWORK       DECLARED LENGTH OF ARRAY "WORK".
-             *
              *     IWORK       int WORKING SPACE OF LENGTH "LIWORK".
              *                 "LIWORK" MUST BE AT LEAST
              *                               2*KM+21+NRDENS
              *                 IWORK(1),...,IWORK(20) SERVE AS PARAMETERS
              *                 FOR THE CODE. FOR STANDARD USE, SET THESE
              *                 PARAMETERS TO ZERO BEFORE CALLING.
-             *
-             *     LIWORK      DECLARED LENGTH OF ARRAY "IWORK".
-             *
-             *     RPAR, IPAR  REAL AND int PARAMETERS (OR PARAMETER ARRAYS) WHICH
-             *                 CAN BE USED FOR COMMUNICATION BETWEEN YOUR CALLING
-             *                 PROGRAM AND THE FCN, JAC, MAS, SOLOUT SUBROUTINES.
              *
              * -----------------------------------------------------------------------
              *
@@ -268,13 +209,12 @@ namespace MathNet.Numerics.OdeSolvers
              *   IWORK(20)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
              *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
              */
-             
-            /* Function Body */
+
             nstep = 0;
             naccpt = 0;
             nrejct = 0;
 
-            /* -------- NMAX , THE MAXIMAL NUMBER OF STEPS ----- */
+            // NMAX , THE MAXIMAL NUMBER OF STEPS
             if (iwork[0] == 0)
             {
                 nmax = 10000;
@@ -288,7 +228,7 @@ namespace MathNet.Numerics.OdeSolvers
                     return -1;
                 }
             }
-            /* -------- KM     MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION */
+            // KM     MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION
             if (iwork[2] == 0)
             {
                 km = 9;
@@ -302,7 +242,7 @@ namespace MathNet.Numerics.OdeSolvers
                     return -1;
                 }
             }
-            /* -------- NSEQU     CHOICE OF STEP SIZE SEQUENCE */
+            // NSEQU     CHOICE OF STEP SIZE SEQUENCE
             nsequ = iwork[3];
             if (iwork[3] == 0 && iout <= 1)
             {
@@ -327,7 +267,7 @@ namespace MathNet.Numerics.OdeSolvers
                 Console.WriteLine(" IWORK(3) NOT COMPATIBLE WITH IOUT");
                 return -1;
             }
-            /* -------- MSTAB     PARAMETER FOR STABILITY CHECK */
+            // MSTAB     PARAMETER FOR STABILITY CHECK
             if (iwork[4] == 0)
             {
                 mstab = 1;
@@ -336,7 +276,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 mstab = iwork[4];
             }
-            /* -------- JSTAB     PARAMETER FOR STABILITY CHECK */
+            // JSTAB     PARAMETER FOR STABILITY CHECK
             if (iwork[5] == 0)
             {
                 jstab = 2;
@@ -345,7 +285,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 jstab = iwork[5];
             }
-            /* -------- IDERR  PARAMETER FOR ERROR ESTIMATION IN DENSE OUTPUT */
+            // IDERR  PARAMETER FOR ERROR ESTIMATION IN DENSE OUTPUT
             if (iwork[6] == 0)
             {
                 if (iout <= 1)
@@ -366,7 +306,7 @@ namespace MathNet.Numerics.OdeSolvers
                     return -1;
                 }
             }
-            /* -------- MUDIF */
+            // MUDIF
             if (iwork[7] == 0)
             {
                 mudif = 4;
@@ -381,7 +321,7 @@ namespace MathNet.Numerics.OdeSolvers
                     return -1;
                 }
             }
-            /* -------- NRDENS   NUMBER OF DENSE OUTPUT COMPONENTS */
+            // NRDENS   NUMBER OF DENSE OUTPUT COMPONENTS
             nrdens = iwork[8];
             if (nrdens < 0 || nrdens > n)
             {
@@ -393,12 +333,11 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 for (i = 0; i < nrdens; ++i)
                 {
-                    /* L17: */
                     iwork[i + 20] = i;
                 }
             }
 
-            /* -------- UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0 */
+            // UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0
             if (work[0] == 0.0)
             {
                 uround = 2.3e-16;
@@ -412,7 +351,7 @@ namespace MathNet.Numerics.OdeSolvers
                     return -1;
                 }
             }
-            /* -------- MAXIMAL STEP SIZE */
+            // MAXIMAL STEP SIZE
             if (work[2] == 0.0)
             {
                 hmax = xend - x;
@@ -421,7 +360,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 hmax = Math.Abs(work[2]);
             }
-            /* -------- STEP SIZE REDUCTION FACTOR */
+            // STEP SIZE REDUCTION FACTOR
             if (work[3] == 0.0)
             {
                 safe3 = 0.5;
@@ -435,7 +374,7 @@ namespace MathNet.Numerics.OdeSolvers
                     return -1;
                 }
             }
-            /* -------  FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION */
+            // FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION
             if (work[4] == 0.0)
             {
                 fac1 = 0.02;
@@ -452,7 +391,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 fac2 = work[5];
             }
-            /* -------  FAC3, FAC4   PARAMETERS FOR THE ORDER SELECTION */
+            // FAC3, FAC4   PARAMETERS FOR THE ORDER SELECTION
             if (work[6] == 0.0)
             {
                 fac3 = 0.8;
@@ -469,7 +408,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 fac4 = work[7];
             }
-            /* ------- SAFE1, SAFE2 SAFETY FACTORS FOR STEP SIZE PREDICTION */
+            // SAFE1, SAFE2 SAFETY FACTORS FOR STEP SIZE PREDICTION
             if (work[8] == 0.0)
             {
                 safe1 = 0.65;
@@ -487,66 +426,46 @@ namespace MathNet.Numerics.OdeSolvers
                 safe2 = work[9];
             }
 
-            /* ------- PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK ----- */
+            // PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK
             lfsafe = (km << 1) * km + km;
-            var dy = new double[n];// 21;
-            var yh1 = new double[n];// dy + n;
-            var yh2 = new double[n];// yh1 + n;
-            var dz = new double[n];// yh2 + n;
-            var scal = new double[n];// dz + n;
-            var t = new double[km * n];// scal + n;
-            var fs = new double[lfsafe * nrdens];// t + km * n;
-            var ys = new double[km * nrdens];// fs + lfsafe * nrdens;
-            var hh = new double[km];// ys + km * nrdens;
-            var w = new double[km];// hh + km;
-            var a = new double[km];// w + km;
-            var fac = new double[km << 1];// a + km;
+            var dy = new double[n];
+            var yh1 = new double[n];
+            var yh2 = new double[n];
+            var dz = new double[n];
+            var scal = new double[n];
+            var t = new double[km * n];
+            var fs = new double[lfsafe * nrdens];
+            var ys = new double[km * nrdens];
+            var hh = new double[km];
+            var w = new double[km];
+            var a = new double[km];
+            var fac = new double[km << 1];
+            var co = new double[((km << 1) + 5) * nrdens];
 
-            /* ------ TOTAL STORAGE REQUIREMENT ----------- */
-            var co = new double[((km << 1) + 5) * nrdens];// fac + (km << 1);
-
-            //istore = co + ((km << 1) + 5) * nrdens - 1;
-            //if (istore > *lwork)
-            //{
-            //    Console.WriteLine(" INSUFFICIENT STORAGE FOR WORK, MIN. LWORK=", istore);
-            //    arret = true;
-            //}
-
-            /* ------- ENTRY POINTS FOR int WORKSPACE ----- */
-            var icom = new int[nrdens];// 21;
-            var nj = new int[km];// icom + nrdens;
-
-            /* --------- TOTAL REQUIREMENT --------------- */
-            var ip = new int[km];// nj + km;
-
-            //istore = ip + km;
-            //if (istore > *liwork)
-            //{
-            //    Console.WriteLine(" INSUFF. STORAGE FOR IWORK, MIN. LIWORK=", istore);
-            //    arret = true;
-            //}
+            // ENTRY POINTS FOR int WORKSPACE
+            var icom = new int[nrdens];
+            var nj = new int[km];
+            var ip = new int[km];
             
-            /* -------- CALL TO CORE INTEGRATOR ------------ */
+            
+            // CALL TO CORE INTEGRATOR
             nrd = Math.Max(1, nrdens);
-            /* Computing MAX */
             ncom = Math.Max(1, ((km << 1) + 5) * nrdens);
+
             odxcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
-                itol, km, solout, iout, nmax, uround, dy,
+                itol, km, iout, nmax, uround, dy,
                 yh1, yh2, dz, scal, fs, ys, t, hh, w, a, co, ncom, icom, nj, ip
                 , nsequ, mstab, jstab, lfsafe, safe1, safe2, safe3, fac1,
                 fac2, fac3, fac4, iderr, fac, mudif, nrd);
             
             return 0;
-        } /* odex_ */
+        }
 
-
-
-
-        /*  ----- ... AND HERE IS THE CORE INTEGRATOR  ---------- */
+        // ... AND HERE IS THE CORE INTEGRATOR
 
         int odxcor_(int n, S_fp fcn, double x, double[]
             y, double xend, double hmax, double h, double[]
-            rtol, double[] atol, int itol, int km, S_fp solout,
+            rtol, double[] atol, int itol, int km,
             int iout, int nmax, double uround,
             double[] dy, double[] yh1, double[] yh2, double[] dz,
             double[] scal, double[] fsafe, double[] ysafe, double[] t,
@@ -557,14 +476,11 @@ namespace MathNet.Numerics.OdeSolvers
             double fac2, double fac3, double fac4, int iderr,
             double[] errfac, int mudif, int nrd)
         {
-            /* Format strings */
             //static char fmt_979[] = "(  EXIT OF ODEX AT X= ,d14.7,    H= ,d14.7)";
-
-            /* System generated locals */
+            
             int i1, i2, i3, i4;
             double d1;
-
-            /* Local variables */
+            
             int i, j, k, l, kc = 0, kk, mu;
             double fac = 0;
             int kmi, kln;
@@ -583,51 +499,16 @@ namespace MathNet.Numerics.OdeSolvers
             bool reject;
             double factor, hoptde, errold, posneg;
             double errint;
+            
+            // CORE INTEGRATOR FOR ODEX
+            // PARAMETERS SAME AS IN ODEX WITH WORKSPACE ADDED
 
-
-            /* ---------------------------------------------------------- */
-            /*     CORE INTEGRATOR FOR ODEX */
-            /*     PARAMETERS SAME AS IN ODEX WITH WORKSPACE ADDED */
-            /* ---------------------------------------------------------- */
-            /*         DECLARATIONS */
-            /* ---------------------------------------------------------- */
-            /* --- DEFINE THE STEP SIZE SEQUENCE */
-            /* Parameter adjustments */
-            //--scal;
-            //--dz;
-            //--yh2;
-            //--yh1;
-            //--dy;
-            //--y;
-            //--rtol;
-            //--atol;
-            //--errfac;
-            //--ipoint;
-            //--nj;
-            //--a;
-            //--w;
-            //--hh;
-            //t_dim1 = km;
-            //t_offset = 1 + km;
-            //t -= t_offset;
-            //--dens;
-            //--icomp;
-            //km = km;
-            //ysafe_offset = 1 + km;
-            //ysafe -= ysafe_offset;
-            //fsafe_dim1 = *lfsafe;
-            //fsafe_offset = 1 + lfsafe;
-            //fsafe -= fsafe_offset;
-            //--rpar;
-            //--ipar;
-
-            /* Function Body */
+            // DEFINE THE STEP SIZE SEQUENCE
             if (nsequ == 1)
             {
 
                 for (i = 0; i < km; ++i)
                 {
-                    /* L1: */
                     nj[i] = i << 1;
                 }
             }
@@ -637,7 +518,6 @@ namespace MathNet.Numerics.OdeSolvers
 
                 for (i = 1; i < km; ++i)
                 {
-                    /* L2: */
                     nj[i] = (i << 2) - 4;
                 }
             }
@@ -649,7 +529,6 @@ namespace MathNet.Numerics.OdeSolvers
 
                 for (i = 3; i < km; ++i)
                 {
-                    /* L11: */
                     nj[i] = nj[i - 2] << 1;
                 }
             }
@@ -657,7 +536,6 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 for (i = 0; i < km; ++i)
                 {
-                    /* L3: */
                     nj[i] = (i << 2) - 2;
                 }
             }
@@ -665,18 +543,16 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 for (i = 0; i < km; ++i)
                 {
-                    /* L6: */
                     nj[i] = i << 2;
                 }
             }
-            /* --- DEFINE THE A(I) FOR ORDER SELECTION */
+            // DEFINE THE A(I) FOR ORDER SELECTION
             a[0] = nj[0] + 1.0;
             for (i = 1; i < km; ++i)
             {
-                /* L4: */
                 a[i] = a[i - 1] + nj[i];
             }
-            /* --- INITIAL SCALING */
+            // INITIAL SCALING
             for (i = 0; i < n; ++i)
             {
                 if (itol == 0)
@@ -687,9 +563,8 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     scal[i] = atol[i] + rtol[i] * Math.Abs(y[i]);
                 }
-                /* L8: */
             }
-            /* --- INITIAL PREPARATIONS */
+            // INITIAL PREPARATIONS
             posneg = d_sign(1.0, xend - x);
             k = Math.Max(2, Math.Min(km - 1, (int)(-Math.Log10(rtol[0] + 1e-40) * 0.6 + 1.5)));
             hmax = Math.Abs(hmax);
@@ -707,22 +582,19 @@ namespace MathNet.Numerics.OdeSolvers
                         {
                             ++njadd;
                         }
-                        /* L5: */
                         ipoint[i + 1] = ipoint[i] + njadd;
                     }
                     i1 = km << 1;
                     for (mu = 0; mu < i1; ++mu)
                     {
                         errx = Math.Sqrt(mu / (mu + 4.0)) * 0.5;
-                        /* Computing 2nd power */
+                        // Computing 2nd power
                         d1 = mu + 4.0;
                         prod = 1.0 / (d1 * d1);
                         for (j = 0; j < mu; ++j)
                         {
-                            /* L7: */
                             prod = prod * errx / j;
                         }
-                        /* L9: */
                         errfac[mu] = prod;
                     }
                     ipt = 0;
@@ -744,7 +616,7 @@ namespace MathNet.Numerics.OdeSolvers
             last = false;
             L10:
             atov = false;
-            /* --- IS XEND REACHED IN THE NEXT STEP? */
+            // IS XEND REACHED IN THE NEXT STEP?
             if (Math.Abs(xend - x) * 0.1 <= Math.Abs(x) * uround)
             {
                 goto L110;
@@ -760,7 +632,7 @@ namespace MathNet.Numerics.OdeSolvers
                 fcn(n, x, y, dz);
             }
 
-            /* --- THE FIRST AND LAST STEP */
+            // THE FIRST AND LAST STEP
             if (nstep == 0 || last)
             {
                 ipt = 0;
@@ -777,7 +649,6 @@ namespace MathNet.Numerics.OdeSolvers
                     {
                         goto L10;
                     }
-                    /* L20: */
                     if (j > 1 && err <= 1.0)
                     {
                         goto L60;
@@ -785,7 +656,7 @@ namespace MathNet.Numerics.OdeSolvers
                 }
                 goto L55;
             }
-            /* --- BASIC INTEGRATION STEP */
+            // BASIC INTEGRATION STEP
             L30:
             ipt = 0;
             ++(nstep);
@@ -806,9 +677,8 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     goto L10;
                 }
-                /* L40: */
             }
-            /* --- CONVERGENCE MONITOR */
+            // CONVERGENCE MONITOR
             if (k == 2 || reject)
             {
                 goto L50;
@@ -817,7 +687,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 goto L60;
             }
-            /* Computing 2nd power */
+            // Computing 2nd power
             d1 = nj[k + 1] * nj[k] / 4.0;
             if (err > d1 * d1)
             {
@@ -838,9 +708,9 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 goto L60;
             }
-            /* --- HOPE FOR CONVERGENCE IN LINE K+1 */
+            // HOPE FOR CONVERGENCE IN LINE K+1
             L55:
-            /* Computing 2nd power */
+            // Computing 2nd power
             d1 = nj[k + 1] / 2.0;
             if (err > d1 * d1)
             {
@@ -860,72 +730,65 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 goto L100;
             }
-            /* --- STEP IS ACCEPTED */
+            // STEP IS ACCEPTED
             L60:
             xold = x;
             x += h;
             if (iout >= 2)
             {
-                /* ---  KMIT = MU OF THE PAPER */
+                // KMIT = MU OF THE PAPER
                 conodx_1.kmit = (kc << 1) - mudif + 1;
                 for (i = 0; i < nrd; ++i)
                 {
-                    /* L69: */
                     dens[i] = y[icomp[i]];
                 }
                 conodx_1.xoldd = xold;
                 conodx_1.hhh = h;
                 for (i = 0; i < nrd; ++i)
                 {
-                    /* L76: */
                     dens[nrd + i] = h * dz[icomp[i]];
                 }
                 kln = nrd << 1;
                 for (i = 0; i < nrd; ++i)
                 {
-                    /* L176: */
                     dens[kln + i] = t[icomp[i] * km + 1];
                 }
-                /* --- COMPUTE SOLUTION AT MID-POINT ---- */
+                // COMPUTE SOLUTION AT MID-POINT
                 for (j = 1; j < kc; ++j)
                 {
                     dblenj = nj[j];
                     for (l = j; l >= 2; --l)
                     {
-                        /* Computing 2nd power */
+                        // Computing 2nd power
                         d1 = dblenj / nj[l - 1];
                         factor = d1 * d1 - 1.0;
                         for (i = 0; i < nrd; ++i)
                         {
                             ysafe[l - 1 + i * km] = ysafe[l + i * km] + (ysafe[l + i * km] - ysafe[l - 1 + i * km]) / factor;
-                            /* L473: */
                         }
                     }
                 }
                 krn = nrd << 2;
                 for (i = 0; i < nrd; ++i)
                 {
-                    /* L474: */
                     dens[krn + i] = ysafe[i * km + 1];
                 }
-                /* --- COMPUTE FIRST DERIVATIVE AT RIGHT END ---- */
+                // COMPUTE FIRST DERIVATIVE AT RIGHT END
                 for (i = 0; i < n; ++i)
                 {
-                    /* L478: */
                     yh1[i] = t[i * km + 1];
                 }
                 fcn(n, x, yh1, yh2);
                 krn = nrd * 3;
                 for (i = 0; i < nrd; ++i)
                 {
-                    /* L274: */
                     dens[krn + i] = yh2[icomp[i]] * h;
                 }
-                /* --- THE LOOP --- */
+                // THE LOOP
                 i2 = conodx_1.kmit;
                 for (kmi = 0; kmi < i2; ++kmi)
                 {
-                    /* --- COMPUTE KMI-TH DERIVATIVE AT MID-POINT ---- */
+                    // COMPUTE KMI-TH DERIVATIVE AT MID-POINT
                     kbeg = (kmi + 1) / 2;
                     i1 = kc;
                     for (kk = kbeg; kk <= i1; ++kk)
@@ -934,10 +797,8 @@ namespace MathNet.Numerics.OdeSolvers
                         ipt = ipoint[kk + 1] - (kk << 1) + kmi;
                         for (i = 0; i < nrd; ++i)
                         {
-                            /* L371: */
                             ysafe[kk + i * km] = fsafe[ipt + i * lfsafe] * facnj;
                         }
-                        /* L375: */
                     }
                     for (j = kbeg; j < kc; ++j)
                     {
@@ -945,27 +806,25 @@ namespace MathNet.Numerics.OdeSolvers
                         i3 = kbeg + 1;
                         for (l = j; l >= i3; --l)
                         {
-                            /* Computing 2nd power */
+                            // Computing 2nd power
                             d1 = dblenj / nj[l - 1];
                             factor = d1 * d1 - 1.0;
                             for (i = 0; i < nrd; ++i)
                             {
                                 ysafe[l - 1 + i * km] = ysafe[l + i * km] + (ysafe[l + i * km] - ysafe[l - 1 + i * km]) / factor;
-                                /* L373: */
                             }
                         }
                     }
                     krn = (kmi + 4) * nrd;
                     for (i = 0; i < nrd; ++i)
                     {
-                        /* L374: */
                         dens[krn + i] = ysafe[kbeg + i * km] * h;
                     }
                     if (kmi == conodx_1.kmit)
                     {
                         goto L180;
                     }
-                    /* --- COMPUTE DIFFERENCES */
+                    // COMPUTE DIFFERENCES
                     for (kk = (kmi + 2) / 2 - 1; kk < kc; ++kk)
                     {
                         lbeg = ipoint[kk + 1];
@@ -978,7 +837,6 @@ namespace MathNet.Numerics.OdeSolvers
                         {
                             for (i = 0; i < nrd; ++i)
                             {
-                                /* L64: */
                                 fsafe[l + i * lfsafe] -= fsafe[l - 2 + i * lfsafe];
                             }
                         }
@@ -987,13 +845,11 @@ namespace MathNet.Numerics.OdeSolvers
                             l = lend - 2;
                             for (i = 0; i < nrd; ++i)
                             {
-                                /* L65: */
                                 fsafe[l + i * lfsafe] -= dz[icomp[i]];
                             }
                         }
-                        /* L66: */
                     }
-                    /* --- COMPUTE DIFFERENCES */
+                    // COMPUTE DIFFERENCES
                     i4 = kc;
                     for (kk = (kmi + 2) / 2; kk <= i4; ++kk)
                     {
@@ -1003,24 +859,21 @@ namespace MathNet.Numerics.OdeSolvers
                         {
                             for (i = 0; i < nrd; ++i)
                             {
-                                /* L164: */
                                 fsafe[l + i * lfsafe] -= fsafe[l - 2 + i * lfsafe];
                             }
                         }
-                        /* L166: */
                     }
                     L180:
                     ;
                 }
                 interp_(nrd, dens, conodx_1.kmit);
-                /* --- ESTIMATION OF INTERPOLATION ERROR */
+                // ESTIMATION OF INTERPOLATION ERROR
                 if (iderr == 0 && conodx_1.kmit >= 1)
                 {
                     errint = 0.0;
                     for (i = 0; i < nrd; ++i)
                     {
-                        /* L187: */
-                        /* Computing 2nd power */
+                        // Computing 2nd power
                         d1 = dens[(conodx_1.kmit + 4) * nrd + i] / scal[icomp[i]];
                         errint += d1 * d1;
                     }
@@ -1037,13 +890,11 @@ namespace MathNet.Numerics.OdeSolvers
                 }
                 for (i = 0; i < n; ++i)
                 {
-                    /* L189: */
                     dz[i] = yh2[i];
                 }
             }
             for (i = 0; i < n; ++i)
             {
-                /* L70: */
                 y[i] = t[i * km + 1];
             }
             ++(naccpt);
@@ -1056,7 +907,7 @@ namespace MathNet.Numerics.OdeSolvers
                     goto L130;
                 }
             }
-            /* --- COMPUTE OPTIMAL ORDER */
+            // COMPUTE OPTIMAL ORDER
             if (kc == 2)
             {
                 kopt = Math.Min(3, km - 1);
@@ -1090,7 +941,7 @@ namespace MathNet.Numerics.OdeSolvers
                     kopt = Math.Min(kc, km - 1);
                 }
             }
-            /* --- AFTER A REJECTED STEP */
+            // AFTER A REJECTED STEP
             L80:
             if (reject)
             {
@@ -1099,7 +950,7 @@ namespace MathNet.Numerics.OdeSolvers
                 reject = false;
                 goto L10;
             }
-            /* --- COMPUTE STEPSIZE FOR NEXT STEP */
+            // COMPUTE STEPSIZE FOR NEXT STEP
             if (kopt <= kc)
             {
                 h = hh[kopt];
@@ -1118,7 +969,7 @@ namespace MathNet.Numerics.OdeSolvers
             k = kopt;
             h = posneg * Math.Abs(h);
             goto L10;
-            /* --- STEP IS REJECTED */
+            // STEP IS REJECTED
             L100:
             k = Math.Min(Math.Min(k, kc), km - 1);
             if (k > 2 && w[k - 1] < w[k] * fac3)
@@ -1129,21 +980,20 @@ namespace MathNet.Numerics.OdeSolvers
             h = posneg * hh[k];
             reject = true;
             goto L30;
-            /* --- SOLUTION EXIT */
+            // SOLUTION EXIT
             L110:
             return 1;
-            /* --- INTERRUPTED BY SOLOUT */
+            // INTERRUPTED BY SOLOUT
             L130:
             return 2;
-            /* --- FAIL EXIT */
+            // FAIL EXIT
             L120:
 
             Console.WriteLine((x));
             Console.WriteLine((h));
             
             return -1;
-        } /* odxcor_ */
-
+        }
 
         int midex_(int j, double x, double[] y,
             double h, double hmax, int n, S_fp fcn, double[]
@@ -1157,10 +1007,8 @@ namespace MathNet.Numerics.OdeSolvers
             lfsafe, int iout, int ipt, double[] ysafe, int[]
             icomp, int nrd)
         {
-            /* System generated locals */
             double d1;
-
-            /* Local variables */
+            
             int i, l, m;
             double hj;
             int mm;
@@ -1168,45 +1016,18 @@ namespace MathNet.Numerics.OdeSolvers
             int njmid;
             double facmin, dblenj;
 
-            /* --- THIS SUBROUTINE COMPUTES THE J-TH LINE OF THE */
-            /* --- EXTRAPOLATION TABLE AND PROVIDES AN ESTIMATION */
-            /* --- OF THE OPTIMAL STEPSIZE */
-            /* Parameter adjustments */
-            //--scal;
-            //--dz;
-            //--yh2;
-            //--yh1;
-            //--dy;
-            //--y;
-            //--a;
-            //--w;
-            //--hh;
-            //--nj;
-            //km = km;
-            //t_offset = 1 + km;
-            //t -= t_offset;
-            //--rtol;
-            //--atol;
-            //--icomp;
-            //km = km;
-            //ysafe_offset = 1 + km;
-            //ysafe -= ysafe_offset;
-            //fsafe_dim1 = *lfsafe;
-            //fsafe_offset = 1 + lfsafe;
-            //fsafe -= fsafe_offset;
-            //--rpar;
-            //--ipar;
+            // THIS SUBROUTINE COMPUTES THE J-TH LINE OF THE
+            // EXTRAPOLATION TABLE AND PROVIDES AN ESTIMATION
+            // OF THE OPTIMAL STEPSIZE
 
-            /* Function Body */
             hj = h / nj[j];
-            /* --- EULER STARTING STEP */
+            // EULER STARTING STEP
             for (i = 0; i < n; ++i)
             {
                 yh1[i] = y[i];
-                /* L30: */
                 yh2[i] = y[i] + hj * dz[i];
             }
-            /* --- EXPLICIT MIDPOINT RULE */
+            // EXPLICIT MIDPOINT RULE
             m = nj[j] - 1;
             njmid = nj[j] / 2;
             for (mm = 0; mm < m; ++mm)
@@ -1215,7 +1036,6 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     for (i = 0; i < nrd; ++i)
                     {
-                        /* L31: */
                         ysafe[j + i * km] = yh2[icomp[i]];
                     }
                 }
@@ -1225,7 +1045,6 @@ namespace MathNet.Numerics.OdeSolvers
                     ++(ipt);
                     for (i = 0; i < nrd; ++i)
                     {
-                        /* L32: */
                         fsafe[ipt + i * lfsafe] = dy[icomp[i]];
                     }
                 }
@@ -1233,25 +1052,22 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     ys = yh1[i];
                     yh1[i] = yh2[i];
-                    /* L34: */
                     yh2[i] = ys + hj * 2.0 * dy[i];
                 }
                 if (mm <= mstab && j <= jstab)
                 {
-                    /* --- STABILITY CHECK */
+                    // STABILITY CHECK
                     del1 = 0.0;
                     for (i = 0; i < n; ++i)
                     {
-                        /* L21: */
-                        /* Computing 2nd power */
+                        // Computing 2nd power
                         d1 = dz[i] / scal[i];
                         del1 += d1 * d1;
                     }
                     del2 = 0.0;
                     for (i = 0; i < n; ++i)
                     {
-                        /* L26: */
-                        /* Computing 2nd power */
+                        // Computing 2nd power
                         d1 = (dy[i] - dz[i]) / scal[i];
                         del2 += d1 * d1;
                     }
@@ -1261,26 +1077,23 @@ namespace MathNet.Numerics.OdeSolvers
                         goto L79;
                     }
                 }
-                /* L35: */
             }
-            /* --- FINAL SMOOTHING STEP */
+            // FINAL SMOOTHING STEP
             fcn(n, x + h, yh2, dy);
             if (iout >= 2 && njmid <= (j << 1) - 1)
             {
                 ++(ipt);
                 for (i = 0; i < nrd; ++i)
                 {
-                    /* L39: */
                     fsafe[ipt + i * lfsafe] = dy[icomp[i]];
                 }
             }
             for (i = 0; i < n; ++i)
             {
-                /* L40: */
                 t[j + i * km] = (yh1[i] + yh2[i] + hj * dy[i]) / 2.0;
             }
 
-            /* --- POLYNOMIAL EXTRAPOLATION */
+            // POLYNOMIAL EXTRAPOLATION
             if (j == 1)
             {
                 return 0;
@@ -1288,17 +1101,16 @@ namespace MathNet.Numerics.OdeSolvers
             dblenj = nj[j];
             for (l = j; l >= 2; --l)
             {
-                /* Computing 2nd power */
+                // Computing 2nd power
                 d1 = dblenj / nj[l - 1];
                 fac = d1 * d1 - 1.0;
                 for (i = 0; i < n; ++i)
                 {
                     t[l - 1 + i * km] = t[l + i * km] + (t[l + i * km] - t[l - 1 + i * km]) / fac;
-                    /* L60: */
                 }
             }
             err = 0.0;
-            /* --- SCALING */
+            // SCALING
             for (i = 0; i < n; ++i)
             {
                 t1i = Math.Max(Math.Abs(y[i]), Math.Abs(t[i * km + 1]));
@@ -1310,8 +1122,7 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     scal[i] = atol[i] + rtol[i] * t1i;
                 }
-                /* L65: */
-                /* Computing 2nd power */
+                // Computing 2nd power
                 d1 = (t[i * km + 1] - t[i * km + 2]) / scal[i];
                 err += d1 * d1;
             }
@@ -1325,7 +1136,8 @@ namespace MathNet.Numerics.OdeSolvers
                 goto L79;
             }
             errold = Math.Max(err * 4, 1.0);
-            /* --- COMPUTE OPTIMAL STEPSIZES */
+
+            // COMPUTE OPTIMAL STEPSIZES
             expo = 1.0 / ((j << 1) - 1);
             facmin = Math.Pow(fac1, expo);
             fac = Math.Min(fac2 / facmin, Math.Max(facmin, Math.Pow(err / safe1, expo) / safe2));
@@ -1338,24 +1150,19 @@ namespace MathNet.Numerics.OdeSolvers
             h *= safe3;
             reject = true;
             return 0;
-        } /* midex_ */
-
+        }
 
         int interp_(int n, double[] y, int imit)
         {
-            /* Local variables */
             double[] a = new double[31];
             int i;
             double y0, y1;
             int im;
             double ph0, ph1, ph2, ph3, yp0, yp1, fac1, fac2, aspl, bspl, ydiff;
 
-            /* --- COMPUTES THE COEFFICIENTS OF THE INTERPOLATION FORMULA */
-            /* --- BEGIN WITH HERMITE INTERPOLATION */
-            /* Parameter adjustments */
-            //--y;
-
-            /* Function Body */
+            // COMPUTES THE COEFFICIENTS OF THE INTERPOLATION FORMULA
+            // BEGIN WITH HERMITE INTERPOLATION
+            
             for (i = 0; i < n; ++i)
             {
                 y0 = y[i];
@@ -1372,12 +1179,12 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     goto L100;
                 }
-                /* --- COMPUTE THE DERIVATIVES OF HERMITE AT MIDPOINT */
+                // COMPUTE THE DERIVATIVES OF HERMITE AT MIDPOINT
                 ph0 = (y0 + y1) * 0.5 + (aspl + bspl) * 0.125;
                 ph1 = ydiff + (aspl - bspl) * 0.25;
                 ph2 = -(yp0 - yp1);
                 ph3 = (bspl - aspl) * 6.0;
-                /* --- COMPUTE THE FURTHER COEFFICIENTS */
+                // COMPUTE THE FURTHER COEFFICIENTS
                 if (imit < 1)
                 {
                     goto L20;
@@ -1397,7 +1204,6 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     fac1 = im * (im - 1) / 2.0;
                     fac2 = fac1 * (im - 2) * (im - 3) * 2.0;
-                    /* L10: */
                     a[im] = (y[(im + 4) * n + i] + fac1 * a[im - 2] - fac2 * a[im - 4]) * 16.0;
                 }
                 L20:
@@ -1416,42 +1222,32 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     fac1 = im * (im - 1) / 2.0;
                     fac2 = (double)(im * (im - 1) * (im - 2) * (im - 3));
-                    /* L30: */
                     a[im] = (y[n * (im + 4) + i] + a[im - 2] * fac1 - a[im - 4] * fac2) * 16.0;
                 }
                 L60:
                 for (im = -1; im < imit; ++im)
                 {
-                    /* L70: */
                     y[n * (im + 4) + i] = a[im];
                 }
                 L100:
                 ;
             }
             return 0;
-        } /* interp_ */
-
+        }
 
         double contex_(int ii, double x, double[] y, int ncon, int[] icomp, int n)
         {
-            /* System generated locals */
             double ret_val, d1;
-
-            /* Local variables */
+            
             int i, j, im;
             double theta, theta1, thetah, phthet;
+            
+            // THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT IN CONECTION
+            // WITH THE OUTPUT-SUBROUTINE FOR ODEX. IT PROVIDES AN
+            // APPROXIMATION TO THE II-TH COMPONENT OF THE SOLUTION AT X.0
 
-            /* ---------------------------------------------------------- */
-            /*     THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT IN CONECTION */
-            /*     WITH THE OUTPUT-SUBROUTINE FOR ODEX. IT PROVIDES AN */
-            /*     APPROXIMATION TO THE II-TH COMPONENT OF THE SOLUTION AT X.0 */
-            /* ---------------------------------------------------------- */
-            /* ----- COMPUTE PLACE OF II-TH COMPONENT */
-            /* Parameter adjustments */
-            //--y;
-            //--icomp;
+            // COMPUTE PLACE OF II-TH COMPONENT
 
-            /* Function Body */
             i = 0;
             for (j = 0; j < n; ++j)
             {
@@ -1459,35 +1255,35 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     i = j;
                 }
-                /* L5: */
             }
+
             if (i == 0)
             {
-
                 Console.WriteLine(" NO DENSE OUTPUT AVAILABLE FOR COMP.", ii);
                 return 0;
             }
 
-            /* ----- COMPUTE THE INTERPOLATED VALUE */
+            // COMPUTE THE INTERPOLATED VALUE
             theta = (x - conodx_2.xold) / conodx_2.h;
             theta1 = 1.0 - theta;
             phthet = y[i] + theta * (y[n + i] + theta1 * (y[(n << 1) + i] * theta + y[n * 3 + i] * theta1));
+
             if (conodx_2.imit < 0)
             {
                 ret_val = phthet;
                 return ret_val;
             }
+
             thetah = theta - .5;
             ret_val = y[n * (conodx_2.imit + 4) + i];
             for (im = conodx_2.imit; im >= 1; --im)
             {
-                /* L70: */
                 ret_val = y[n * (im + 3) + i] + ret_val * thetah / im;
             }
-            /* Computing 2nd power */
+
+            // Computing 2nd power
             d1 = theta * theta1;
-            ret_val = phthet + d1 * d1 * ret_val;
-            return ret_val;
-        } /* contex_ */
+            return phthet + d1 * d1 * ret_val;
+        }
     }
 }
