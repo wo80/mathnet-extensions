@@ -27,7 +27,7 @@ namespace MathNet.Numerics.OdeSolvers
             double x = Math.Abs(a);
             return b >= 0 ? x : -x;
         }
-        
+
         struct conodx1
         {
             public double xoldd, hhh;
@@ -43,18 +43,18 @@ namespace MathNet.Numerics.OdeSolvers
         conodx2 conodx_2;
 
         public int nstep, naccpt, nrejct; // TODO: remove
-            
+
         public int odex_(int n, S_fp fcn, double x, double[] y,
              double xend, double h, double[] rtol, double[]
             atol, int itol, int iout, double[] work, int[] iwork)
         {
-            int i, km, nrd;
+            int i, km;
             double fac1, fac2, fac3, fac4;
             double hmax;
             int ncom = 0, nmax;
             double safe1, safe2, safe3;
             int jstab, mudif, iderr = 0, mstab;
-            int nsequ, lfsafe, nrdens;
+            int nsequ, lfsafe;
             double uround;
 
             /**
@@ -321,21 +321,6 @@ namespace MathNet.Numerics.OdeSolvers
                     return -1;
                 }
             }
-            // NRDENS   NUMBER OF DENSE OUTPUT COMPONENTS
-            nrdens = iwork[8];
-            if (nrdens < 0 || nrdens > n)
-            {
-                Console.WriteLine(" CURIOUS INPUT IWORK(8)=", iwork[8]);
-                return -1;
-            }
-
-            if (nrdens == n)
-            {
-                for (i = 0; i < nrdens; ++i)
-                {
-                    iwork[i + 20] = i;
-                }
-            }
 
             // UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0
             if (work[0] == 0.0)
@@ -434,30 +419,25 @@ namespace MathNet.Numerics.OdeSolvers
             var dz = new double[n];
             var scal = new double[n];
             var t = new double[km * n];
-            var fs = new double[lfsafe * nrdens];
-            var ys = new double[km * nrdens];
             var hh = new double[km];
             var w = new double[km];
             var a = new double[km];
             var fac = new double[km << 1];
-            var co = new double[((km << 1) + 5) * nrdens];
+            var fs = new double[lfsafe * n]; // For interp
+            var ys = new double[km * n]; // For interp
+            var co = new double[((km << 1) + 5) * n]; // For interp
 
             // ENTRY POINTS FOR int WORKSPACE
-            var icom = new int[nrdens];
             var nj = new int[km];
             var ip = new int[km];
-            
-            
-            // CALL TO CORE INTEGRATOR
-            nrd = Math.Max(1, nrdens);
-            ncom = Math.Max(1, ((km << 1) + 5) * nrdens);
 
+            // CALL TO CORE INTEGRATOR
             odxcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
                 itol, km, iout, nmax, uround, dy,
-                yh1, yh2, dz, scal, fs, ys, t, hh, w, a, co, ncom, icom, nj, ip
+                yh1, yh2, dz, scal, fs, ys, t, hh, w, a, co, nj, ip
                 , nsequ, mstab, jstab, lfsafe, safe1, safe2, safe3, fac1,
-                fac2, fac3, fac4, iderr, fac, mudif, nrd);
-            
+                fac2, fac3, fac4, iderr, fac, mudif);
+
             return 0;
         }
 
@@ -470,22 +450,19 @@ namespace MathNet.Numerics.OdeSolvers
             double[] dy, double[] yh1, double[] yh2, double[] dz,
             double[] scal, double[] fsafe, double[] ysafe, double[] t,
             double[] hh, double[] w, double[] a, double[] dens,
-            int ncom, int[] icomp, int[] nj, int[] ipoint,
-            int mstab, int jstab, int lfsafe, double nsequ,
+            int[] nj, int[] ipoint,
+            int mstab, int jstab, int lfsafe, int nsequ,
             double safe1, double safe2, double safe3, double fac1,
             double fac2, double fac3, double fac4, int iderr,
-            double[] errfac, int mudif, int nrd)
+            double[] errfac, int mudif)
         {
-            //static char fmt_979[] = "(  EXIT OF ODEX AT X= ,d14.7,    H= ,d14.7)";
-            
-            int i1, i2, i3, i4;
+            int i1, i2;
             double d1;
-            
-            int i, j, k, l, kc = 0, kk, mu;
+
+            int i, j, k, kc = 0, mu;
             double fac = 0;
-            int kmi, kln;
             double err;
-            int krn, ipt, kbeg, lbeg, lend, ncon;
+            int ipt;
             bool last;
             double prod;
             bool atov;
@@ -493,13 +470,10 @@ namespace MathNet.Numerics.OdeSolvers
             int kopt;
             double errx;
             int njadd;
-            double facnj;
             int irtrn = 0;
-            double dblenj;
             bool reject;
-            double factor, hoptde, errold, posneg;
-            double errint;
-            
+            double hoptde, errold, posneg;
+
             // CORE INTEGRATOR FOR ODEX
             // PARAMETERS SAME AS IN ODEX WITH WORKSPACE ADDED
 
@@ -605,7 +579,8 @@ namespace MathNet.Numerics.OdeSolvers
                 //solout(&i1, &xold, x, y, n, dens, &ncon, icomp, nrd, &irtrn);
                 if (irtrn < 0)
                 {
-                    goto L130;
+                    // INTERRUPTED BY SOLOUT
+                    return 2;
                 }
             }
             err = 0.0;
@@ -619,7 +594,8 @@ namespace MathNet.Numerics.OdeSolvers
             // IS XEND REACHED IN THE NEXT STEP?
             if (Math.Abs(xend - x) * 0.1 <= Math.Abs(x) * uround)
             {
-                goto L110;
+                // SOLUTION EXIT
+                return 1;
             }
             h = posneg * Math.Min(Math.Min(Math.Min(Math.Abs(h), Math.Abs(xend - x)), hmax), Math.Abs(hoptde));
             if ((x + h * 1.01 - xend) * posneg > 0.0)
@@ -644,7 +620,7 @@ namespace MathNet.Numerics.OdeSolvers
                          ref fac, a, safe1, uround, fac1, fac2, safe2, scal,
                         ref atov, safe3, ref reject, km, rtol, atol, itol,
                         mstab, jstab, errold, fsafe, lfsafe, iout,
-                         ipt, ysafe, icomp, nrd);
+                         ipt, ysafe);
                     if (atov)
                     {
                         goto L10;
@@ -662,7 +638,9 @@ namespace MathNet.Numerics.OdeSolvers
             ++(nstep);
             if (nstep >= nmax)
             {
-                goto L120;
+                // FAIL EXIT
+                //Console.WriteLine("(  EXIT OF ODEX AT X={0}, H={1})", x, h);
+                return -1;
             }
             kc = k - 1;
             for (j = 0; j < kc; ++j)
@@ -671,8 +649,7 @@ namespace MathNet.Numerics.OdeSolvers
                     , dz, t, nj, hh, w, ref err, ref fac, a,
                      safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3,
                     ref reject, km, rtol, atol, itol, mstab, jstab, errold,
-                    fsafe, lfsafe, iout, ipt, ysafe
-                    , icomp, nrd);
+                    fsafe, lfsafe, iout, ipt, ysafe);
                 if (atov)
                 {
                     goto L10;
@@ -698,7 +675,7 @@ namespace MathNet.Numerics.OdeSolvers
                  t, nj, hh, w, ref err, ref fac, a,
                 safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3, ref reject,
                  km, rtol, atol, itol, mstab, jstab, errold, fsafe,
-                 lfsafe, iout, ipt, ysafe, icomp, nrd);
+                 lfsafe, iout, ipt, ysafe);
             if (atov)
             {
                 goto L10;
@@ -721,7 +698,7 @@ namespace MathNet.Numerics.OdeSolvers
                  t, nj, hh, w, ref err, ref fac, a,
                 safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3, ref reject,
                  km, rtol, atol, itol, mstab, jstab, errold, fsafe,
-                 lfsafe, iout, ipt, ysafe, icomp, nrd);
+                 lfsafe, iout, ipt, ysafe);
             if (atov)
             {
                 goto L10;
@@ -736,148 +713,22 @@ namespace MathNet.Numerics.OdeSolvers
             x += h;
             if (iout >= 2)
             {
-                // KMIT = MU OF THE PAPER
-                conodx_1.kmit = (kc << 1) - mudif + 1;
-                for (i = 0; i < nrd; ++i)
-                {
-                    dens[i] = y[icomp[i]];
-                }
-                conodx_1.xoldd = xold;
-                conodx_1.hhh = h;
-                for (i = 0; i < nrd; ++i)
-                {
-                    dens[nrd + i] = h * dz[icomp[i]];
-                }
-                kln = nrd << 1;
-                for (i = 0; i < nrd; ++i)
-                {
-                    dens[kln + i] = t[icomp[i] * km + 1];
-                }
-                // COMPUTE SOLUTION AT MID-POINT
-                for (j = 1; j < kc; ++j)
-                {
-                    dblenj = nj[j];
-                    for (l = j; l >= 2; --l)
-                    {
-                        // Computing 2nd power
-                        d1 = dblenj / nj[l - 1];
-                        factor = d1 * d1 - 1.0;
-                        for (i = 0; i < nrd; ++i)
-                        {
-                            ysafe[l - 1 + i * km] = ysafe[l + i * km] + (ysafe[l + i * km] - ysafe[l - 1 + i * km]) / factor;
-                        }
-                    }
-                }
-                krn = nrd << 2;
-                for (i = 0; i < nrd; ++i)
-                {
-                    dens[krn + i] = ysafe[i * km + 1];
-                }
-                // COMPUTE FIRST DERIVATIVE AT RIGHT END
-                for (i = 0; i < n; ++i)
-                {
-                    yh1[i] = t[i * km + 1];
-                }
-                fcn(n, x, yh1, yh2);
-                krn = nrd * 3;
-                for (i = 0; i < nrd; ++i)
-                {
-                    dens[krn + i] = yh2[icomp[i]] * h;
-                }
-                // THE LOOP
-                i2 = conodx_1.kmit;
-                for (kmi = 0; kmi < i2; ++kmi)
-                {
-                    // COMPUTE KMI-TH DERIVATIVE AT MID-POINT
-                    kbeg = (kmi + 1) / 2;
-                    i1 = kc;
-                    for (kk = kbeg; kk <= i1; ++kk)
-                    {
-                        facnj = Math.Pow(nj[kk] / 2.0, kmi - 1); // TODO: pow_di
-                        ipt = ipoint[kk + 1] - (kk << 1) + kmi;
-                        for (i = 0; i < nrd; ++i)
-                        {
-                            ysafe[kk + i * km] = fsafe[ipt + i * lfsafe] * facnj;
-                        }
-                    }
-                    for (j = kbeg; j < kc; ++j)
-                    {
-                        dblenj = nj[j];
-                        i3 = kbeg + 1;
-                        for (l = j; l >= i3; --l)
-                        {
-                            // Computing 2nd power
-                            d1 = dblenj / nj[l - 1];
-                            factor = d1 * d1 - 1.0;
-                            for (i = 0; i < nrd; ++i)
-                            {
-                                ysafe[l - 1 + i * km] = ysafe[l + i * km] + (ysafe[l + i * km] - ysafe[l - 1 + i * km]) / factor;
-                            }
-                        }
-                    }
-                    krn = (kmi + 4) * nrd;
-                    for (i = 0; i < nrd; ++i)
-                    {
-                        dens[krn + i] = ysafe[kbeg + i * km] * h;
-                    }
-                    if (kmi == conodx_1.kmit)
-                    {
-                        goto L180;
-                    }
-                    // COMPUTE DIFFERENCES
-                    for (kk = (kmi + 2) / 2 - 1; kk < kc; ++kk)
-                    {
-                        lbeg = ipoint[kk + 1];
-                        lend = ipoint[kk] + kmi + 1;
-                        if (kmi == 1 && nsequ == 4)
-                        {
-                            lend += 2;
-                        }
-                        for (l = lbeg; l >= lend; l += -2)
-                        {
-                            for (i = 0; i < nrd; ++i)
-                            {
-                                fsafe[l + i * lfsafe] -= fsafe[l - 2 + i * lfsafe];
-                            }
-                        }
-                        if (kmi == 1 && nsequ == 4)
-                        {
-                            l = lend - 2;
-                            for (i = 0; i < nrd; ++i)
-                            {
-                                fsafe[l + i * lfsafe] -= dz[icomp[i]];
-                            }
-                        }
-                    }
-                    // COMPUTE DIFFERENCES
-                    i4 = kc;
-                    for (kk = (kmi + 2) / 2; kk <= i4; ++kk)
-                    {
-                        lbeg = ipoint[kk + 1] - 1;
-                        lend = ipoint[kk] + kmi + 2;
-                        for (l = lbeg; l >= lend; l += -2)
-                        {
-                            for (i = 0; i < nrd; ++i)
-                            {
-                                fsafe[l + i * lfsafe] -= fsafe[l - 2 + i * lfsafe];
-                            }
-                        }
-                    }
-                    L180:
-                    ;
-                }
-                interp_(nrd, dens, conodx_1.kmit);
+                PrepareInterpolation(kc, n, km, nsequ, mudif, fcn, h, x, xold, 
+                    y, dens, t, dz, nj, yh1, yh2, ysafe, fsafe, lfsafe, ipoint);
+
+                interp_(n, dens, conodx_1.kmit);
+
                 // ESTIMATION OF INTERPOLATION ERROR
                 if (iderr == 0 && conodx_1.kmit >= 1)
                 {
-                    errint = 0.0;
-                    for (i = 0; i < nrd; ++i)
+                    double errint = 0.0;
+                    for (i = 0; i < n; ++i)
                     {
                         // Computing 2nd power
-                        d1 = dens[(conodx_1.kmit + 4) * nrd + i] / scal[icomp[i]];
+                        d1 = dens[(conodx_1.kmit + 4) * n + i] / scal[i];
                         errint += d1 * d1;
                     }
-                    errint = Math.Sqrt(errint / nrd) * errfac[conodx_1.kmit];
+                    errint = Math.Sqrt(errint / n) * errfac[conodx_1.kmit];
                     hoptde = h / Math.Max(Math.Pow(errint, 1.0 / (conodx_1.kmit + 4)), 0.01);
                     if (errint > 10.0)
                     {
@@ -888,6 +739,7 @@ namespace MathNet.Numerics.OdeSolvers
                         goto L10;
                     }
                 }
+
                 for (i = 0; i < n; ++i)
                 {
                     dz[i] = yh2[i];
@@ -904,7 +756,8 @@ namespace MathNet.Numerics.OdeSolvers
                 //solout(&i2, &xold, x, y, n, dens, ncom, icomp, nrd, &irtrn);
                 if (irtrn < 0)
                 {
-                    goto L130;
+                    // INTERRUPTED BY SOLOUT
+                    return 2;
                 }
             }
             // COMPUTE OPTIMAL ORDER
@@ -980,19 +833,150 @@ namespace MathNet.Numerics.OdeSolvers
             h = posneg * hh[k];
             reject = true;
             goto L30;
-            // SOLUTION EXIT
-            L110:
-            return 1;
-            // INTERRUPTED BY SOLOUT
-            L130:
-            return 2;
-            // FAIL EXIT
-            L120:
+        }
 
-            Console.WriteLine((x));
-            Console.WriteLine((h));
-            
-            return -1;
+        private void PrepareInterpolation(int kc, int n, int km, int nsequ, int mudif, S_fp fcn, double h, double x, double xold,
+            double[] y, double[] dens, double[] t, double[] dz, int[] nj, double[] yh1, double[] yh2,
+            double[] ysafe, double[] fsafe, int lfsafe, int[] ipoint)
+        {
+            int i, j, k, l, i2;
+            double d1;
+
+            // KMIT = MU OF THE PAPER
+            conodx_1.kmit = (kc << 1) - mudif + 1;
+            for (i = 0; i < n; ++i)
+            {
+                dens[i] = y[i];
+            }
+
+            conodx_1.xoldd = xold;
+            conodx_1.hhh = h;
+            for (i = 0; i < n; ++i)
+            {
+                dens[n + i] = h * dz[i];
+            }
+
+            int kln = n << 1;
+            for (i = 0; i < n; ++i)
+            {
+                dens[kln + i] = t[i * km + 1];
+            }
+
+            // COMPUTE SOLUTION AT MID-POINT
+            for (j = 1; j < kc; ++j)
+            {
+                double dblenj = nj[j];
+                for (l = j; l >= 2; --l)
+                {
+                    // Computing 2nd power
+                    d1 = dblenj / nj[l - 1];
+                    double factor = d1 * d1 - 1.0;
+                    for (i = 0; i < n; ++i)
+                    {
+                        ysafe[l - 1 + i * km] = ysafe[l + i * km] + (ysafe[l + i * km] - ysafe[l - 1 + i * km]) / factor;
+                    }
+                }
+            }
+            int krn = n << 2;
+            for (i = 0; i < n; ++i)
+            {
+                dens[krn + i] = ysafe[i * km + 1];
+            }
+
+            // COMPUTE FIRST DERIVATIVE AT RIGHT END
+            for (i = 0; i < n; ++i)
+            {
+                yh1[i] = t[i * km + 1];
+            }
+            fcn(n, x, yh1, yh2);
+            krn = n * 3;
+            for (i = 0; i < n; ++i)
+            {
+                dens[krn + i] = yh2[i] * h;
+            }
+
+            // THE LOOP
+            i2 = conodx_1.kmit;
+            for (int kmi = 0; kmi < i2; ++kmi)
+            {
+                // COMPUTE KMI-TH DERIVATIVE AT MID-POINT
+                int kbeg = (kmi + 1) / 2;
+                for (int kk = kbeg - 1; kk < kc; ++kk)
+                {
+                    double facnj = Math.Pow(nj[kk] / 2.0, kmi - 1); // TODO: pow_di
+                    int ipt = ipoint[kk + 1] - (kk << 1) + kmi;
+                    for (i = 0; i < n; ++i)
+                    {
+                        ysafe[kk + i * km] = fsafe[ipt + i * lfsafe] * facnj;
+                    }
+                }
+
+                for (j = kbeg; j < kc; ++j)
+                {
+                    double dblenj = nj[j];
+                    int i3 = kbeg + 1;
+                    for (l = j; l >= i3; --l)
+                    {
+                        // Computing 2nd power
+                        d1 = dblenj / nj[l - 1];
+                        double factor = d1 * d1 - 1.0;
+                        for (i = 0; i < n; ++i)
+                        {
+                            ysafe[l - 1 + i * km] = ysafe[l + i * km] + (ysafe[l + i * km] - ysafe[l - 1 + i * km]) / factor;
+                        }
+                    }
+                }
+                krn = (kmi + 4) * n;
+                for (i = 0; i < n; ++i)
+                {
+                    dens[krn + i] = ysafe[kbeg + i * km] * h;
+                }
+
+                if (kmi == conodx_1.kmit)
+                {
+                    continue;
+                }
+
+                // COMPUTE DIFFERENCES
+                for (int kk = (kmi + 2) / 2 - 1; kk < kc; ++kk)
+                {
+                    int lbeg = ipoint[kk + 1];
+                    int lend = ipoint[kk] + kmi + 1;
+                    if (kmi == 1 && nsequ == 4)
+                    {
+                        lend += 2;
+                    }
+                    for (l = lbeg; l >= lend; l += -2)
+                    {
+                        for (i = 0; i < n; ++i)
+                        {
+                            fsafe[l + i * lfsafe] -= fsafe[l - 2 + i * lfsafe];
+                        }
+                    }
+                    if (kmi == 1 && nsequ == 4)
+                    {
+                        l = lend - 2;
+                        for (i = 0; i < n; ++i)
+                        {
+                            fsafe[l + i * lfsafe] -= dz[i];
+                        }
+                    }
+                }
+
+                // COMPUTE DIFFERENCES
+                for (int kk = (kmi + 2) / 2 - 1; kk < kc; ++kk)
+                {
+                    int lbeg = ipoint[kk + 1] - 1;
+                    int lend = ipoint[kk] + kmi + 2;
+                    for (l = lbeg; l >= lend; l += -2)
+                    {
+                        for (i = 0; i < n; ++i)
+                        {
+                            fsafe[l + i * lfsafe] -= fsafe[l - 2 + i * lfsafe];
+                        }
+                    }
+                }
+            }
         }
 
         int midex_(int j, double x, double[] y,
@@ -1004,11 +988,10 @@ namespace MathNet.Numerics.OdeSolvers
             scal, ref bool atov, double safe3, ref bool reject, int km,
             double[] rtol, double[] atol, int itol, int mstab,
             int jstab, double errold, double[] fsafe, int
-            lfsafe, int iout, int ipt, double[] ysafe, int[]
-            icomp, int nrd)
+            lfsafe, int iout, int ipt, double[] ysafe)
         {
             double d1;
-            
+
             int i, l, m;
             double hj;
             int mm;
@@ -1034,18 +1017,18 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 if (iout >= 2 && mm == njmid)
                 {
-                    for (i = 0; i < nrd; ++i)
+                    for (i = 0; i < n; ++i)
                     {
-                        ysafe[j + i * km] = yh2[icomp[i]];
+                        ysafe[j + i * km] = yh2[i];
                     }
                 }
                 fcn(n, x + hj * mm, yh2, dy);
                 if (iout >= 2 && Math.Abs(mm - njmid) <= (j << 1) - 1)
                 {
                     ++(ipt);
-                    for (i = 0; i < nrd; ++i)
+                    for (i = 0; i < n; ++i)
                     {
-                        fsafe[ipt + i * lfsafe] = dy[icomp[i]];
+                        fsafe[ipt + i * lfsafe] = dy[i];
                     }
                 }
                 for (i = 0; i < n; ++i)
@@ -1083,9 +1066,9 @@ namespace MathNet.Numerics.OdeSolvers
             if (iout >= 2 && njmid <= (j << 1) - 1)
             {
                 ++(ipt);
-                for (i = 0; i < nrd; ++i)
+                for (i = 0; i < n; ++i)
                 {
-                    fsafe[ipt + i * lfsafe] = dy[icomp[i]];
+                    fsafe[ipt + i * lfsafe] = dy[i];
                 }
             }
             for (i = 0; i < n; ++i)
@@ -1162,7 +1145,7 @@ namespace MathNet.Numerics.OdeSolvers
 
             // COMPUTES THE COEFFICIENTS OF THE INTERPOLATION FORMULA
             // BEGIN WITH HERMITE INTERPOLATION
-            
+
             for (i = 0; i < n; ++i)
             {
                 y0 = y[i];
@@ -1238,10 +1221,10 @@ namespace MathNet.Numerics.OdeSolvers
         double contex_(int ii, double x, double[] y, int ncon, int[] icomp, int n)
         {
             double ret_val, d1;
-            
+
             int i, j, im;
             double theta, theta1, thetah, phthet;
-            
+
             // THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT IN CONECTION
             // WITH THE OUTPUT-SUBROUTINE FOR ODEX. IT PROVIDES AN
             // APPROXIMATION TO THE II-TH COMPONENT OF THE SOLUTION AT X.0
