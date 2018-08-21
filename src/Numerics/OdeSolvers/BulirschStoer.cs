@@ -43,24 +43,21 @@ namespace MathNet.Numerics.OdeSolvers
 
         conodx1 conodx_1;
         conodx2 conodx_2;
-        
+
+        public int nstep, naccpt, nrejct; // TODO: remove
+            
         public int odex_(int n, S_fp fcn, double x, double[] y,
              double xend, double h, double[] rtol, double[]
-            atol, int itol, S_fp solout, int iout, double[] work,
-            int lwork, int[] iwork, int liwork, double[] rpar,
-            int[] ipar, int idid)
+            atol, int itol, S_fp solout, int iout, double[] work, int[] iwork)
         {
             /* Local variables */
             int i, km, nrd;
             double fac1, fac2, fac3, fac4;
-            int nfcn;
             double hmax;
             int ncom = 0, nmax;
             double safe1, safe2, safe3;
             int jstab, mudif, iderr = 0, mstab;
-            bool arret;
-            int nstep, nsequ, lfsafe, naccpt, nrejct, nrdens;
-            int istore;
+            int nsequ, lfsafe, nrdens;
             double uround;
 
             /**
@@ -271,22 +268,12 @@ namespace MathNet.Numerics.OdeSolvers
              *   IWORK(20)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
              *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
              */
-
-            /* Parameter adjustments */
-            //--y;
-            //--rtol;
-            //--atol;
-            //--work;
-            //--iwork;
-            //--rpar;
-            //--ipar;
-
+             
             /* Function Body */
-            nfcn = 0;
             nstep = 0;
             naccpt = 0;
             nrejct = 0;
-            arret = false;
+
             /* -------- NMAX , THE MAXIMAL NUMBER OF STEPS ----- */
             if (iwork[0] == 0)
             {
@@ -297,10 +284,8 @@ namespace MathNet.Numerics.OdeSolvers
                 nmax = iwork[0];
                 if (nmax <= 0)
                 {
-
                     Console.WriteLine(" WRONG INPUT IWORK(1)=", iwork[0]);
-
-                    arret = true;
+                    return -1;
                 }
             }
             /* -------- KM     MAXIMUM NUMBER OF COLUMNS IN THE EXTRAPOLATION */
@@ -313,10 +298,8 @@ namespace MathNet.Numerics.OdeSolvers
                 km = iwork[2];
                 if (km <= 2)
                 {
-
                     Console.WriteLine(" CURIOUS INPUT IWORK(2)=", iwork[2]);
-
-                    arret = true;
+                    return -1;
                 }
             }
             /* -------- NSEQU     CHOICE OF STEP SIZE SEQUENCE */
@@ -325,23 +308,24 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 nsequ = 1;
             }
+
             if (iwork[3] == 0 && iout >= 2)
             {
                 nsequ = 4;
             }
+
             if (nsequ <= 0 || nsequ >= 6)
             {
 
                 Console.WriteLine(" CURIOUS INPUT IWORK(3)=", iwork[3]);
-
-                arret = true;
+                return -1;
             }
+
             if (nsequ <= 3 && iout >= 2)
             {
 
                 Console.WriteLine(" IWORK(3) NOT COMPATIBLE WITH IOUT");
-
-                arret = true;
+                return -1;
             }
             /* -------- MSTAB     PARAMETER FOR STABILITY CHECK */
             if (iwork[4] == 0)
@@ -378,10 +362,8 @@ namespace MathNet.Numerics.OdeSolvers
                 iderr = iwork[6];
                 if (iout <= 1)
                 {
-
                     Console.WriteLine(" ERROR ESTIMATION IN DENSE OUTPUT NOT POSSIBLE, WRONG IWORK(6)=", iwork[6]);
-
-                    arret = true;
+                    return -1;
                 }
             }
             /* -------- MUDIF */
@@ -396,19 +378,17 @@ namespace MathNet.Numerics.OdeSolvers
                 {
 
                     Console.WriteLine(" WRONG INPUT IWORK(7)=", iwork[7]);
-
-                    arret = true;
+                    return -1;
                 }
             }
             /* -------- NRDENS   NUMBER OF DENSE OUTPUT COMPONENTS */
             nrdens = iwork[8];
             if (nrdens < 0 || nrdens > n)
             {
-
                 Console.WriteLine(" CURIOUS INPUT IWORK(8)=", iwork[8]);
-
-                arret = true;
+                return -1;
             }
+
             if (nrdens == n)
             {
                 for (i = 0; i < nrdens; ++i)
@@ -417,6 +397,7 @@ namespace MathNet.Numerics.OdeSolvers
                     iwork[i + 20] = i;
                 }
             }
+
             /* -------- UROUND   SMALLEST NUMBER SATISFYING 1.D0+UROUND>1.D0 */
             if (work[0] == 0.0)
             {
@@ -427,10 +408,8 @@ namespace MathNet.Numerics.OdeSolvers
                 uround = work[0];
                 if (uround <= 1e-35 || uround >= 1.0)
                 {
-
                     Console.WriteLine(" WHICH MACHINE DO YOU HAVE? YOUR UROUND WAS:", work[0]);
-
-                    arret = true;
+                    return -1;
                 }
             }
             /* -------- MAXIMAL STEP SIZE */
@@ -445,23 +424,21 @@ namespace MathNet.Numerics.OdeSolvers
             /* -------- STEP SIZE REDUCTION FACTOR */
             if (work[3] == 0.0)
             {
-                safe3 = .5;
+                safe3 = 0.5;
             }
             else
             {
                 safe3 = work[3];
                 if (safe3 <= uround || safe3 >= 1.0)
                 {
-
                     Console.WriteLine(" CURIOUS INPUT WORK(3)=", work[3]);
-
-                    arret = true;
+                    return -1;
                 }
             }
             /* -------  FAC1,FAC2     PARAMETERS FOR STEP SIZE SELECTION */
             if (work[4] == 0.0)
             {
-                fac1 = .02;
+                fac1 = 0.02;
             }
             else
             {
@@ -478,7 +455,7 @@ namespace MathNet.Numerics.OdeSolvers
             /* -------  FAC3, FAC4   PARAMETERS FOR THE ORDER SELECTION */
             if (work[6] == 0.0)
             {
-                fac3 = .8;
+                fac3 = 0.8;
             }
             else
             {
@@ -486,7 +463,7 @@ namespace MathNet.Numerics.OdeSolvers
             }
             if (work[7] == 0.0)
             {
-                fac4 = .9;
+                fac4 = 0.9;
             }
             else
             {
@@ -495,7 +472,7 @@ namespace MathNet.Numerics.OdeSolvers
             /* ------- SAFE1, SAFE2 SAFETY FACTORS FOR STEP SIZE PREDICTION */
             if (work[8] == 0.0)
             {
-                safe1 = .65;
+                safe1 = 0.65;
             }
             else
             {
@@ -503,12 +480,13 @@ namespace MathNet.Numerics.OdeSolvers
             }
             if (work[9] == 0.0)
             {
-                safe2 = .94;
+                safe2 = 0.94;
             }
             else
             {
                 safe2 = work[9];
             }
+
             /* ------- PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK ----- */
             lfsafe = (km << 1) * km + km;
             var dy = new double[n];// 21;
@@ -523,6 +501,7 @@ namespace MathNet.Numerics.OdeSolvers
             var w = new double[km];// hh + km;
             var a = new double[km];// w + km;
             var fac = new double[km << 1];// a + km;
+
             /* ------ TOTAL STORAGE REQUIREMENT ----------- */
             var co = new double[((km << 1) + 5) * nrdens];// fac + (km << 1);
 
@@ -546,29 +525,17 @@ namespace MathNet.Numerics.OdeSolvers
             //    Console.WriteLine(" INSUFF. STORAGE FOR IWORK, MIN. LIWORK=", istore);
             //    arret = true;
             //}
-
-            /* ------ WHEN A FAIL HAS OCCURED, WE RETURN WITH IDID=-1 */
-            if (arret)
-            {
-                idid = -1;
-                return 0;
-            }
+            
             /* -------- CALL TO CORE INTEGRATOR ------------ */
             nrd = Math.Max(1, nrdens);
             /* Computing MAX */
             ncom = Math.Max(1, ((km << 1) + 5) * nrdens);
             odxcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
-                itol, km, solout, iout, idid, nmax, uround, dy,
+                itol, km, solout, iout, nmax, uround, dy,
                 yh1, yh2, dz, scal, fs, ys, t, hh, w, a, co, ncom, icom, nj, ip
                 , nsequ, mstab, jstab, lfsafe, safe1, safe2, safe3, fac1,
-                fac2, fac3, fac4, iderr, fac, mudif, nrd, rpar,
-                 ipar, ref nfcn, ref nstep, ref naccpt, ref nrejct);
-
-            iwork[17] = nfcn;
-            iwork[18] = nstep;
-            iwork[19] = naccpt;
-            iwork[20] = nrejct;
-            /* ----------- RETURN ----------- */
+                fac2, fac3, fac4, iderr, fac, mudif, nrd);
+            
             return 0;
         } /* odex_ */
 
@@ -580,17 +547,15 @@ namespace MathNet.Numerics.OdeSolvers
         int odxcor_(int n, S_fp fcn, double x, double[]
             y, double xend, double hmax, double h, double[]
             rtol, double[] atol, int itol, int km, S_fp solout,
-            int iout, int idid, int nmax, double uround,
+            int iout, int nmax, double uround,
             double[] dy, double[] yh1, double[] yh2, double[] dz,
             double[] scal, double[] fsafe, double[] ysafe, double[] t,
-             double[] hh, double[] w, double[] a, double[] dens,
-            int ncom, int[] icomp, int[] nj, int[] ipoint, int
-            nsequ, int mstab, int jstab, int lfsafe, double
-            safe1, double safe2, double safe3, double fac1,
+            double[] hh, double[] w, double[] a, double[] dens,
+            int ncom, int[] icomp, int[] nj, int[] ipoint,
+            int mstab, int jstab, int lfsafe, double nsequ,
+            double safe1, double safe2, double safe3, double fac1,
             double fac2, double fac3, double fac4, int iderr,
-            double[] errfac, int mudif, int nrd, double[] rpar,
-            int[] ipar, ref int nfcn, ref int nstep, ref int naccpt,
-            ref int nrejct)
+            double[] errfac, int mudif, int nrd)
         {
             /* Format strings */
             //static char fmt_979[] = "(  EXIT OF ODEX AT X= ,d14.7,    H= ,d14.7)";
@@ -794,7 +759,7 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 fcn(n, x, y, dz);
             }
-            ++(nfcn);
+
             /* --- THE FIRST AND LAST STEP */
             if (nstep == 0 || last)
             {
@@ -807,7 +772,7 @@ namespace MathNet.Numerics.OdeSolvers
                          ref fac, a, safe1, uround, fac1, fac2, safe2, scal,
                         ref atov, safe3, ref reject, km, rtol, atol, itol,
                         mstab, jstab, errold, fsafe, lfsafe, iout,
-                         ipt, ysafe, icomp, nrd, ref nfcn);
+                         ipt, ysafe, icomp, nrd);
                     if (atov)
                     {
                         goto L10;
@@ -836,7 +801,7 @@ namespace MathNet.Numerics.OdeSolvers
                      safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3,
                     ref reject, km, rtol, atol, itol, mstab, jstab, errold,
                     fsafe, lfsafe, iout, ipt, ysafe
-                    , icomp, nrd, ref nfcn);
+                    , icomp, nrd);
                 if (atov)
                 {
                     goto L10;
@@ -863,7 +828,7 @@ namespace MathNet.Numerics.OdeSolvers
                  t, nj, hh, w, ref err, ref fac, a,
                 safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3, ref reject,
                  km, rtol, atol, itol, mstab, jstab, errold, fsafe,
-                 lfsafe, iout, ipt, ysafe, icomp, nrd, ref nfcn);
+                 lfsafe, iout, ipt, ysafe, icomp, nrd);
             if (atov)
             {
                 goto L10;
@@ -886,7 +851,7 @@ namespace MathNet.Numerics.OdeSolvers
                  t, nj, hh, w, ref err, ref fac, a,
                 safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3, ref reject,
                  km, rtol, atol, itol, mstab, jstab, errold, fsafe,
-                 lfsafe, iout, ipt, ysafe, icomp, nrd, ref nfcn);
+                 lfsafe, iout, ipt, ysafe, icomp, nrd);
             if (atov)
             {
                 goto L10;
@@ -1166,20 +1131,17 @@ namespace MathNet.Numerics.OdeSolvers
             goto L30;
             /* --- SOLUTION EXIT */
             L110:
-            idid = 1;
-            return 0;
+            return 1;
             /* --- INTERRUPTED BY SOLOUT */
             L130:
-            idid = 2;
-            return 0;
+            return 2;
             /* --- FAIL EXIT */
             L120:
 
             Console.WriteLine((x));
             Console.WriteLine((h));
-
-            idid = -1;
-            return 0;
+            
+            return -1;
         } /* odxcor_ */
 
 
@@ -1188,12 +1150,12 @@ namespace MathNet.Numerics.OdeSolvers
             dy, double[] yh1, double[] yh2, double[] dz, double[] t,
             int[] nj, double[] hh, double[] w, ref double err,
             ref double fac, double[] a, double safe1, double uround,
-             double fac1, double fac2, double safe2, double[]
+            double fac1, double fac2, double safe2, double[]
             scal, ref bool atov, double safe3, ref bool reject, int km,
             double[] rtol, double[] atol, int itol, int mstab,
             int jstab, double errold, double[] fsafe, int
             lfsafe, int iout, int ipt, double[] ysafe, int[]
-            icomp, int nrd, ref int nfcn)
+            icomp, int nrd)
         {
             /* System generated locals */
             double d1;
@@ -1296,7 +1258,6 @@ namespace MathNet.Numerics.OdeSolvers
                     quot = del2 / Math.Max(uround, del1);
                     if (quot > 4.0)
                     {
-                        ++(nfcn);
                         goto L79;
                     }
                 }
@@ -1318,7 +1279,7 @@ namespace MathNet.Numerics.OdeSolvers
                 /* L40: */
                 t[j + i * km] = (yh1[i] + yh2[i] + hj * dy[i]) / 2.0;
             }
-            nfcn += nj[j];
+
             /* --- POLYNOMIAL EXTRAPOLATION */
             if (j == 1)
             {
