@@ -178,7 +178,7 @@ namespace MathNet.Numerics.OdeSolvers
             // MU = 2 * KAPPA - MUDIF + 1
             // MUDIF SHOULD LIE BETWEEN 1 AND 6
             // DEFAULT MUDIF = 4.
-            mudif = 2; // was 4
+            mudif = 4;
 
             if (mudif <= 0 || mudif >= 7)
             {
@@ -229,7 +229,7 @@ namespace MathNet.Numerics.OdeSolvers
             safe2 = 0.94;
 
             // PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK
-            lfsafe = (km << 1) * km + km;
+            lfsafe = (2 * km) * km + km;
             var dy = new double[n];
             var yh1 = new double[n];
             var yh2 = new double[n];
@@ -239,19 +239,19 @@ namespace MathNet.Numerics.OdeSolvers
             var hh = new double[km];
             var w = new double[km];
             var a = new double[km];
-            var fac = new double[km << 1];
+            var fac = new double[2 * km];
             var fs = new double[lfsafe * n]; // For interp
             var ys = new double[km * n]; // For interp
-            var co = new double[((km << 1) + 5) * n]; // For interp
+            var co = new double[((2 * km) + 5) * n]; // For interp
 
             // ENTRY POINTS FOR int WORKSPACE
             var nj = new int[km];
-            var ip = new int[km];
+            var ip = new int[km + 1];
 
             // CALL TO CORE INTEGRATOR
             odxcor_(n, fcn, x, y, xend, hmax, h, km, iout, nmax, uround, dy,
-                yh1, yh2, dz, scal, fs, ys, t, hh, w, a, co, nj, ip
-                , nsequ, mstab, jstab, lfsafe, safe1, safe2, safe3, fac1,
+                yh1, yh2, dz, scal, fs, ys, t, hh, w, a, co, nj, ip,
+                nsequ, mstab, jstab, lfsafe, safe1, safe2, safe3, fac1,
                 fac2, fac3, fac4, iderr, fac, mudif);
 
             return 0;
@@ -265,8 +265,8 @@ namespace MathNet.Numerics.OdeSolvers
             double[] dy, double[] yh1, double[] yh2, double[] dz,
             double[] scal, double[] fsafe, double[] ysafe, double[] t,
             double[] hh, double[] w, double[] a, double[] dens,
-            int[] nj, int[] ipoint,
-            int mstab, int jstab, int lfsafe, int nsequ,
+            int[] nj, int[] ipoint, int nsequ,
+            int mstab, int jstab, int lfsafe,
             double safe1, double safe2, double safe3, double fac1,
             double fac2, double fac3, double fac4, int iderr,
             double[] errfac, int mudif)
@@ -295,10 +295,9 @@ namespace MathNet.Numerics.OdeSolvers
             // DEFINE THE STEP SIZE SEQUENCE
             if (nsequ == 1)
             {
-
                 for (i = 0; i < km; ++i)
                 {
-                    nj[i] = i << 1;
+                    nj[i] = 2 * (i + 1);
                 }
             }
             if (nsequ == 2)
@@ -307,7 +306,7 @@ namespace MathNet.Numerics.OdeSolvers
 
                 for (i = 1; i < km; ++i)
                 {
-                    nj[i] = (i << 2) - 4;
+                    nj[i] = 4 * (i + 1) - 4;
                 }
             }
             if (nsequ == 3)
@@ -318,21 +317,21 @@ namespace MathNet.Numerics.OdeSolvers
 
                 for (i = 3; i < km; ++i)
                 {
-                    nj[i] = nj[i - 2] << 1;
+                    nj[i] = 2 * nj[i - 2];
                 }
             }
             if (nsequ == 4)
             {
                 for (i = 0; i < km; ++i)
                 {
-                    nj[i] = (i << 2) - 2;
+                    nj[i] = 4 * (i + 1) - 2;
                 }
             }
             if (nsequ == 5)
             {
                 for (i = 0; i < km; ++i)
                 {
-                    nj[i] = i << 2;
+                    nj[i] = 4 * (i + 1);
                 }
             }
             // DEFINE THE A(I) FOR ORDER SELECTION
@@ -359,25 +358,25 @@ namespace MathNet.Numerics.OdeSolvers
                     ipoint[0] = 0;
                     for (i = 0; i < km; ++i)
                     {
-                        njadd = (i << 2) - 2;
+                        njadd = ((i + 1) << 2) - 2;
                         if (nj[i] > njadd)
                         {
                             ++njadd;
                         }
                         ipoint[i + 1] = ipoint[i] + njadd;
                     }
-                    i1 = km << 1;
-                    for (mu = 0; mu < i1; ++mu)
+                    i1 = 2 * km + 1;
+                    for (mu = 1; mu < i1; ++mu)
                     {
                         errx = Math.Sqrt(mu / (mu + 4.0)) * 0.5;
                         // Computing 2nd power
                         d1 = mu + 4.0;
                         prod = 1.0 / (d1 * d1);
-                        for (j = 0; j < mu; ++j)
+                        for (j = 1; j <= mu; ++j)
                         {
                             prod = prod * errx / j;
                         }
-                        errfac[mu] = prod;
+                        errfac[mu - 1] = prod;
                     }
                     ipt = 0;
                 }
@@ -405,6 +404,7 @@ namespace MathNet.Numerics.OdeSolvers
                 // SOLUTION EXIT
                 return 1;
             }
+            
             h = posneg * Math.Min(Math.Min(Math.Min(Math.Abs(h), Math.Abs(xend - x)), hmax), Math.Abs(hoptde));
             if ((x + h * 1.01 - xend) * posneg > 0.0)
             {
@@ -423,17 +423,17 @@ namespace MathNet.Numerics.OdeSolvers
                 ++(nstep);
                 for (j = 0; j < k; ++j)
                 {
-                    kc = j;
-                    midex_(j, x, y, h, hmax, n, (S_fp)fcn, dy, yh1, yh2, dz, t, nj, hh, w, ref err,
-                         ref fac, a, safe1, uround, fac1, fac2, safe2, scal,
+                    kc = j + 1;
+                    midex_(j, x, y, ref h, hmax, n, fcn, dy, yh1, yh2, dz, t, nj, hh, w, ref err,
+                        ref fac, a, safe1, uround, fac1, fac2, safe2, scal,
                         ref atov, safe3, ref reject, km,
-                        mstab, jstab, errold, fsafe, lfsafe, iout,
-                         ipt, ysafe);
+                        mstab, jstab, ref errold, fsafe, lfsafe, iout,
+                        ref ipt, ysafe);
                     if (atov)
                     {
                         goto L10;
                     }
-                    if (j > 1 && err <= 1.0)
+                    if (j > 0 && err <= 1.0)
                     {
                         goto L60;
                     }
@@ -453,11 +453,11 @@ namespace MathNet.Numerics.OdeSolvers
             kc = k - 1;
             for (j = 0; j < kc; ++j)
             {
-                midex_(j, x, y, h, hmax, n, (S_fp)fcn, dy, yh1, yh2
+                midex_(j, x, y, ref h, hmax, n, (S_fp)fcn, dy, yh1, yh2
                     , dz, t, nj, hh, w, ref err, ref fac, a,
                      safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3,
-                    ref reject, km, mstab, jstab, errold,
-                    fsafe, lfsafe, iout, ipt, ysafe);
+                    ref reject, km, mstab, jstab, ref errold,
+                    fsafe, lfsafe, iout, ref ipt, ysafe);
                 if (atov)
                 {
                     goto L10;
@@ -473,17 +473,17 @@ namespace MathNet.Numerics.OdeSolvers
                 goto L60;
             }
             // Computing 2nd power
-            d1 = nj[k + 1] * nj[k] / 4.0;
+            d1 = nj[k] * nj[k - 1] / 4.0;
             if (err > d1 * d1)
             {
                 goto L100;
             }
             L50:
-            midex_(k, x, y, h, hmax, n, fcn, dy, yh1, yh2, dz,
+            midex_(k - 1, x, y, ref h, hmax, n, fcn, dy, yh1, yh2, dz,
                  t, nj, hh, w, ref err, ref fac, a,
                 safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3, ref reject,
-                 km, mstab, jstab, errold, fsafe,
-                 lfsafe, iout, ipt, ysafe);
+                 km, mstab, jstab, ref errold, fsafe,
+                 lfsafe, iout, ref ipt, ysafe);
             if (atov)
             {
                 goto L10;
@@ -496,17 +496,17 @@ namespace MathNet.Numerics.OdeSolvers
             // HOPE FOR CONVERGENCE IN LINE K+1
             L55:
             // Computing 2nd power
-            d1 = nj[k + 1] / 2.0;
+            d1 = nj[k] / 2.0;
             if (err > d1 * d1)
             {
                 goto L100;
             }
             kc = k + 1;
-            midex_(kc, x, y, h, hmax, n, (S_fp)fcn, dy, yh1, yh2, dz,
+            midex_(kc - 1, x, y, ref h, hmax, n, (S_fp)fcn, dy, yh1, yh2, dz,
                  t, nj, hh, w, ref err, ref fac, a,
                 safe1, uround, fac1, fac2, safe2, scal, ref atov, safe3, ref reject,
-                 km, mstab, jstab, errold, fsafe,
-                 lfsafe, iout, ipt, ysafe);
+                 km, mstab, jstab, ref errold, fsafe,
+                 lfsafe, iout, ref ipt, ysafe);
             if (atov)
             {
                 goto L10;
@@ -536,7 +536,7 @@ namespace MathNet.Numerics.OdeSolvers
                         d1 = dens[(conodx_1.kmit + 4) * n + i] / scal[i];
                         errint += d1 * d1;
                     }
-                    errint = Math.Sqrt(errint / n) * errfac[conodx_1.kmit];
+                    errint = Math.Sqrt(errint / n) * errfac[conodx_1.kmit - 1];
                     hoptde = h / Math.Max(Math.Pow(errint, 1.0 / (conodx_1.kmit + 4)), 0.01);
                     if (errint > 10.0)
                     {
@@ -555,7 +555,7 @@ namespace MathNet.Numerics.OdeSolvers
             }
             for (i = 0; i < n; ++i)
             {
-                y[i] = t[i * km + 1];
+                y[i] = t[i * km];
             }
             ++(naccpt);
             if (iout >= 1)
@@ -581,11 +581,11 @@ namespace MathNet.Numerics.OdeSolvers
             if (kc <= k)
             {
                 kopt = kc;
-                if (w[kc - 1] < w[kc] * fac3)
+                if (w[kc - 2] < w[kc - 1] * fac3)
                 {
                     kopt = kc - 1;
                 }
-                if (w[kc] < w[kc - 1] * fac4)
+                if (w[kc - 1] < w[kc - 2] * fac4)
                 {
                     kopt = Math.Min(kc + 1, km - 1);
                 }
@@ -593,11 +593,11 @@ namespace MathNet.Numerics.OdeSolvers
             else
             {
                 kopt = kc - 1;
-                if (kc > 3 && w[kc - 2] < w[kc - 1] * fac3)
+                if (kc > 3 && w[kc - 3] < w[kc - 2] * fac3)
                 {
                     kopt = kc - 2;
                 }
-                if (w[kc] < w[kopt] * fac4)
+                if (w[kc - 1] < w[kopt - 1] * fac4)
                 {
                     kopt = Math.Min(kc, km - 1);
                 }
@@ -607,24 +607,24 @@ namespace MathNet.Numerics.OdeSolvers
             if (reject)
             {
                 k = Math.Min(kopt, kc);
-                h = posneg * Math.Min(Math.Abs(h), Math.Abs(hh[k]));
+                h = posneg * Math.Min(Math.Abs(h), Math.Abs(hh[k - 1]));
                 reject = false;
                 goto L10;
             }
             // COMPUTE STEPSIZE FOR NEXT STEP
             if (kopt <= kc)
             {
-                h = hh[kopt];
+                h = hh[kopt - 1];
             }
             else
             {
-                if (kc < k && w[kc] < w[kc - 1] * fac4)
+                if (kc < k && w[kc - 1] < w[kc - 2] * fac4)
                 {
-                    h = hh[kc] * a[kopt + 1] / a[kc];
+                    h = hh[kc - 1] * a[kopt] / a[kc - 1];
                 }
                 else
                 {
-                    h = hh[kc] * a[kopt] / a[kc];
+                    h = hh[kc - 1] * a[kopt - 1] / a[kc - 1];
                 }
             }
             k = kopt;
@@ -633,12 +633,12 @@ namespace MathNet.Numerics.OdeSolvers
             // STEP IS REJECTED
             L100:
             k = Math.Min(Math.Min(k, kc), km - 1);
-            if (k > 2 && w[k - 1] < w[k] * fac3)
+            if (k > 2 && w[k - 2] < w[k - 1] * fac3)
             {
                 --k;
             }
             ++(nrejct);
-            h = posneg * hh[k];
+            h = posneg * hh[k - 1];
             reject = true;
             goto L30;
         }
@@ -651,7 +651,7 @@ namespace MathNet.Numerics.OdeSolvers
             double d1;
 
             // KMIT = MU OF THE PAPER
-            conodx_1.kmit = (kc << 1) - mudif + 1;
+            conodx_1.kmit = 2 * kc - mudif + 1;
             for (i = 0; i < n; ++i)
             {
                 dens[i] = y[i];
@@ -664,17 +664,17 @@ namespace MathNet.Numerics.OdeSolvers
                 dens[n + i] = h * dz[i];
             }
 
-            int kln = n << 1;
+            int kln = 2 * n;
             for (i = 0; i < n; ++i)
             {
-                dens[kln + i] = t[i * km + 1];
+                dens[kln + i] = t[i * km];
             }
 
             // COMPUTE SOLUTION AT MID-POINT
             for (j = 1; j < kc; ++j)
             {
                 double dblenj = nj[j];
-                for (l = j; l >= 2; --l)
+                for (l = j; l >= 1; --l)
                 {
                     // Computing 2nd power
                     d1 = dblenj / nj[l - 1];
@@ -688,16 +688,16 @@ namespace MathNet.Numerics.OdeSolvers
             int krn = n << 2;
             for (i = 0; i < n; ++i)
             {
-                dens[krn + i] = ysafe[i * km + 1];
+                dens[krn + i] = ysafe[i * km];
             }
 
             // COMPUTE FIRST DERIVATIVE AT RIGHT END
             for (i = 0; i < n; ++i)
             {
-                yh1[i] = t[i * km + 1];
+                yh1[i] = t[i * km];
             }
             fcn(n, x, yh1, yh2);
-            krn = n * 3;
+            krn = 3 * n;
             for (i = 0; i < n; ++i)
             {
                 dens[krn + i] = yh2[i] * h;
@@ -705,14 +705,14 @@ namespace MathNet.Numerics.OdeSolvers
 
             // THE LOOP
             i2 = conodx_1.kmit;
-            for (int kmi = 0; kmi < i2; ++kmi)
+            for (int kmi = 1; kmi <= i2; ++kmi)
             {
                 // COMPUTE KMI-TH DERIVATIVE AT MID-POINT
                 int kbeg = (kmi + 1) / 2;
                 for (int kk = kbeg - 1; kk < kc; ++kk)
                 {
                     double facnj = Math.Pow(nj[kk] / 2.0, kmi - 1); // TODO: pow_di
-                    int ipt = ipoint[kk + 1] - (kk << 1) + kmi;
+                    int ipt = ipoint[kk + 1] - 2 * (kk + 1) + kmi - 1;
                     for (i = 0; i < n; ++i)
                     {
                         ysafe[kk + i * km] = fsafe[ipt + i * lfsafe] * facnj;
@@ -722,8 +722,7 @@ namespace MathNet.Numerics.OdeSolvers
                 for (j = kbeg; j < kc; ++j)
                 {
                     double dblenj = nj[j];
-                    int i3 = kbeg + 1;
-                    for (l = j; l >= i3; --l)
+                    for (l = j; l >= kbeg; --l)
                     {
                         // Computing 2nd power
                         d1 = dblenj / nj[l - 1];
@@ -737,7 +736,7 @@ namespace MathNet.Numerics.OdeSolvers
                 krn = (kmi + 4) * n;
                 for (i = 0; i < n; ++i)
                 {
-                    dens[krn + i] = ysafe[kbeg + i * km] * h;
+                    dens[krn + i] = ysafe[kbeg - 1 + i * km] * h;
                 }
 
                 if (kmi == conodx_1.kmit)
@@ -748,8 +747,8 @@ namespace MathNet.Numerics.OdeSolvers
                 // COMPUTE DIFFERENCES
                 for (int kk = (kmi + 2) / 2 - 1; kk < kc; ++kk)
                 {
-                    int lbeg = ipoint[kk + 1];
-                    int lend = ipoint[kk] + kmi + 1;
+                    int lbeg = ipoint[kk + 1] - 1;
+                    int lend = ipoint[kk] + kmi;
                     if (kmi == 1 && nsequ == 4)
                     {
                         lend += 2;
@@ -774,8 +773,8 @@ namespace MathNet.Numerics.OdeSolvers
                 // COMPUTE DIFFERENCES
                 for (int kk = (kmi + 2) / 2 - 1; kk < kc; ++kk)
                 {
-                    int lbeg = ipoint[kk + 1] - 1;
-                    int lend = ipoint[kk] + kmi + 2;
+                    int lbeg = ipoint[kk + 1] - 2;
+                    int lend = ipoint[kk] + kmi + 1;
                     for (l = lbeg; l >= lend; l += -2)
                     {
                         for (i = 0; i < n; ++i)
@@ -788,14 +787,14 @@ namespace MathNet.Numerics.OdeSolvers
         }
 
         int midex_(int j, double x, double[] y,
-            double h, double hmax, int n, S_fp fcn, double[] dy,
+            ref double h, double hmax, int n, S_fp fcn, double[] dy,
             double[] yh1, double[] yh2, double[] dz, double[] t,
             int[] nj, double[] hh, double[] w, ref double err,
             ref double fac, double[] a, double safe1, double uround,
             double fac1, double fac2, double safe2, double[] scal,
             ref bool atov, double safe3, ref bool reject, int km,
-            int mstab, int jstab, double errold, double[] fsafe,
-            int lfsafe, int iout, int ipt, double[] ysafe)
+            int mstab, int jstab, ref double errold, double[] fsafe,
+            int lfsafe, int iout, ref int ipt, double[] ysafe)
         {
             double d1;
 
@@ -818,9 +817,9 @@ namespace MathNet.Numerics.OdeSolvers
                 yh2[i] = y[i] + hj * dz[i];
             }
             // EXPLICIT MIDPOINT RULE
-            m = nj[j] - 1;
+            m = nj[j];
             njmid = nj[j] / 2;
-            for (mm = 0; mm < m; ++mm)
+            for (mm = 1; mm < m; ++mm)
             {
                 if (iout >= 2 && mm == njmid)
                 {
@@ -830,13 +829,13 @@ namespace MathNet.Numerics.OdeSolvers
                     }
                 }
                 fcn(n, x + hj * mm, yh2, dy);
-                if (iout >= 2 && Math.Abs(mm - njmid) <= (j << 1) - 1)
+                if (iout >= 2 && Math.Abs(mm - njmid) <= 2 * j + 1)
                 {
-                    ++(ipt);
                     for (i = 0; i < n; ++i)
                     {
                         fsafe[ipt + i * lfsafe] = dy[i];
                     }
+                    ++(ipt);
                 }
                 for (i = 0; i < n; ++i)
                 {
@@ -844,7 +843,7 @@ namespace MathNet.Numerics.OdeSolvers
                     yh1[i] = yh2[i];
                     yh2[i] = ys + hj * 2.0 * dy[i];
                 }
-                if (mm <= mstab && j <= jstab)
+                if (mm <= mstab && j + 1 <= jstab)
                 {
                     // STABILITY CHECK
                     del1 = 0.0;
@@ -870,13 +869,13 @@ namespace MathNet.Numerics.OdeSolvers
             }
             // FINAL SMOOTHING STEP
             fcn(n, x + h, yh2, dy);
-            if (iout >= 2 && njmid <= (j << 1) - 1)
+            if (iout >= 2 && njmid <= 2 * j + 1)
             {
-                ++(ipt);
                 for (i = 0; i < n; ++i)
                 {
                     fsafe[ipt + i * lfsafe] = dy[i];
                 }
+                ++(ipt);
             }
             for (i = 0; i < n; ++i)
             {
@@ -884,12 +883,12 @@ namespace MathNet.Numerics.OdeSolvers
             }
 
             // POLYNOMIAL EXTRAPOLATION
-            if (j == 1)
+            if (j == 0)
             {
                 return 0;
             }
             dblenj = nj[j];
-            for (l = j; l >= 2; --l)
+            for (l = j; l >= 1; --l)
             {
                 // Computing 2nd power
                 d1 = dblenj / nj[l - 1];
@@ -903,10 +902,10 @@ namespace MathNet.Numerics.OdeSolvers
             // SCALING
             for (i = 0; i < n; ++i)
             {
-                t1i = Math.Max(Math.Abs(y[i]), Math.Abs(t[i * km + 1]));
+                t1i = Math.Max(Math.Abs(y[i]), Math.Abs(t[i * km]));
                 scal[i] = atol + rtol * t1i;
                 // Computing 2nd power
-                d1 = (t[i * km + 1] - t[i * km + 2]) / scal[i];
+                d1 = (t[i * km] - t[i * km + 1]) / scal[i];
                 err += d1 * d1;
             }
             err = Math.Sqrt(err / n);
@@ -914,14 +913,14 @@ namespace MathNet.Numerics.OdeSolvers
             {
                 goto L79;
             }
-            if (j > 2 && err >= errold)
+            if (j > 1 && err >= errold)
             {
                 goto L79;
             }
             errold = Math.Max(err * 4, 1.0);
 
             // COMPUTE OPTIMAL STEPSIZES
-            expo = 1.0 / ((j << 1) - 1);
+            expo = 1.0 / (2 * j + 1);
             facmin = Math.Pow(fac1, expo);
             fac = Math.Min(fac2 / facmin, Math.Max(facmin, Math.Pow(err / safe1, expo) / safe2));
             fac = 1.0 / fac;
@@ -949,15 +948,15 @@ namespace MathNet.Numerics.OdeSolvers
             for (i = 0; i < n; ++i)
             {
                 y0 = y[i];
-                y1 = y[(n << 1) + i];
+                y1 = y[2 * n + i];
                 yp0 = y[n + i];
-                yp1 = y[n * 3 + i];
+                yp1 = y[3 * n + i];
                 ydiff = y1 - y0;
                 aspl = -yp1 + ydiff;
                 bspl = yp0 - ydiff;
                 y[n + i] = ydiff;
-                y[(n << 1) + i] = aspl;
-                y[n * 3 + i] = bspl;
+                y[2 * n + i] = aspl;
+                y[3 * n + i] = bspl;
                 if (imit < 0)
                 {
                     goto L100;
@@ -972,12 +971,12 @@ namespace MathNet.Numerics.OdeSolvers
                 {
                     goto L20;
                 }
-                a[0] = (y[n * 5 + i] - ph1) * 16.0;
+                a[1] = (y[n * 5 + i] - ph1) * 16.0;
                 if (imit < 3)
                 {
                     goto L20;
                 }
-                a[3] = (y[n * 7 + i] - ph3 + a[0] * 3) * 16.0;
+                a[3] = (y[n * 7 + i] - ph3 + a[1] * 3) * 16.0;
                 if (imit < 5)
                 {
                     goto L20;
@@ -1001,14 +1000,14 @@ namespace MathNet.Numerics.OdeSolvers
                     goto L60;
                 }
 
-                for (im = 3; im < imit; im += 2)
+                for (im = 4; im <= imit; im += 2)
                 {
                     fac1 = im * (im - 1) / 2.0;
                     fac2 = (double)(im * (im - 1) * (im - 2) * (im - 3));
                     a[im] = (y[n * (im + 4) + i] + a[im - 2] * fac1 - a[im - 4] * fac2) * 16.0;
                 }
                 L60:
-                for (im = -1; im < imit; ++im)
+                for (im = 0; im <= imit; ++im)
                 {
                     y[n * (im + 4) + i] = a[im];
                 }
@@ -1049,7 +1048,7 @@ namespace MathNet.Numerics.OdeSolvers
             // COMPUTE THE INTERPOLATED VALUE
             theta = (x - conodx_2.xold) / conodx_2.h;
             theta1 = 1.0 - theta;
-            phthet = y[i] + theta * (y[n + i] + theta1 * (y[(n << 1) + i] * theta + y[n * 3 + i] * theta1));
+            phthet = y[i] + theta * (y[n + i] + theta1 * (y[2 * n + i] * theta + y[3 * n + i] * theta1));
 
             if (conodx_2.imit < 0)
             {
