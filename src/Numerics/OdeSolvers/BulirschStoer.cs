@@ -982,7 +982,7 @@ namespace MathNet.Numerics.OdeSolvers
                     goto L20;
                 }
 
-                for (im = 4; im < imit; im += 2)
+                for (im = 5; im <= imit; im += 2)
                 {
                     fac1 = im * (im - 1) / 2.0;
                     fac2 = fac1 * (im - 2) * (im - 3) * 2.0;
