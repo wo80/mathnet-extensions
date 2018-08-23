@@ -42,8 +42,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         /* Subroutine */
         int radau5_(int n, S_fp fcn, double x, double[] y,
             double xend, double h, double[] rtol, double[] atol,
-            int itol, J_fp jac, int ijac, int mljac, int mujac,
-            M_fp mas, int imas, int mlmas, int mumas, S_fp solout,
+            int itol, J_fp jac, int ijac,
+            M_fp mas, int imas, S_fp solout,
             int iout, double[] work, int lwork, int[] iwork,
             int liwork, double[] rpar, int[] ipar, int idid)
         {
@@ -65,7 +65,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             int nind1, nind2, nind3;
             double quot1, quot2;
             int ldjac;
-            bool jband;
             int ldmas;
             bool arret;
             double fnewt;
@@ -730,79 +729,37 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             /* *** *** *** *** *** *** *** *** *** *** *** *** *** */
             /* ---- IMPLICIT, BANDED OR NOT ? */
             implct = imas != 0;
-            jband = mljac < nm1;
+
             /* -------- COMPUTATION OF THE ROW-DIMENSIONS OF THE 2-ARRAYS --- */
             /* -- JACOBIAN  AND  MATRICES E1, E2 */
-            if (jband)
             {
-                ldjac = mljac + mujac + 1;
-                lde1 = mljac + ldjac;
-            }
-            else
-            {
-
-                mljac = nm1;
-
-                mujac = nm1;
                 ldjac = nm1;
                 lde1 = nm1;
             }
             /* -- MASS MATRIX */
             if (implct)
             {
-                if (mlmas != nm1)
-                {
-                    ldmas = mlmas + mumas + 1;
-                    if (jband)
-                    {
-                        ijob = 4;
-                    }
-                    else
-                    {
-                        ijob = 3;
-                    }
-                }
-                else
-                {
-
-                    mumas = nm1;
-                    ldmas = nm1;
-                    ijob = 5;
-                }
-                /* ------ BANDWITH OF "MAS" NOT SMALLER THAN BANDWITH OF "JAC" */
-                if (mlmas > mljac || mumas > mujac)
-                {
-
-                    Console.WriteLine("BANDWITH OF \"MAS\" NOT SMALLER THAN BANDWITH OF \"JAC\"");
-
-                    arret = true;
-                }
+                ldmas = nm1;
+                ijob = 5;
             }
             else
             {
                 ldmas = 0;
-                if (jband)
+
+                ijob = 1;
+                if (n > 2 && iwork[1] != 0)
                 {
-                    ijob = 2;
-                }
-                else
-                {
-                    ijob = 1;
-                    if (n > 2 && iwork[1] != 0)
-                    {
-                        ijob = 7;
-                    }
+                    ijob = 7;
                 }
             }
             ldmas2 = Math.Max(1, ldmas);
             /* ------ HESSENBERG OPTION ONLY FOR EXPLICIT EQU. WITH FULL JACOBIAN */
-            if ((implct || jband) && ijob == 7)
+            if ((implct) && ijob == 7)
             {
-
                 Console.WriteLine(" HESSENBERG OPTION ONLY FOR EXPLICIT EQUATIONS WITH FULL JACOBIAN");
-
                 arret = true;
             }
+
             /* ------- PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK ----- */
             var z1 = new double[n];
             var z2 = new double[n];
@@ -849,10 +806,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             /* -------- CALL TO CORE INTEGRATOR ------------ */
             radcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
-                itol, jac, ijac, mljac, mujac, mas, mlmas, mumas, (
-                S_fp)solout, iout, idid, nmax, uround, safe, thet, fnewt,
+                itol, jac, ijac, mas,
+                solout, iout, idid, nmax, uround, safe, thet, fnewt,
                 quot1, quot2, nit, ijob, startn, nind1, nind2, nind3,
-                pred, facl, facr, m1, m2, nm1, implct, jband, ldjac,
+                pred, facl, facr, m1, m2, nm1, implct, ldjac,
                 lde1, ldmas2, z1, z2, z3, y0,
                  scal, f1, f2, f3,
                 _jac, e1, e2r, e2i, _mas,
@@ -894,13 +851,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         int radcor_(int n, S_fp fcn, double x, double[]
             y, double xend, double hmax, double h, double[]
             rtol, double[] atol, int itol, J_fp jac, int ijac,
-            int mljac, int mujac, M_fp mas, int mlmas, int
-            mumas, S_fp solout, int iout, int idid, int nmax,
+            M_fp mas, S_fp solout, int iout, int idid, int nmax,
             double uround, double safe, double thet, double
             fnewt, double quot1, double quot2, int nit, int
             ijob, bool startn, int nind1, int nind2, int nind3,
             bool pred, double facl, double facr, int m1,
-            int m2, int nm1, bool implct, bool banded, int
+            int m2, int nm1, bool implct, int
             ldjac, int lde1, int ldmas, double[] z1, double[] z2,
             double[] z3, double[] y0, double[] scal, double[] f1,
             double[] f2, double[] f3, double[] fjac, double[] e1,
@@ -1094,13 +1050,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     goto L179;
                 }
             }
-            linal_1.mle = mljac;
-            linal_1.mue = mujac;
-            linal_1.mbjac = mljac + mujac + 1;
-            linal_1.mbb = mlmas + mumas + 1;
-            linal_1.mdiag = linal_1.mle + linal_1.mue + 1;
-            linal_1.mdiff = linal_1.mle + linal_1.mue - mumas;
-            linal_1.mbdiag = mumas + 1;
+
             n2 = n << 1;
             n3 = n * 3;
             if (itol == 0)
@@ -1131,72 +1081,22 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (ijac == 0)
             {
                 /* --- COMPUTE JACOBIAN MATRIX NUMERICALLY */
-                if (banded)
+
+                /* --- JACOBIAN IS FULL */
+                i1 = n;
+                for (i = 1; i <= i1; ++i)
                 {
-                    /* --- JACOBIAN IS BANDED */
-                    mujacp = mujac + 1;
-                    md = Math.Min(linal_1.mbjac, m2);
-                    i1 = m1 / m2 + 1;
-                    for (mm = 1; mm <= i1; ++mm)
+                    ysafe = y[i];
+                    delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
+                    y[i] = ysafe + delt;
+                    fcn(n, x, y, cont);
+                    i2 = n;
+                    for (j = m1 + 1; j <= i2; ++j)
                     {
-                        i2 = md;
-                        for (k = 1; k <= i2; ++k)
-                        {
-                            j = k + (mm - 1) * m2;
-                            L12:
-                            f1[j] = y[j];
-                            f2[j] = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(y[j])));
-                            y[j] += f2[j];
-                            j += md;
-                            if (j <= mm * m2)
-                            {
-                                goto L12;
-                            }
-                            fcn(n, x, y, cont);
-                            j = k + (mm - 1) * m2;
-                            j1 = k;
-                            /* Computing MAX */
-                            i3 = 1, i4 = j1 - mujac;
-                            lbeg = Math.Max(i3, i4) + m1;
-                            L14:
-                            /* Computing MIN */
-                            i3 = m2, i4 = j1 + mljac;
-                            lend = Math.Min(i3, i4) + m1;
-                            y[j] = f1[j];
-                            mujacj = mujacp - j1 - m1;
-                            i3 = lend;
-                            for (l = lbeg; l <= i3; ++l)
-                            {
-                                fjac[l + mujacj + j * ldjac] = (cont[l] - y0[l]) / f2[j];
-                            }
-                            j += md;
-                            j1 += md;
-                            lbeg = lend + 1;
-                            if (j <= mm * m2)
-                            {
-                                goto L14;
-                            }
-                        }
+                        fjac[j - m1 + i * ldjac] = (cont[j] - y0[j]) /
+                            delt;
                     }
-                }
-                else
-                {
-                    /* --- JACOBIAN IS FULL */
-                    i1 = n;
-                    for (i = 1; i <= i1; ++i)
-                    {
-                        ysafe = y[i];
-                        delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
-                        y[i] = ysafe + delt;
-                        fcn(n, x, y, cont);
-                        i2 = n;
-                        for (j = m1 + 1; j <= i2; ++j)
-                        {
-                            fjac[j - m1 + i * ldjac] = (cont[j] - y0[j]) /
-                                delt;
-                        }
-                        y[i] = ysafe;
-                    }
+                    y[i] = ysafe;
                 }
             }
             else
@@ -1211,14 +1111,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             fac1 = u1 / h;
             alphn = alph / h;
             betan = beta / h;
-            decomr_(n, fjac, ldjac, fmas, ldmas, mlmas,
-                mumas, m1, m2, nm1, fac1, e1, lde1, ip1, ier, ijob, calhes, iphes);
+            decomr_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac1, e1, lde1, ip1, ier, ijob, calhes, iphes);
             if (ier != 0)
             {
                 goto L78;
             }
-            decomc_(n, fjac, ldjac, fmas, ldmas, mlmas,
-                mumas, m1, m2, nm1, alphn, betan, e2r, e2i, lde1, ip2, ier, ijob);
+            decomc_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, alphn, betan, e2r, e2i, lde1, ip2, ier, ijob);
             if (ier != 0)
             {
                 goto L78;
@@ -1334,8 +1232,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 z2[i] = ti21 * a1 + ti22 * a2 + ti23 * a3;
                 z3[i] = ti31 * a1 + ti32 * a2 + ti33 * a3;
             }
-            slvrad_(n, fjac, ldjac, mljac, mujac, fmas,
-                ldmas, mlmas, mumas, m1, m2, nm1, fac1, alphn, betan, e1,
+            slvrad_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac1, alphn, betan, e1,
                  e2r, e2i, lde1, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, iphes, ier, ijob);
             ++(nsol);
             ++newt;
@@ -1408,8 +1305,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L40;
             }
             /* --- ERROR ESTIMATION */
-            estrad_(n, fjac, ldjac, mljac, mujac, fmas,
-                ldmas, mlmas, mumas, h, dd1, dd2, dd3, fcn, nfcn, y0,
+            estrad_(n, fjac, ldjac, fmas, ldmas, h, dd1, dd2, dd3, fcn, nfcn, y0,
                 y, ijob, x, m1, m2, nm1, e1, lde1, z1, z2, z3,
                 cont, f1, f2, ip1, iphes, scal, err, first, reject, fac1);
             /* --- COMPUTATION OF HNEW */
