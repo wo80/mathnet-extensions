@@ -306,7 +306,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             int i, j, k, kc = 0;
             double t1i, err;
-            int ipt, lrde;
+            int ipt;
             double delt;
             bool last;
             double xold;
@@ -318,8 +318,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             bool caljac;
             bool reject;
             double errold = 0, posneg;
-
-
+            
             // Core integrator for seulex
 
             if (iout == 2)
@@ -327,9 +326,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 coseu_1.nrd = n;
                 // Compute the factorials
                 facul[0] = 1.0;
-                for (i = 0; i < km - 1; ++i)
+                for (i = 1; i < km; ++i)
                 {
-                    facul[i + 1] = i * facul[i];
+                    facul[i] = i * facul[i - 1];
                 }
             }
             // Compute mass matrix for implicit case
@@ -339,8 +338,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             // Initializations
-            lrde = (km + 2) * n;
-
             a[0] = wkjac + nj[0] * wkrow + wkdec;
             for (i = 1; i < km; ++i)
             {
@@ -442,7 +439,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         wh, ref err, ref theta,
                         ref errold,
                         autnms, implct, ref reject,
-                        ref atov, fsafe, km2, iout, ipt, ijob);
+                        ref atov, fsafe, km2, iout, ref ipt, ijob);
                     if (atov)
                     {
                         goto L10;
@@ -472,7 +469,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     a, yhh, dyh, del, wh, ref err, ref theta,
                     ref errold, autnms, implct,
                     ref reject, ref atov, fsafe, km2, iout,
-                    ipt, ijob);
+                    ref ipt, ijob);
                 if (atov)
                 {
                     goto L10;
@@ -498,7 +495,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 km, hmaxn, t, scal, nj, hh, w, a,
                 yhh, dyh, del, wh, ref err, ref theta, ref errold,
                 autnms, implct, ref reject, ref atov,
-                fsafe, km2, iout, ipt, ijob);
+                fsafe, km2, iout, ref ipt, ijob);
             if (atov)
             {
                 goto L10;
@@ -520,7 +517,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 km, hmaxn, t, scal, nj, hh, w, a,
                 yhh, dyh, del, wh, ref err, ref theta, ref errold,
                 autnms, implct, ref reject, ref atov,
-                fsafe, km2, iout, ipt, ijob);
+                fsafe, km2, iout, ref ipt, ijob);
             if (atov)
             {
                 goto L10;
@@ -666,33 +663,33 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             for (int klr = 0; klr < i1; ++klr)
             {
                 // Compute differences 
-                if (klr >= 2)
+                if (klr >= 1)
                 {
-                    for (int kk = klr - 1; kk < kc; ++kk)
+                    for (int kk = klr; kk < kc; ++kk)
                     {
-                        int lbeg = (kk + 1) * kk / 2;
-                        int lend = lbeg - kk + 2;
+                        int lbeg = (kk + 2) * (kk + 1) / 2;
+                        int lend = lbeg - kk + 1;
                         for (int l = lbeg; l >= lend; --l)
                         {
                             for (int i = 0; i < n; ++i)
                             {
-                                fsafe[l + i * km2] -= fsafe[l - 1 + i * km2];
+                                fsafe[l - 1 + i * km2] -= fsafe[l - 2 + i * km2];
                             }
                         }
                     }
                 }
                 // Compute derivatives at right end
-                for (int kk = klr + lambda - 1; kk < kc; ++kk)
+                for (int kk = klr + lambda; kk < kc; ++kk)
                 {
-                    double facnj = Math.Pow(nj[kk], klr) / facul[klr + 1]; // TODO: pow_di()
-                    int ipt = (kk + 1) * kk / 2;
+                    double facnj = Math.Pow(nj[kk], klr + 1) / facul[klr + 1]; // TODO: pow_di()
+                    int ipt = (kk + 2) * (kk + 1) / 2 - 1;
                     for (int i = 0; i < n; ++i)
                     {
-                        int krn = (kk - lambda + 1) * n;
+                        int krn = (kk + 1 - lambda + 1) * n;
                         dens[krn + i] = fsafe[ipt + i * km2] * facnj;
                     }
                 }
-                for (int j = klr + lambda; j < kc; ++j)
+                for (int j = klr + lambda + 1; j < kc; ++j)
                 {
                     double dblenj = (double)nj[j];
                     int i3 = klr + lambda + 1;
@@ -701,7 +698,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         double factor = dblenj / nj[l - 1] - 1.0;
                         for (int i = 0; i < n; ++i)
                         {
-                            int krn = (l - lambda + 1) * n + i;
+                            int krn = (l + 1 - lambda + 1) * n + i;
                             dens[krn - n] = dens[krn] + (dens[krn] - dens[krn - n]) / factor;
                         }
                     }
@@ -712,7 +709,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 for (int j = 0; j < coseu_1.kright; ++j)
                 {
-                    int ii = n * j + i;
+                    int ii = n * (j + 1) + i;
                     dens[ii] -= dens[ii - n];
                 }
             }
@@ -769,7 +766,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ref double theta,
             ref double errold, bool autnms,
             bool implct, ref bool reject, ref bool atov,
-            double[] fsafe, int km2, int iout, int ipt,
+            double[] fsafe, int km2, int iout, ref int ipt,
             int ijob)
         {
             double d1, d2;
@@ -807,11 +804,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             m = nj[jj];
             if (iout == 2 && m == jj + 1)
             {
-                ++(ipt);
                 for (i = 0; i < n; ++i)
                 {
                     fsafe[ipt + i * km2] = del[i];
                 }
+                ++(ipt);
             }
 
             // Semi-implicit Euler method 
@@ -901,11 +898,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                     if (iout == 2 && mm + 1 >= m - jj - 1)
                     {
-                        ++(ipt);
                         for (i = 0; i < n; ++i)
                         {
                             fsafe[ipt + i * km2] = del[i];
                         }
+                        ++(ipt);
                     }
                 }
             }
