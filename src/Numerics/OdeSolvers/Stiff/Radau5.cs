@@ -13,7 +13,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
     using M_fp = System.Action<int, double[], int>;
 
     /// <summary>
+    /// Numerical solution of a stiff (or differential algebraic) system of first order
+    /// ordinary differential equations
     /// 
+    ///     M* Y'=F(X,Y).
+    ///     
+    /// The system can be (linearly) implicit (mass-matrix M != I) or explicit (M = I).
+    /// 
+    /// The method used is an implicit Runge-Kutta method (RADAU IIA) of order 5
+    /// with step size control and continuous output.
+    ///
     /// Authors: E. Hairer and G. Wanner
     ///
     /// This code is part of the book:
@@ -39,18 +48,18 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         conra5 conra5_1;
 
-        /* Subroutine */
+        // Subroutine
         int radau5_(int n, S_fp fcn, double x, double[] y,
             double xend, double h, double[] rtol, double[] atol,
             int itol, J_fp jac, int ijac,
             M_fp mas, int imas, S_fp solout,
             int iout, double[] work, int lwork, int[] iwork,
-            int liwork, double[] rpar, int[] ipar, int idid)
+            int liwork, int idid)
         {
-            /* System generated locals */
+            // System generated locals
             int i1;
 
-            /* Local variables */
+            // Local variables
             int i, m1, m2, nm1, nit, lde1;
             double facl;
             int ndec, njac;
@@ -79,30 +88,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double uround;
 
             /**
-             *     NUMERICAL SOLUTION OF A STIFF (OR DIFFERENTIAL ALGEBRAIC)
-             *     SYSTEM OF FIRST 0RDER ORDINARY DIFFERENTIAL EQUATIONS
-             *                     M*Y'=F(X,Y).
-             *     THE SYSTEM CAN BE (LINEARLY) IMPLICIT (MASS-MATRIX M .NE. I)
-             *     OR EXPLICIT (M=I).
-             *     THE METHOD USED IS AN IMPLICIT RUNGE-KUTTA METHOD (RADAU IIA)
-             *     OF ORDER 5 WITH STEP SIZE CONTROL AND CONTINUOUS OUTPUT.
-             *     CF. SECTION IV.8
-             *
-             *     AUTHORS: E. HAIRER AND G. WANNER
-             *              UNIVERSITE DE GENEVE, DEPT. DE MATHEMATIQUES
-             *              CH-1211 GENEVE 24, SWITZERLAND
-             *              E-MAIL:  Ernst.Hairer@math.unige.ch
-             *                       Gerhard.Wanner@math.unige.ch
-             *
-             *     THIS CODE IS PART OF THE BOOK:
-             *         E. HAIRER AND G. WANNER, SOLVING ORDINARY DIFFERENTIAL
-             *         EQUATIONS II. STIFF AND DIFFERENTIAL-ALGEBRAIC PROBLEMS.
-             *         SPRINGER SERIES IN COMPUTATIONAL MATHEMATICS 14,
-             *         SPRINGER-VERLAG 1991, SECOND EDITION 1996.
-             *
-             *     VERSION OF JULY 9, 1996
-             *     (latest small correction: January 18, 2002)
-             *
              *     INPUT PARAMETERS
              *     ----------------
              *     N           DIMENSION OF THE SYSTEM
@@ -151,26 +136,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                    BE FULL AND THE PARTIAL DERIVATIVES ARE
              *                    STORED IN DFY AS
              *                       DFY(I,J) = PARTIAL F(I) / PARTIAL Y(J)
-             *                 ELSE, THE JACOBIAN IS TAKEN AS BANDED AND
-             *                    THE PARTIAL DERIVATIVES ARE STORED
-             *                    DIAGONAL-WISE AS
-             *                       DFY(I-J+MUJAC+1,J) = PARTIAL F(I) / PARTIAL Y(J).
              *
              *     IJAC        SWITCH FOR THE COMPUTATION OF THE JACOBIAN:
              *                    IJAC=0: JACOBIAN IS COMPUTED INTERNALLY BY FINITE
              *                       DIFFERENCES, SUBROUTINE "JAC" IS NEVER CALLED.
              *                    IJAC=1: JACOBIAN IS SUPPLIED BY SUBROUTINE JAC.
-             *
-             *     MLJAC       SWITCH FOR THE BANDED STRUCTURE OF THE JACOBIAN:
-             *                    MLJAC=N: JACOBIAN IS A FULL MATRIX. THE LINEAR
-             *                       ALGEBRA IS DONE BY FULL-MATRIX GAUSS-ELIMINATION.
-             *                    0<=MLJAC<N: MLJAC IS THE LOWER BANDWITH OF JACOBIAN
-             *                       MATRIX (>= NUMBER OF NON-ZERO DIAGONALS BELOW
-             *                       THE MAIN DIAGONAL).
-             *
-             *     MUJAC       UPPER BANDWITH OF JACOBIAN  MATRIX (>= NUMBER OF NON-
-             *                 ZERO DIAGONALS ABOVE THE MAIN DIAGONAL).
-             *                 NEED NOT BE DEFINED IF MLJAC=N.
              *
              *     ----   MAS,IMAS,MLMAS, AND MUMAS HAVE ANALOG MEANINGS      -----
              *     ----   FOR THE "MASS MATRIX" (THE MATRIX "M" OF SECTION IV.8): -
@@ -280,10 +250,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *
              *     LIWORK      DECLARED LENGTH OF ARRAY "IWORK".
              *
-             *     RPAR, IPAR  REAL AND INTEGER PARAMETERS (OR PARAMETER ARRAYS) WHICH
-             *                 CAN BE USED FOR COMMUNICATION BETWEEN YOUR CALLING
-             *                 PROGRAM AND THE FCN, JAC, MAS, SOLOUT SUBROUTINES.
-             *
              * ----------------------------------------------------------------------
              *
              *     SOPHISTICATED SETTING OF PARAMETERS
@@ -349,28 +315,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *              IF (MLJAC.EQ.N-M1) THE JACOBIAN IS SUPPOSED TO BE FULL
              *                 DFY(I,J) = PARTIAL F(I+M1) / PARTIAL Y(J)
              *                FOR I=1,N-M1 AND J=1,N.
-             *              ELSE, THE JACOBIAN IS BANDED ( M1 = M2 * MM )
-             *                 DFY(I-J+MUJAC+1,J+K*M2) = PARTIAL F(I+M1) / PARTIAL Y(J+K*M2)
-             *                FOR I=1,MLJAC+MUJAC+1 AND J=1,M2 AND K=0,MM.
-             *       - MLJAC: MLJAC=N-M1: IF THE NON-TRIVIAL PART OF THE JACOBIAN IS FULL
-             *                0<=MLJAC<N-M1: IF THE (MM+1) SUBMATRICES (FOR K=0,MM)
-             *                     PARTIAL F(I+M1) / PARTIAL Y(J+K*M2),  I,J=1,M2
-             *                    ARE BANDED, MLJAC IS THE MAXIMAL LOWER BANDWIDTH
-             *                    OF THESE MM+1 SUBMATRICES
-             *       - MUJAC: MAXIMAL UPPER BANDWIDTH OF THESE MM+1 SUBMATRICES
-             *                NEED NOT BE DEFINED IF MLJAC=N-M1
              *       - MAS: IF IMAS=0 THIS MATRIX IS ASSUMED TO BE THE IDENTITY AND
              *              NEED NOT BE DEFINED. SUPPLY A DUMMY SUBROUTINE IN THIS CASE.
              *              IT IS ASSUMED THAT ONLY THE ELEMENTS OF RIGHT LOWER BLOCK OF
              *              DIMENSION N-M1 DIFFER FROM THAT OF THE IDENTITY MATRIX.
              *              IF (MLMAS.EQ.N-M1) THIS SUBMATRIX IS SUPPOSED TO BE FULL
              *                 AM(I,J) = M(I+M1,J+M1)     FOR I=1,N-M1 AND J=1,N-M1.
-             *              ELSE, THE MASS MATRIX IS BANDED
-             *                 AM(I-J+MUMAS+1,J) = M(I+M1,J+M1)
-             *       - MLMAS: MLMAS=N-M1: IF THE NON-TRIVIAL PART OF M IS FULL
-             *                0<=MLMAS<N-M1: LOWER BANDWIDTH OF THE MASS MATRIX
-             *       - MUMAS: UPPER BANDWIDTH OF THE MASS MATRIX
-             *                NEED NOT BE DEFINED IF MLMAS=N-M1
              *
              *    IWORK(9)  THE VALUE OF M1.  DEFAULT M1=0.
              *
@@ -441,17 +391,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                      SYSTEMS; THE NSTEP FORWARD-BACKWARD SUBSTITUTIONS,
              *                      NEEDED FOR STEP SIZE SELECTION, ARE NOT COUNTED
              */
-
-            /* Parameter adjustments */
-            //--y;
-            //--rtol;
-            //--atol;
-            //--work;
-            //--iwork;
-            //--rpar;
-            //--ipar;
-
-            /* Function Body */
+             
             nfcn = 0;
             njac = 0;
             nstep = 0;
@@ -460,7 +400,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ndec = 0;
             nsol = 0;
             arret = false;
-            /* -------- UROUND   SMALLEST NUMBER SATISFYING 1.0D0+UROUND>1.0D0 */
+
+            // UROUND   Smallest number satisfying 1.0D0+UROUND>1.0D0
             if (work[1] == 0.0)
             {
                 uround = 1e-16;
@@ -478,7 +419,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     arret = true;
                 }
             }
-            /* -------- CHECK AND CHANGE THE TOLERANCES */
+            // Check and change the tolerances
             expm = 0.66666666666666663;
             if (itol == 0)
             {
@@ -518,7 +459,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                 }
             }
-            /* -------- NMAX , THE MAXIMAL NUMBER OF STEPS ----- */
+            // NMAX , The maximal number of steps
             if (iwork[2] == 0)
             {
                 nmax = 100000;
@@ -535,7 +476,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     arret = true;
                 }
             }
-            /* -------- NIT    MAXIMAL NUMBER OF NEWTON ITERATIONS */
+            // NIT    Maximal number of Newton iterations
             if (iwork[3] == 0)
             {
                 nit = 7;
@@ -552,7 +493,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     arret = true;
                 }
             }
-            /* -------- STARTN  SWITCH FOR STARTING VALUES OF NEWTON ITERATIONS */
+            // STARTN  Switch for starting values of newton iterations
             if (iwork[4] == 0)
             {
                 startn = false;
@@ -561,7 +502,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 startn = true;
             }
-            /* -------- PARAMETER FOR DIFFERENTIAL-ALGEBRAIC COMPONENTS */
+            // Parameter for differential-algebraic components
             nind1 = iwork[5];
             nind2 = iwork[6];
             nind3 = iwork[7];
@@ -579,7 +520,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
                 arret = true;
             }
-            /* -------- PRED   STEP SIZE CONTROL */
+            // PRED   Step size control
             if (iwork[8] <= 1)
             {
                 pred = true;
@@ -588,7 +529,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 pred = false;
             }
-            /* -------- PARAMETER FOR SECOND ORDER EQUATIONS */
+            // Parameter for second order equations
             m1 = iwork[9];
             m2 = iwork[10];
             nm1 = n - m1;
@@ -609,7 +550,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
                 arret = true;
             }
-            /* --------- SAFE     SAFETY FACTOR IN STEP SIZE PREDICTION */
+            // SAFE     Safety factor in step size prediction
             if (work[2] == 0.0)
             {
                 safe = 0.9;
@@ -627,7 +568,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     arret = true;
                 }
             }
-            /* ------ THET     DECIDES WHETHER THE JACOBIAN SHOULD BE RECOMPUTED; */
+            // THET     Decides whether the Jacobian should be recomputed;
             if (work[3] == 0.0)
             {
                 thet = 0.001;
@@ -645,7 +586,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     arret = true;
                 }
             }
-            /* --- FNEWT   STOPPING CRITERION FOR NEWTON'S METHOD, USUALLY CHOSEN <1. */
+            // FNEWT   Stopping criterion for Newton's method, usually chosen <1.
             tolst = rtol[1];
             if (work[4] == 0.0)
             {
@@ -663,7 +604,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     arret = true;
                 }
             }
-            /* --- QUOT1 AND QUOT2: IF QUOT1 < HNEW/HOLD < QUOT2, STEP SIZE = CONST. */
+            // QUOT1 and QUOT2: if QUOT1 < HNEW/HOLD < QUOT2, step size = CONST.
             if (work[5] == 0.0)
             {
                 quot1 = 1.0;
@@ -689,7 +630,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
                 arret = true;
             }
-            /* -------- MAXIMAL STEP SIZE */
+            // Maximal step size
             if (work[7] == 0.0)
             {
                 hmax = xend - x;
@@ -698,7 +639,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 hmax = work[7];
             }
-            /* -------  FACL,FACR     PARAMETERS FOR STEP SIZE SELECTION */
+            // FACL,FACR     Parameters for step size selection
             if (work[8] == 0.0)
             {
                 facl = 5.0;
@@ -724,19 +665,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
                 arret = true;
             }
-            /* *** *** *** *** *** *** *** *** *** *** *** *** *** */
-            /*         COMPUTATION OF ARRAY ENTRIES */
-            /* *** *** *** *** *** *** *** *** *** *** *** *** *** */
-            /* ---- IMPLICIT, BANDED OR NOT ? */
+
+            // Computation of array entries
+
+            // Implicit, banded or not ?
             implct = imas != 0;
 
-            /* -------- COMPUTATION OF THE ROW-DIMENSIONS OF THE 2-ARRAYS --- */
-            /* -- JACOBIAN  AND  MATRICES E1, E2 */
+            // Computation of the row-dimensions of the 2-arrays
+            // Jacobian  and  matrices E1, E2
             {
                 ldjac = nm1;
                 lde1 = nm1;
             }
-            /* -- MASS MATRIX */
+            // Mass matrix
             if (implct)
             {
                 ldmas = nm1;
@@ -753,14 +694,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
             }
             ldmas2 = Math.Max(1, ldmas);
-            /* ------ HESSENBERG OPTION ONLY FOR EXPLICIT EQU. WITH FULL JACOBIAN */
+            // Hessenberg option only for explicit equ. with full Jacobian
             if ((implct) && ijob == 7)
             {
                 Console.WriteLine(" HESSENBERG OPTION ONLY FOR EXPLICIT EQUATIONS WITH FULL JACOBIAN");
                 arret = true;
             }
 
-            /* ------- PREPARE THE ENTRY-POINTS FOR THE ARRAYS IN WORK ----- */
+            // Prepare the entry-points for the arrays in work
             var z1 = new double[n];
             var z2 = new double[n];
             var z3 = new double[n];
@@ -775,36 +716,20 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var e1 = new double[nm1 * lde1];
             var e2r = new double[nm1 * lde1];
             var e2i = new double[nm1 * lde1];
-
-            /* ------ TOTAL STORAGE REQUIREMENT ----------- */
-            //istore = iee2i + nm1 * lde1 - 1;
-            //if (istore > lwork)
-            //{
-            //    Console.WriteLine(" INSUFFICIENT STORAGE FOR WORK, MIN. LWORK=", istore);
-            //    arret = true;
-            //}
-
-            /* ------- ENTRY POINTS FOR INTEGER WORKSPACE ----- */
+            
+            // Entry points for integer workspace
             var ip1 = new int[nm1];
             var ip2 = new int[nm1];
             var iph = new int[nm1];
-
-            /* --------- TOTAL REQUIREMENT --------------- */
-            //istore = ieiph + nm1 - 1;
-            //if (istore > liwork)
-            //{
-            //    Console.WriteLine(" INSUFF. STORAGE FOR IWORK, MIN. LIWORK=", istore);
-            //    arret = true;
-            //}
-
-            /* ------ WHEN A FAIL HAS OCCURED, WE RETURN WITH IDID=-1 */
+            
+            // When a fail has occured, we return with IDID=-1
             if (arret)
             {
                 idid = -1;
                 return 0;
             }
 
-            /* -------- CALL TO CORE INTEGRATOR ------------ */
+            // Call to core integrator
             radcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
                 itol, jac, ijac, mas,
                 solout, iout, idid, nmax, uround, safe, thet, fnewt,
@@ -824,7 +749,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             iwork[19] = ndec;
             iwork[20] = nsol;
 
-            /* -------- RESTORE TOLERANCES */
+            // Restore tolerances
             expm = 1.0 / expm;
             if (itol == 0)
             {
@@ -842,12 +767,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     atol[i] = rtol[i] * quot;
                 }
             }
-            /* ----------- RETURN ----------- */
+
             return 0;
-        } /* radau5_ */
-
-
-        /* Subroutine */
+        }
+        
         int radcor_(int n, S_fp fcn, double x, double[]
             y, double xend, double hmax, double h, double[]
             rtol, double[] atol, int itol, J_fp jac, int ijac,
@@ -865,31 +788,21 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ref int njac, ref int nstep, ref int naccpt, ref int nrejct,
             ref int ndec, ref int nsol)
         {
-            /* Format strings */
-            //static char fmt_979[] = "(  EXIT OF RADAU5 AT X= ,e18.4)";
-
-            /* System generated locals */
-            int i1, i2, i3, i4;
+            int i1, i2;
             double d1, d2, d3;
-
-
-            /* Local variables */
-            int i, j, k, l;
+            
+            int i, j;
             double a1, a2, c1, c2, a3;
-            int j1, n2, n3;
+            int n2, n3;
             double u1, ak;
-            int md;
             double t11, t12, t13, t21, t22, t23, t31;
-            int mm;
             double qt, dd1, dd2, dd3, ak1, ak2, ak3, f1i, f2i, f3i, c1q, c2q, c3q,
                  z1i, z2i, z3i, sq6, fac, ti11, cno;
             int lrc;
             double ti12, ti13, ti21, ti22, ti23, ti31, ti32, ti33;
             int ier;
             double xph, thq, err = 0, fac1, cfac, hacc = 0, c1mc2, beta;
-            int lbeg;
             double alph, hold;
-            int lend;
             double delt, hnew;
             bool last;
             double hopt, xold;
@@ -904,24 +817,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double faccon;
             bool calhes;
             double erracc = 0;
-            int mujacj;
             bool reject;
             double facgus;
-            int mujacp;
             double dynold = 0, posneg;
             double thqold = 0;
-
-            /* Fortran I/O blocks */
-
-
-            /*     CORE INTEGRATOR FOR RADAU5 */
-            /*     PARAMETERS SAME AS IN RADAU5 WITH WORKSPACE ADDED */
+            
+            // Core integrator for RADAU5
+            // Parameters same as in radau5 with workspace added
 
 
-            /*  INITIALISATIONS */
+            // Initialisations
 
-            /* --------- DUPLIFY N FOR COMMON BLOCK CONT ----- */
-            /* Parameter adjustments */
+            // Duplify n for common block cont
+
             //--cont;
             //--f3;
             //--f2;
@@ -953,22 +861,23 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             //fmas -= fmas_offset;
             //--rpar;
             //--ipar;
-
-            /* Function Body */
+            
             conra5_1.nn = n;
             conra5_1.nn2 = n << 1;
             conra5_1.nn3 = n * 3;
             lrc = n << 2;
-            /* -------- CHECK THE INDEX OF THE PROBLEM ----- */
+
+            // Check the index of the problem
             index1 = nind1 != 0;
             index2 = nind2 != 0;
             index3 = nind3 != 0;
-            /* ------- COMPUTE MASS MATRIX FOR IMPLICIT CASE ---------- */
+
+            // Compute mass matrix for implicit case
             if (implct)
             {
                 mas(nm1, fmas, ldmas);
             }
-            /* ---------- CONSTANTS --------- */
+            // Constants
             sq6 = Math.Sqrt(6.0);
             c1 = (4.0 - sq6) / 10.0;
             c2 = (sq6 + 4.0) / 10.0;
@@ -981,9 +890,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             u1 = (Math.Pow(81.0, 0.33333333333333331) + 6.0 - Math.Pow(9.0, 0.33333333333333331)) / 30.0;
             alph = (12.0 - Math.Pow(81.0, 0.33333333333333331) + Math.Pow(9.0, 0.33333333333333331)) / 60.0;
             beta = (Math.Pow(81.0, 0.33333333333333331) + Math.Pow(9.0, 0.33333333333333331)) * Math.Sqrt(3.0) / 60.0;
-            /* Computing 2nd power */
+            // Computing 2nd power
             d1 = alph;
-            /* Computing 2nd power */
             d2 = beta;
             cno = d1 * d1 + d2 * d2;
             u1 = 1.0 / u1;
@@ -1072,17 +980,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             hhfac = h;
             fcn(n, x, y, y0);
             ++(nfcn);
-            /* --- BASIC INTEGRATION STEP */
+            // Basic integration step
             L10:
-            /* *** *** *** *** *** *** *** */
-            /*  COMPUTATION OF THE JACOBIAN */
-            /* *** *** *** *** *** *** *** */
+            // Computation of the Jacobian
             ++(njac);
             if (ijac == 0)
             {
-                /* --- COMPUTE JACOBIAN MATRIX NUMERICALLY */
+                // Compute Jacobian matrix numerically
 
-                /* --- JACOBIAN IS FULL */
+                // Jacobian is full
                 i1 = n;
                 for (i = 1; i <= i1; ++i)
                 {
@@ -1101,13 +1007,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             else
             {
-                /* --- COMPUTE JACOBIAN MATRIX ANALYTICALLY */
+                // Compute Jacobian matrix analytically
                 jac(n, x, y, fjac, ldjac);
             }
             caljac = true;
             calhes = true;
+
             L20:
-            /* --- COMPUTE THE MATRICES E1 AND E2 AND THEIR DECOMPOSITIONS */
+            // Compute the matrices E1 and E2 and their decompositions
             fac1 = u1 / h;
             alphn = alph / h;
             betan = beta / h;
@@ -1149,9 +1056,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
             }
             xph = x + h;
-            /* *** *** *** *** *** *** *** */
-            /*  STARTING VALUES FOR NEWTON ITERATION */
-            /* *** *** *** *** *** *** *** */
+
+            // Starting values for newton iteration
             if (first || startn)
             {
                 i1 = n;
@@ -1190,9 +1096,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     f3[i] = ti31 * z1i + ti32 * z2i + ti33 * z3i;
                 }
             }
-            /* *** *** *** *** *** *** *** */
-            /*  LOOP FOR THE SIMPLIFIED NEWTON ITERATION */
-            /* *** *** *** *** *** *** *** */
+
+            // Loop for the simplified newton iteration
             newt = 0;
             faccon = Math.Pow(Math.Max(faccon, uround), 0.8);
             theta = Math.Abs(thet);
@@ -1201,7 +1106,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 goto L78;
             }
-            /* ---     COMPUTE THE RIGHT-HAND SIDE */
+            // Compute the right-hand side
             i1 = n;
             for (i = 1; i <= i1; ++i)
             {
@@ -1221,7 +1126,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             fcn(n, xph, cont, z3);
             nfcn += 3;
-            /* ---     SOLVE THE LINEAR SYSTEMS */
+            // Solve the linear systems
             i1 = n;
             for (i = 1; i <= i1; ++i)
             {
@@ -1241,16 +1146,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             for (i = 1; i <= i1; ++i)
             {
                 denom = scal[i];
-                /* Computing 2nd power */
+                // Computing 2nd power
                 d1 = z1[i] / denom;
-                /* Computing 2nd power */
                 d2 = z2[i] / denom;
-                /* Computing 2nd power */
                 d3 = z3[i] / denom;
                 dyno = dyno + d1 * d1 + d2 * d2 + d3 * d3;
             }
             dyno = Math.Sqrt(dyno / n3);
-            /* ---     BAD CONVERGENCE OR NUMBER OF ITERATIONS TO LARGE */
+            // Bad convergence or number of iterations to large
             if (newt > 1 && newt < nit)
             {
                 thq = dyno / dynold;
@@ -1304,26 +1207,26 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 goto L40;
             }
-            /* --- ERROR ESTIMATION */
+            // Error estimation
             estrad_(n, fjac, ldjac, fmas, ldmas, h, dd1, dd2, dd3, fcn, nfcn, y0,
                 y, ijob, x, m1, m2, nm1, e1, lde1, z1, z2, z3,
                 cont, f1, f2, ip1, iphes, scal, err, first, reject, fac1);
-            /* --- COMPUTATION OF HNEW */
-            /* --- WE REQUIRE .2<=HNEW/H<=8. */
+
+            // Computation of HNEW
+            // We require .2<=HNEW/H<=8.
             fac = Math.Min(safe, cfac / (newt + (nit << 1)));
             quot = Math.Max(facr, Math.Min(facl, Math.Pow(err, 0.25) / fac));
             hnew = h / quot;
-            /* *** *** *** *** *** *** *** */
-            /*  IS THE ERROR SMALL ENOUGH ? */
-            /* *** *** *** *** *** *** *** */
+
+            // Is the error small enough ?
             if (err < 1.0)
             {
-                /* --- STEP IS ACCEPTED */
+                // Step is accepted
                 first = false;
                 ++(naccpt);
                 if (pred)
                 {
-                    /*       --- PREDICTIVE CONTROLLER OF GUSTAFSSON */
+                    // Predictive controller of gustafsson
                     if (naccpt > 1)
                     {
                         facgus = hacc / h * Math.Pow(err * err / erracc, 0.25) / safe;
@@ -1425,7 +1328,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             else
             {
-                /* --- STEP IS REJECTED */
+                // Step is rejected
                 reject = true;
                 last = false;
                 if (first)
@@ -1448,7 +1351,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
                 goto L10;
             }
-            /* --- UNEXPECTED STEP-REJECTION */
+            // Unexpected step-rejection
             L78:
             if (ier != 0)
             {
@@ -1467,74 +1370,43 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L20;
             }
             goto L10;
-            /* --- FAIL EXIT */
+            // FAIL EXIT
             L176:
-
-            Console.WriteLine((x));
-
-
-            Console.WriteLine(" MATRIX IS REPEATEDLY SINGULAR, IER=");
-            Console.WriteLine(ier);
+            Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
+            Console.WriteLine(" MATRIX IS REPEATEDLY SINGULAR, IER=", ier);
 
             idid = -4;
             return 0;
             L177:
-
-            Console.WriteLine((x));
-
-
-            Console.WriteLine(" STEP SIZE T0O SMALL, H=");
-            Console.WriteLine((h));
+            Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
+            Console.WriteLine(" STEP SIZE T0O SMALL, H=", h);
 
             idid = -3;
             return 0;
             L178:
-
-            Console.WriteLine((x));
-
-
-            Console.WriteLine(" MORE THAN NMAX =");
-            Console.WriteLine((nmax));
-            Console.WriteLine("STEPS ARE NEEDED");
+            Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
+            Console.WriteLine(" MORE THAN NMAX =" + nmax + "STEPS ARE NEEDED");
 
             idid = -2;
             return 0;
-            /* --- EXIT CAUSED BY SOLOUT */
+            // Exit caused by solout
             L179:
-
             Console.WriteLine((x));
 
             idid = 2;
             return 0;
-        } /* radcor_ */
+        }
 
-
-        /*     END OF SUBROUTINE RADCOR */
-
-        /* *********************************************************** */
-
+        // This function can be used for coninuous output. it provides an
+        // approximation to the i-th component of the solution at X.
+        // It gives the value of the collocation polynomial, defined for
+        // the last successfully computed step (by RADAU5).
         double contr5_(int i, double x, double[] cont, int lrc)
         {
-            /* System generated locals */
-            double ret_val;
+            double s = (x - conra5_1.xsol) / conra5_1.hsol;
 
-            /* Local variables */
-            double s;
-
-            /* ---------------------------------------------------------- */
-            /*     THIS FUNCTION CAN BE USED FOR CONINUOUS OUTPUT. IT PROVIDES AN */
-            /*     APPROXIMATION TO THE I-TH COMPONENT OF THE SOLUTION AT X. */
-            /*     IT GIVES THE VALUE OF THE COLLOCATION POLYNOMIAL, DEFINED FOR */
-            /*     THE LAST SUCCESSFULLY COMPUTED STEP (BY RADAU5). */
-            /* ---------------------------------------------------------- */
-            /* Parameter adjustments */
-            //--cont;
-
-            /* Function Body */
-            s = (x - conra5_1.xsol) / conra5_1.hsol;
-            ret_val = cont[i] + s * (cont[i + conra5_1.nn] + (s - conra5_1.c2m1)
-                 * (cont[i + conra5_1.nn2] + (s - conra5_1.c1m1) * cont[i + conra5_1.nn3]));
-            return ret_val;
-        } /* contr5_ */
+            return cont[i] + s * (cont[i + conra5_1.nn] + (s - conra5_1.c2m1)
+                * (cont[i + conra5_1.nn2] + (s - conra5_1.c1m1) * cont[i + conra5_1.nn3]));
+        }
     }
 }
