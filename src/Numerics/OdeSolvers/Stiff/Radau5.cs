@@ -53,14 +53,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double xend, double h, double[] rtol, double[] atol,
             int itol, J_fp jac, int ijac,
             M_fp mas, int imas, S_fp solout,
-            int iout, double[] work, int lwork, int[] iwork,
-            int liwork, int idid)
+            int iout, double[] work, int[] iwork)
         {
             // System generated locals
             int i1;
 
             // Local variables
-            int i, m1, m2, nm1, nit, lde1;
+            int i, nit, lde1;
             double facl;
             int ndec, njac;
             double facr, safe;
@@ -75,7 +74,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double quot1, quot2;
             int ldjac;
             int ldmas;
-            bool arret;
             double fnewt;
             int nstep;
             double tolst;
@@ -399,7 +397,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             nrejct = 0;
             ndec = 0;
             nsol = 0;
-            arret = false;
 
             // UROUND   Smallest number satisfying 1.0D0+UROUND>1.0D0
             if (work[1] == 0.0)
@@ -412,11 +409,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 if (uround <= 1e-19 || uround >= 1.0)
                 {
 
-                    Console.WriteLine(" COEFFICIENTS HAVE 20 DIGITS, UROUND=");
-                    Console.WriteLine(work[1])
-                        ;
-
-                    arret = true;
+                    Console.WriteLine(" COEFFICIENTS HAVE 20 DIGITS, UROUND=", work[1]);
+                    return -1;
                 }
             }
             // Check and change the tolerances
@@ -427,8 +421,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
 
                     Console.WriteLine(" TOLERANCES ARE TOO SMALL");
-
-                    arret = true;
+                    return -1;
                 }
                 else
                 {
@@ -445,11 +438,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     if (atol[i] <= 0.0 || rtol[i] <= uround * 10.0)
                     {
 
-                        Console.WriteLine(" TOLERANCES(");
-                        Console.WriteLine(i);
-                        Console.WriteLine(") ARE TOO SMALL");
-
-                        arret = true;
+                        Console.WriteLine(" TOLERANCES() ARE TOO SMALL", i);
+                        return -1;
                     }
                     else
                     {
@@ -470,10 +460,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 if (nmax <= 0)
                 {
 
-                    Console.WriteLine(" WRONG INPUT IWORK(2)=");
-                    Console.WriteLine(iwork[2]);
-
-                    arret = true;
+                    Console.WriteLine(" WRONG INPUT IWORK(2)=", iwork[2]);
+                    return -1;
                 }
             }
             // NIT    Maximal number of Newton iterations
@@ -487,10 +475,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 if (nit <= 0)
                 {
 
-                    Console.WriteLine(" CURIOUS INPUT IWORK(3)=");
-                    Console.WriteLine(iwork[3]);
-
-                    arret = true;
+                    Console.WriteLine(" CURIOUS INPUT IWORK(3)=", iwork[3]);
+                    return -1;
                 }
             }
             // STARTN  Switch for starting values of newton iterations
@@ -513,12 +499,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (nind1 + nind2 + nind3 != n)
             {
 
-                Console.WriteLine(" CURIOUS INPUT FOR IWORK(5,6,7)=");
-                Console.WriteLine(nind1);
-                Console.WriteLine(nind2);
-                Console.WriteLine(nind3);
-
-                arret = true;
+                Console.WriteLine(" CURIOUS INPUT FOR IWORK(5,6,7)=", nind1, nind2, nind3);
+                return -1;
             }
             // PRED   Step size control
             if (iwork[8] <= 1)
@@ -529,27 +511,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 pred = false;
             }
-            // Parameter for second order equations
-            m1 = iwork[9];
-            m2 = iwork[10];
-            nm1 = n - m1;
-            if (m1 == 0)
-            {
-                m2 = n;
-            }
-            if (m2 == 0)
-            {
-                m2 = m1;
-            }
-            if (m1 < 0 || m2 < 0 || m1 + m2 > n)
-            {
 
-                Console.WriteLine(" CURIOUS INPUT FOR IWORK(9,10)=");
-                Console.WriteLine(m1);
-                Console.WriteLine(m2);
-
-                arret = true;
-            }
             // SAFE     Safety factor in step size prediction
             if (work[2] == 0.0)
             {
@@ -561,11 +523,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 if (safe <= 0.001 || safe >= 1.0)
                 {
 
-                    Console.WriteLine(" CURIOUS INPUT FOR WORK(2)=");
-                    Console.WriteLine(work[2])
-                        ;
-
-                    arret = true;
+                    Console.WriteLine(" CURIOUS INPUT FOR WORK(2)=", work[2]);
+                    return -1;
                 }
             }
             // THET     Decides whether the Jacobian should be recomputed;
@@ -579,11 +538,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 if (thet >= 1.0)
                 {
 
-                    Console.WriteLine(" CURIOUS INPUT FOR WORK(3)=");
-                    Console.WriteLine(work[3])
-                        ;
-
-                    arret = true;
+                    Console.WriteLine(" CURIOUS INPUT FOR WORK(3)=", work[3]);
+                    return -1;
                 }
             }
             // FNEWT   Stopping criterion for Newton's method, usually chosen <1.
@@ -598,10 +554,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 if (fnewt <= uround / tolst)
                 {
 
-                    Console.WriteLine(" CURIOUS INPUT FOR WORK(4)=");
-                    Console.WriteLine(work[4]);
-
-                    arret = true;
+                    Console.WriteLine(" CURIOUS INPUT FOR WORK(4)=", work[4]);
+                    return -1;
                 }
             }
             // QUOT1 and QUOT2: if QUOT1 < HNEW/HOLD < QUOT2, step size = CONST.
@@ -624,11 +578,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (quot1 > 1.0 || quot2 < 1.0)
             {
 
-                Console.WriteLine(" CURIOUS INPUT FOR WORK(5,6)=");
-                Console.WriteLine(quot1);
-                Console.WriteLine(quot2);
-
-                arret = true;
+                Console.WriteLine(" CURIOUS INPUT FOR WORK(5,6)=", quot1, quot2);
+                return -1;
             }
             // Maximal step size
             if (work[7] == 0.0)
@@ -659,11 +610,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (facl < 1.0 || facr > 1.0)
             {
 
-                Console.WriteLine(" CURIOUS INPUT WORK(8,9)=");
-                Console.WriteLine(work[8]);
-                Console.WriteLine(work[9]);
-
-                arret = true;
+                Console.WriteLine(" CURIOUS INPUT WORK(8,9)=", work[8], work[9]);
+                return -1;
             }
 
             // Computation of array entries
@@ -674,13 +622,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Computation of the row-dimensions of the 2-arrays
             // Jacobian  and  matrices E1, E2
             {
-                ldjac = nm1;
-                lde1 = nm1;
+                ldjac = n;
+                lde1 = n;
             }
             // Mass matrix
             if (implct)
             {
-                ldmas = nm1;
+                ldmas = n;
                 ijob = 5;
             }
             else
@@ -698,7 +646,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if ((implct) && ijob == 7)
             {
                 Console.WriteLine(" HESSENBERG OPTION ONLY FOR EXPLICIT EQUATIONS WITH FULL JACOBIAN");
-                arret = true;
+                return -1;
             }
 
             // Prepare the entry-points for the arrays in work
@@ -712,29 +660,22 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var f3 = new double[n];
             var con = new double[n << 2];
             var _jac = new double[n * ldjac];
-            var _mas = new double[nm1 * ldmas];
-            var e1 = new double[nm1 * lde1];
-            var e2r = new double[nm1 * lde1];
-            var e2i = new double[nm1 * lde1];
+            var _mas = new double[n * ldmas];
+            var e1 = new double[n * lde1];
+            var e2r = new double[n * lde1];
+            var e2i = new double[n * lde1];
             
             // Entry points for integer workspace
-            var ip1 = new int[nm1];
-            var ip2 = new int[nm1];
-            var iph = new int[nm1];
+            var ip1 = new int[n];
+            var ip2 = new int[n];
+            var iph = new int[n];
             
-            // When a fail has occured, we return with IDID=-1
-            if (arret)
-            {
-                idid = -1;
-                return 0;
-            }
-
             // Call to core integrator
-            radcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
+            int idid = radcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
                 itol, jac, ijac, mas,
-                solout, iout, idid, nmax, uround, safe, thet, fnewt,
+                solout, iout, nmax, uround, safe, thet, fnewt,
                 quot1, quot2, nit, ijob, startn, nind1, nind2, nind3,
-                pred, facl, facr, m1, m2, nm1, implct, ldjac,
+                pred, facl, facr, implct, ldjac,
                 lde1, ldmas2, z1, z2, z3, y0,
                  scal, f1, f2, f3,
                 _jac, e1, e2r, e2i, _mas,
@@ -768,18 +709,17 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
             }
 
-            return 0;
+            return idid;
         }
         
         int radcor_(int n, S_fp fcn, double x, double[]
             y, double xend, double hmax, double h, double[]
             rtol, double[] atol, int itol, J_fp jac, int ijac,
-            M_fp mas, S_fp solout, int iout, int idid, int nmax,
+            M_fp mas, S_fp solout, int iout, int nmax,
             double uround, double safe, double thet, double
             fnewt, double quot1, double quot2, int nit, int
             ijob, bool startn, int nind1, int nind2, int nind3,
-            bool pred, double facl, double facr, int m1,
-            int m2, int nm1, bool implct, int
+            bool pred, double facl, double facr, bool implct, int
             ldjac, int lde1, int ldmas, double[] z1, double[] z2,
             double[] z3, double[] y0, double[] scal, double[] f1,
             double[] f2, double[] f3, double[] fjac, double[] e1,
@@ -875,7 +815,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Compute mass matrix for implicit case
             if (implct)
             {
-                mas(nm1, fmas, ldmas);
+                mas(n, fmas, ldmas);
             }
             // Constants
             sq6 = Math.Sqrt(6.0);
@@ -913,10 +853,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ti31 = -0.50287263494578687595;
             ti32 = 2.5719269498556054292;
             ti33 = -0.59603920482822492497;
-            if (m1 > 0)
-            {
-                ijob += 10;
-            }
+
             posneg = d_sign(1.0, xend - x);
             hmaxn = Math.Min(Math.Abs(hmax), Math.Abs(xend - x));
             if (Math.Abs(h) <= uround * 10.0)
@@ -997,9 +934,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     y[i] = ysafe + delt;
                     fcn(n, x, y, cont);
                     i2 = n;
-                    for (j = m1 + 1; j <= i2; ++j)
+                    for (j = 1; j <= i2; ++j)
                     {
-                        fjac[j - m1 + i * ldjac] = (cont[j] - y0[j]) /
+                        fjac[j - i * ldjac] = (cont[j] - y0[j]) /
                             delt;
                     }
                     y[i] = ysafe;
@@ -1018,12 +955,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             fac1 = u1 / h;
             alphn = alph / h;
             betan = beta / h;
-            decomr_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac1, e1, lde1, ip1, ier, ijob, calhes, iphes);
+            decomr_(n, fjac, ldjac, fmas, ldmas, fac1, e1, lde1, ip1, ier, ijob, calhes, iphes);
             if (ier != 0)
             {
                 goto L78;
             }
-            decomc_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, alphn, betan, e2r, e2i, lde1, ip2, ier, ijob);
+            decomc_(n, fjac, ldjac, fmas, ldmas, alphn, betan, e2r, e2i, lde1, ip2, ier, ijob);
             if (ier != 0)
             {
                 goto L78;
@@ -1137,7 +1074,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 z2[i] = ti21 * a1 + ti22 * a2 + ti23 * a3;
                 z3[i] = ti31 * a1 + ti32 * a2 + ti33 * a3;
             }
-            slvrad_(n, fjac, ldjac, fmas, ldmas, m1, m2, nm1, fac1, alphn, betan, e1,
+            slvrad_(n, fjac, ldjac, fmas, ldmas, fac1, alphn, betan, e1,
                  e2r, e2i, lde1, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, iphes, ier, ijob);
             ++(nsol);
             ++newt;
@@ -1209,7 +1146,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             // Error estimation
             estrad_(n, fjac, ldjac, fmas, ldmas, h, dd1, dd2, dd3, fcn, nfcn, y0,
-                y, ijob, x, m1, m2, nm1, e1, lde1, z1, z2, z3,
+                y, ijob, x, e1, lde1, z1, z2, z3,
                 cont, f1, f2, ip1, iphes, scal, err, first, reject, fac1);
 
             // Computation of HNEW
@@ -1291,8 +1228,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 if (last)
                 {
                     h = hopt;
-                    idid = 1;
-                    return 0;
+                    return 1;
                 }
                 fcn(n, x, y, y0);
                 ++(nfcn);
@@ -1374,27 +1310,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             L176:
             Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
             Console.WriteLine(" MATRIX IS REPEATEDLY SINGULAR, IER=", ier);
-
-            idid = -4;
-            return 0;
+            return -4;
             L177:
             Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
             Console.WriteLine(" STEP SIZE T0O SMALL, H=", h);
-
-            idid = -3;
-            return 0;
+            return -3;
             L178:
             Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
             Console.WriteLine(" MORE THAN NMAX =" + nmax + "STEPS ARE NEEDED");
-
-            idid = -2;
-            return 0;
+            return -2;
             // Exit caused by solout
             L179:
-            Console.WriteLine((x));
-
-            idid = 2;
-            return 0;
+            Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
+            return 2;
         }
 
         // This function can be used for coninuous output. it provides an
