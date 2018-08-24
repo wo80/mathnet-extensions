@@ -48,39 +48,33 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         conra5 conra5_1;
 
+        public int nstep, ndec, nsol, nrejct, naccpt;
+
         // Subroutine
         public int radau5_(int n, S_fp fcn, double x, double[] y,
             double xend, double h, double rtol, double atol,
             J_fp jac, int ijac, M_fp mas, int imas, S_fp solout,
             int iout, double[] work, int[] iwork)
         {
-            // System generated locals
-            int i1;
-
             // Local variables
-            int i, nit, lde1;
+            int nit, lde1;
             double facl;
-            int ndec, njac;
             double facr, safe;
-            int ijob, nfcn;
+            int ijob;
             bool pred;
             double hmax;
             int nmax;
             double thet, expm;
-            int nsol;
             double quot;
             int nind1, nind2, nind3;
             double quot1, quot2;
             int ldjac;
             int ldmas;
             double fnewt;
-            int nstep;
             double tolst;
-            int ldmas2, naccpt;
+            int ldmas2;
 
-            int nrejct;
             bool implct;
-            int istore;
             bool startn;
             double uround;
 
@@ -389,8 +383,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                      NEEDED FOR STEP SIZE SELECTION, ARE NOT COUNTED
              */
 
-            nfcn = 0;
-            njac = 0;
             nstep = 0;
             naccpt = 0;
             nrejct = 0;
@@ -657,17 +649,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 lde1, ldmas2, z1, z2, z3, y0,
                  scal, f1, f2, f3,
                 _jac, e1, e2r, e2i, _mas,
-                ip1, ip2, iph, con, ref nfcn,
-                ref njac, ref nstep, ref naccpt, ref nrejct, ref ndec, ref nsol);
-
-            iwork[14] = nfcn;
-            iwork[15] = njac;
-            iwork[16] = nstep;
-            iwork[17] = naccpt;
-            iwork[18] = nrejct;
-            iwork[19] = ndec;
-            iwork[20] = nsol;
-
+                ip1, ip2, iph, con);
+            
             // Restore tolerances
             expm = 1.0 / expm;
 
@@ -675,6 +658,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             rtol = Math.Pow(rtol * 10.0, expm);
             atol = rtol * quot;
 
+            if (nstep > nmax)
+            {
+                Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
+                Console.WriteLine(" MORE THAN NMAX =" + nmax + "STEPS ARE NEEDED");
+            }
 
             return idid;
         }
@@ -690,9 +678,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] z3, double[] y0, double[] scal, double[] f1,
             double[] f2, double[] f3, double[] fjac, double[] e1,
             double[] e2r, double[] e2i, double[] fmas, int[] ip1,
-            int[] ip2, int[] iphes, double[] cont, ref int nfcn,
-            ref int njac, ref int nstep, ref int naccpt, ref int nrejct,
-            ref int ndec, ref int nsol)
+            int[] ip2, int[] iphes, double[] cont)
         {
             int i1, i2;
             double d1, d2, d3;
@@ -706,7 +692,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                  z1i, z2i, z3i, sq6, fac, ti11, cno;
             int lrc;
             double ti12, ti13, ti21, ti22, ti23, ti31, ti32, ti33;
-            int ier;
+            int ier = 0;
             double xph, thq, err = 0, fac1, cfac, hacc = 0, c1mc2, beta;
             double alph, hold;
             double delt, hnew;
@@ -730,44 +716,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             // Core integrator for RADAU5
             // Parameters same as in radau5 with workspace added
-
-
+            
             // Initialisations
-
-            // Duplify n for common block cont
-
-            //--cont;
-            //--f3;
-            //--f2;
-            //--f1;
-            //--scal;
-            //--y0;
-            //--z3;
-            //--z2;
-            //--z1;
-            //--y;
-            //--rtol;
-            //--atol;
-            //--iphes;
-            //--ip2;
-            //--ip1;
-            //fjac_offset = 1 + ldjac;
-            //fjac -= fjac_offset;
-            //e2i_dim1 = lde1;
-            //e2i_offset = 1 + e2i_dim1;
-            //e2i -= e2i_offset;
-            //e2r_dim1 = lde1;
-            //e2r_offset = 1 + e2r_dim1;
-            //e2r -= e2r_offset;
-            //e1_dim1 = lde1;
-            //e1_offset = 1 + e1_dim1;
-            //e1 -= e1_offset;
-            //fmas_dim1 = ldmas;
-            //fmas_offset = 1 + fmas_dim1;
-            //fmas -= fmas_offset;
-            //--rpar;
-            //--ipar;
-
+            
             conra5_1.nn = n;
             conra5_1.nn2 = n << 1;
             conra5_1.nn3 = n * 3;
@@ -858,7 +809,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 //solout(&nrsol, &xosol, &conra5_1.xsol, y, cont, &lrc, &nsolu, &irtrn);
                 if (irtrn < 0)
                 {
-                    goto L179;
+                    return 2; // Exit caused by solout
                 }
             }
 
@@ -873,11 +824,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             hhfac = h;
             fcn(n, x, y, y0);
-            ++(nfcn);
+
             // Basic integration step
             L10:
             // Computation of the Jacobian
-            ++(njac);
             if (ijac == 0)
             {
                 // Compute Jacobian matrix numerically
@@ -912,12 +862,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             fac1 = u1 / h;
             alphn = alph / h;
             betan = beta / h;
-            decomr_(n, fjac, ldjac, fmas, ldmas, fac1, e1, lde1, ip1, ier, ijob, calhes, iphes);
+            dc_decsol.decomr_(n, fjac, ldjac, fmas, ldmas, fac1, e1, lde1, ip1, ref ier, ijob, calhes, iphes);
             if (ier != 0)
             {
                 goto L78;
             }
-            decomc_(n, fjac, ldjac, fmas, ldmas, alphn, betan, e2r, e2i, lde1, ip2, ier, ijob);
+            dc_decsol.decomc_(n, fjac, ldjac, fmas, ldmas, alphn, betan, e2r, e2i, lde1, ip2, ref ier, ijob);
             if (ier != 0)
             {
                 goto L78;
@@ -927,11 +877,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ++(nstep);
             if (nstep > nmax)
             {
-                goto L178;
+                return -2;
             }
             if (Math.Abs(h) * 0.1 <= Math.Abs(x) * uround)
             {
-                goto L177;
+                throw new NumericalBreakdownException("Step size too small, h=" + h);
             }
             if (index2)
             {
@@ -1019,7 +969,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 cont[i] = y[i] + z3[i];
             }
             fcn(n, xph, cont, z3);
-            nfcn += 3;
+
             // Solve the linear systems
             i1 = n;
             for (i = 1; i <= i1; ++i)
@@ -1031,8 +981,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 z2[i] = ti21 * a1 + ti22 * a2 + ti23 * a3;
                 z3[i] = ti31 * a1 + ti32 * a2 + ti33 * a3;
             }
-            slvrad_(n, fjac, ldjac, fmas, ldmas, fac1, alphn, betan, e1,
-                 e2r, e2i, lde1, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, iphes, ier, ijob);
+            dc_decsol.slvrad_(n, fjac, ldjac, fmas, ldmas, fac1, alphn, betan, e1,
+                 e2r, e2i, lde1, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, iphes, ref ier, ijob);
             ++(nsol);
             ++newt;
             dyno = 0.0;
@@ -1102,9 +1052,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L40;
             }
             // Error estimation
-            estrad_(n, fjac, ldjac, fmas, ldmas, h, dd1, dd2, dd3, fcn, nfcn, y0,
+            dc_decsol.estrad_(n, fjac, ldjac, fmas, ldmas, h, dd1, dd2, dd3, fcn, y0,
                 y, ijob, x, e1, lde1, z1, z2, z3,
-                cont, f1, f2, ip1, iphes, scal, err, first, reject, fac1);
+                cont, f1, f2, ip1, iphes, scal, ref err, first, reject, fac1);
 
             // Computation of HNEW
             // We require .2<=HNEW/H<=8.
@@ -1169,7 +1119,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     //solout(&nrsol, &xosol, &conra5_1.xsol, y, cont, &lrc, &nsolu, &irtrn);
                     if (irtrn < 0)
                     {
-                        goto L179;
+                        return 2; // Exit caused by solout
                     }
                 }
                 caljac = false;
@@ -1179,7 +1129,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     return 1;
                 }
                 fcn(n, x, y, y0);
-                ++(nfcn);
+
                 hnew = posneg * Math.Min(Math.Abs(hnew), hmaxn);
                 hopt = hnew;
                 hopt = Math.Min(h, hnew);
@@ -1242,7 +1192,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ++nsing;
                 if (nsing >= 5)
                 {
-                    goto L176;
+                    throw new Exception(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
                 }
             }
             h *= 0.5;
@@ -1254,23 +1204,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L20;
             }
             goto L10;
-            // FAIL EXIT
-            L176:
-            Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
-            Console.WriteLine(" MATRIX IS REPEATEDLY SINGULAR, IER=", ier);
-            return -4;
-            L177:
-            Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
-            Console.WriteLine(" STEP SIZE T0O SMALL, H=", h);
-            return -3;
-            L178:
-            Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
-            Console.WriteLine(" MORE THAN NMAX =" + nmax + "STEPS ARE NEEDED");
-            return -2;
-            // Exit caused by solout
-            L179:
-            Console.WriteLine("(  EXIT OF RADAU5 AT X={0} )", x);
-            return 2;
         }
 
         // This function can be used for coninuous output. it provides an
