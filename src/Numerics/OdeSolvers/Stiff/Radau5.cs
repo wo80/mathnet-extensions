@@ -9,7 +9,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
     using System;
 
     using S_fp = System.Action<int, double, double[], double[]>;
-    using J_fp = System.Action<int, double, double[], double[], int>;
+    using J_fp = System.Action<int, double, double[], double[]>;
 
     /// <summary>
     /// Numerical solution of a stiff (or differential algebraic) system of first order
@@ -41,21 +41,35 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         struct conra5
         {
-            public int nn, nn2, nn3, nn4;
+            public int nn, nn2, nn3;
             public double xsol, hsol, c2m1, c1m1;
         }
 
         conra5 conra5_1;
+
+        S_fp fcn;
+        J_fp jac;
+
+        double rtol, atol;
+
+        // Workspace
+        double[] z1, z2, z3;
+        double[] y0;
+        double[] scal, cont;
+        double[] f1, f2, f3;
+        double[] fjac, fmas;
+        double[] e1, e2r, e2i;
+        int[] ip1, ip2;
 
         public int nstep, ndec, nsol, nrejct, naccpt;
 
         // Subroutine
         public int radau5_(int n, S_fp fcn, double x, double[] y,
             double xend, double h, double rtol, double atol,
-            J_fp jac, int ijac, DenseMatrix mas, int iout)
+            J_fp jac, DenseMatrix mas, int iout)
         {
             // Local variables
-            int nit, lde1;
+            int nit;
             double facl;
             double facr, safe;
             int ijob;
@@ -66,11 +80,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double quot;
             int nind1, nind2, nind3;
             double quot1, quot2;
-            int ldjac;
-            int ldmas;
             double fnewt;
             double tolst;
-            int ldmas2;
 
             bool implct;
             bool startn;
@@ -180,6 +191,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ndec = 0;
             nsol = 0;
 
+            this.fcn = fcn;
+            this.jac = jac;
+
             // UROUND   Smallest number satisfying 1.0+UROUND>1.0
             //          (the rounding unit, default = 1e-16).
             uround = 1e-16;
@@ -204,6 +218,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 rtol = Math.Pow(rtol, expm) * 0.1;
                 atol = rtol * quot;
             }
+
+            this.rtol = rtol;
+            this.atol = atol;
 
             // NMAX , The maximal number of steps
             nmax = 100000;
@@ -329,56 +346,41 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Implicit, banded or not ?
             implct = mas != null;
 
-            // Computation of the row-dimensions of the 2-arrays
-            // Jacobian  and  matrices E1, E2
-            {
-                ldjac = n;
-                lde1 = n;
-            }
             // Mass matrix
             if (implct)
             {
-                ldmas = n;
                 ijob = 5;
             }
             else
             {
-                ldmas = 0;
-
                 ijob = 1;
             }
-            ldmas2 = Math.Max(1, ldmas);
 
             // Prepare the entry-points for the arrays in work
-            var z1 = new double[n];
-            var z2 = new double[n];
-            var z3 = new double[n];
-            var y0 = new double[n];
-            var scal = new double[n];
-            var f1 = new double[n];
-            var f2 = new double[n];
-            var f3 = new double[n];
-            var con = new double[n << 2];
-            var _jac = new double[n * ldjac];
-            var _mas = new double[n * ldmas];
-            var e1 = new double[n * lde1];
-            var e2r = new double[n * lde1];
-            var e2i = new double[n * lde1];
+            z1 = new double[n];
+            z2 = new double[n];
+            z3 = new double[n];
+            y0 = new double[n];
+            scal = new double[n];
+            f1 = new double[n];
+            f2 = new double[n];
+            f3 = new double[n];
+            cont = new double[n * 4];
+            fjac = new double[n * n];
+            fmas = new double[n * n]; // TODO: implicit -> 0
+            e1 = new double[n * n];
+            e2r = new double[n * n];
+            e2i = new double[n * n];
 
             // Entry points for integer workspace
-            var ip1 = new int[n];
-            var ip2 = new int[n];
-            //var iph = new int[n];
-
+            ip1 = new int[n];
+            ip2 = new int[n];
+            
             // Call to core integrator
-            int idid = radcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
-                jac, ijac, mas, iout, nmax, uround, safe, thet, fnewt,
+            int idid = radcor_(n, x, y, xend, hmax, h,
+                mas, iout, nmax, uround, safe, thet, fnewt,
                 quot1, quot2, nit, ijob, startn, nind1, nind2, nind3,
-                pred, facl, facr, implct, ldjac,
-                lde1, ldmas2, z1, z2, z3, y0,
-                 scal, f1, f2, f3,
-                _jac, e1, e2r, e2i, _mas,
-                ip1, ip2, con);
+                pred, facl, facr, implct);
 
             // Restore tolerances
             expm = 1.0 / expm;
@@ -396,18 +398,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return idid;
         }
 
-        int radcor_(int n, S_fp fcn, double x, double[]
-            y, double xend, double hmax, double h, double rtol, double atol,
-            J_fp jac, int ijac, DenseMatrix mas, int iout, int nmax,
+        int radcor_(int n, double x, double[]
+            y, double xend, double hmax, double h,
+            DenseMatrix mas, int iout, int nmax,
             double uround, double safe, double thet, double
             fnewt, double quot1, double quot2, int nit, int
             ijob, bool startn, int nind1, int nind2, int nind3,
-            bool pred, double facl, double facr, bool implct, int
-            ldjac, int lde1, int ldmas, double[] z1, double[] z2,
-            double[] z3, double[] y0, double[] scal, double[] f1,
-            double[] f2, double[] f3, double[] fjac, double[] e1,
-            double[] e2r, double[] e2i, double[] fmas, int[] ip1,
-            int[] ip2, double[] cont)
+            bool pred, double facl, double facr, bool implct)
         {
             double d1, d2, d3;
 
@@ -441,15 +438,17 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double dynold = 0, posneg;
             double thqold = 0;
 
+            int ijac = jac == null ? 0 : 1;
+
             // Core integrator for RADAU5
             // Parameters same as in radau5 with workspace added
 
             // Initialisations
 
             conra5_1.nn = n;
-            conra5_1.nn2 = n << 1;
+            conra5_1.nn2 = n * 2;
             conra5_1.nn3 = n * 3;
-            lrc = n << 2;
+            lrc = n * 4;
 
             // Check the index of the problem
             index1 = nind1 != 0;
@@ -517,7 +516,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             hopt = h;
             faccon = 1.0;
-            cfac = safe * ((nit << 1) + 1);
+            cfac = safe * ((nit * 2) + 1);
             nsing = 0;
             xold = x;
             if (iout != 0)
@@ -539,7 +538,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
             }
 
-            n2 = n << 1;
+            n2 = n * 2;
             n3 = n * 3;
             
             for (i = 0; i < n; i++)
@@ -567,7 +566,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
                     for (j = 0; j < n; j++)
                     {
-                        fjac[j - i * ldjac] = (cont[j] - y0[j]) / delt;
+                        fjac[j - i * n] = (cont[j] - y0[j]) / delt;
                     }
                     y[i] = ysafe;
                 }
@@ -575,7 +574,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             else
             {
                 // Compute Jacobian matrix analytically
-                jac(n, x, y, fjac, ldjac);
+                jac(n, x, y, fjac);
             }
             caljac = true;
 
@@ -584,12 +583,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             fac1 = u1 / h;
             alphn = alph / h;
             betan = beta / h;
-            decomr_(n, fjac, ldjac, fmas, ldmas, fac1, e1, lde1, ip1, ref ier, ijob);
+            decomr_(n, fjac, fmas, fac1, e1, ip1, ref ier, ijob);
             if (ier != 0)
             {
                 goto L78;
             }
-            decomc_(n, fjac, ldjac, fmas, ldmas, alphn, betan, e2r, e2i, lde1, ip2, ref ier, ijob);
+            decomc_(n, fjac, fmas, alphn, betan, e2r, e2i, ip2, ref ier, ijob);
             if (ier != 0)
             {
                 goto L78;
@@ -695,8 +694,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 z2[i] = ti21 * a1 + ti22 * a2 + ti23 * a3;
                 z3[i] = ti31 * a1 + ti32 * a2 + ti33 * a3;
             }
-            slvrad_(n, fjac, ldjac, fmas, ldmas, fac1, alphn, betan, e1,
-                 e2r, e2i, lde1, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, ref ier, ijob);
+            slvrad_(n, fjac, fmas, fac1, alphn, betan, e1,
+                 e2r, e2i, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, ref ier, ijob);
             ++(nsol);
             ++newt;
             dyno = 0.0;
@@ -764,8 +763,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L40;
             }
             // Error estimation
-            estrad_(n, fjac, ldjac, h, dd1, dd2, dd3, fcn, y0,
-                y, ijob, x, e1, lde1, z1, z2, z3,
+            estrad_(n, fjac, h, dd1, dd2, dd3, y0,
+                y, ijob, x, e1, z1, z2, z3,
                 cont, f1, f2, ip1, scal, ref err, first, reject);
 
             // Computation of HNEW
@@ -919,7 +918,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         // approximation to the i-th component of the solution at X.
         // It gives the value of the collocation polynomial, defined for
         // the last successfully computed step (by RADAU5).
-        double contr5_(int i, double x, double[] cont, int lrc)
+        double contr5_(int i, double x)
         {
             double s = (x - conra5_1.xsol) / conra5_1.hsol;
 
@@ -927,9 +926,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 * (cont[i + conra5_1.nn2] + (s - conra5_1.c1m1) * cont[i + conra5_1.nn3]));
         }
         
-        int decomr_(int n, double[] fjac, int ldjac,
-            double[] fmas, int ldmas, double fac1, double[] e,
-            int lde, int[] ip, ref int ier, int ijob)
+        int decomr_(int n, double[] fjac,
+            double[] fmas, double fac1, double[] e,
+            int[] ip, ref int ier, int ijob)
         {
             switch (ijob)
             {
@@ -943,11 +942,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 for (int i = 0; i < n; i++)
                 {
-                    e[i + j * lde] = -fjac[i + j * ldjac];
+                    e[i + j * n] = -fjac[i + j * n];
                 }
-                e[j + j * lde] += fac1;
+                e[j + j * n] += fac1;
             }
-            decsol.dec_(n, lde, e, ip, ref ier);
+            decsol.dec_(n, n, e, ip, ref ier);
             return 0;
 
             L5:
@@ -956,16 +955,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 for (int i = 0; i < n; i++)
                 {
-                    e[i + j * lde] = fmas[i + j * ldmas] * fac1 - fjac[i + j * ldjac];
+                    e[i + j * n] = fmas[i + j * n] * fac1 - fjac[i + j * n];
                 }
             }
-            decsol.dec_(n, lde, e, ip, ref ier);
+            decsol.dec_(n, n, e, ip, ref ier);
             return 0;
         }
 
-        int decomc_(int n, double[] fjac, int ldjac,
-            double[] fmas, int ldmas, double alphn, double betan,
-            double[] e2r, double[] e2i, int lde1, int[] ip2, ref int ier, int ijob)
+        int decomc_(int n, double[] fjac,
+            double[] fmas, double alphn, double betan,
+            double[] e2r, double[] e2i, int[] ip2, ref int ier, int ijob)
         {
             switch (ijob)
             {
@@ -979,13 +978,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 for (int i = 0; i < n; i++)
                 {
-                    e2r[i + j * lde1] = -fjac[i + j * ldjac];
-                    e2i[i + j * lde1] = 0.0;
+                    e2r[i + j * n] = -fjac[i + j * n];
+                    e2i[i + j * n] = 0.0;
                 }
-                e2r[j + j * lde1] += alphn;
-                e2i[j + j * lde1] = betan;
+                e2r[j + j * n] += alphn;
+                e2i[j + j * n] = betan;
             }
-            decsol.decc_(n, lde1, e2r, e2i, ip2, ref ier);
+            decsol.decc_(n, n, e2r, e2i, ip2, ref ier);
             return 0;
 
             L5:
@@ -994,19 +993,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 for (int i = 0; i < n; i++)
                 {
-                    double bb = fmas[i + j * ldmas];
-                    e2r[i + j * lde1] = bb * alphn - fjac[i + j * ldjac];
-                    e2i[i + j * lde1] = bb * betan;
+                    double bb = fmas[i + j * n];
+                    e2r[i + j * n] = bb * alphn - fjac[i + j * n];
+                    e2i[i + j * n] = bb * betan;
                 }
             }
-            decsol.decc_(n, lde1, e2r, e2i, ip2, ref ier);
+            decsol.decc_(n, n, e2r, e2i, ip2, ref ier);
             return 0;
         }
 
-        int slvrad_(int n, double[] fjac, int ldjac,
-            double[] fmas, int ldmas,
+        int slvrad_(int n, double[] fjac,
+            double[] fmas,
             double fac1, double alphn, double betan,
-            double[] e1, double[] e2r, double[] e2i, int lde1,
+            double[] e1, double[] e2r, double[] e2i,
             double[] z1, double[] z2, double[] z3, double[] f1,
             double[] f2, double[] f3, double[] cont, int[] ip1,
             int[] ip2, ref int ier, int ijob)
@@ -1033,8 +1032,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 z2[i] = z2[i] + s2 * alphn - s3 * betan;
                 z3[i] = z3[i] + s3 * alphn + s2 * betan;
             }
-            decsol.sol_(n, lde1, e1, z1, ip1);
-            decsol.solc_(n, lde1, e2r, e2i, z2, z3, ip2);
+            decsol.sol_(n, n, e1, z1, ip1);
+            decsol.solc_(n, n, e2r, e2i, z2, z3, ip2);
             return 0;
 
             /* ----------------------------------------------------------- */
@@ -1048,7 +1047,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 s3 = 0.0;
                 for (j = 0; j < n; j++)
                 {
-                    bb = fmas[i + j * ldmas];
+                    bb = fmas[i + j * n];
                     s1 -= bb * f1[j];
                     s2 -= bb * f2[j];
                     s3 -= bb * f3[j];
@@ -1057,15 +1056,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 z2[i] = z2[i] + s2 * alphn - s3 * betan;
                 z3[i] = z3[i] + s3 * alphn + s2 * betan;
             }
-            decsol.sol_(n, lde1, e1, z1, ip1);
-            decsol.solc_(n, lde1, e2r, e2i, z2, z3, ip2);
+            decsol.sol_(n, n, e1, z1, ip1);
+            decsol.solc_(n, n, e2r, e2i, z2, z3, ip2);
             return 0;
         }
 
         int estrad_(int n,
-            double[] fmas, int ldmas, double h, double dd1,
-            double dd2, double dd3, S_fp fcn, double[] y0,
-            double[] y, int ijob, double x, double[] e1, int lde1, double[] z1,
+            double[] fmas, double h, double dd1,
+            double dd2, double dd3, double[] y0,
+            double[] y, int ijob, double x, double[] e1, double[] z1,
             double[] z2, double[] z3, double[] cont, double[] f1,
             double[] f2, int[] ip1, double[] scal,
             ref double err, bool first, bool reject)
@@ -1091,7 +1090,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 f2[i] = hee1 * z1[i] + hee2 * z2[i] + hee3 * z3[i];
                 cont[i] = f2[i] + y0[i];
             }
-            decsol.sol_(n, lde1, e1, cont, ip1);
+            decsol.sol_(n, n, e1, cont, ip1);
             goto L77;
 
             L5:
@@ -1105,12 +1104,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 sum = 0.0;
                 for (int j = 0; j < n; j++)
                 {
-                    sum += fmas[i + j * ldmas] * f1[j];
+                    sum += fmas[i + j * n] * f1[j];
                 }
                 f2[i] = sum;
                 cont[i] = sum + y0[i];
             }
-            decsol.sol_(n, lde1, e1, cont, ip1);
+            decsol.sol_(n, n, e1, cont, ip1);
             goto L77;
 
             L77:
@@ -1148,7 +1147,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
                 /* ------ FULL MATRIX OPTION */
                 L31:
-                decsol.sol_(n, lde1, e1, cont, ip1);
+                decsol.sol_(n, n, e1, cont, ip1);
                 goto L88;
 
                 L88:
