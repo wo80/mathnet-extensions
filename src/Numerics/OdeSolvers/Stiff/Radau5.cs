@@ -10,7 +10,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
     using S_fp = System.Action<int, double, double[], double[]>;
     using J_fp = System.Action<int, double, double[], double[], int>;
-    using M_fp = System.Action<int, double[], int>;
 
     /// <summary>
     /// Numerical solution of a stiff (or differential algebraic) system of first order
@@ -53,7 +52,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         // Subroutine
         public int radau5_(int n, S_fp fcn, double x, double[] y,
             double xend, double h, double rtol, double atol,
-            J_fp jac, int ijac, M_fp mas, int imas, int iout)
+            J_fp jac, int ijac, DenseMatrix mas, int iout)
         {
             // Local variables
             int nit, lde1;
@@ -150,11 +149,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                    ELSE, THE MATRIX IS TAKEN AS BANDED AND STORED
              *                    DIAGONAL-WISE AS
              *                         AM(I-J+MUMAS+1,J) = M(I,J).
-             *
-             *     IMAS       GIVES INFORMATION ON THE MASS-MATRIX:
-             *                    IMAS=0: M IS SUPPOSED TO BE THE IDENTITY
-             *                       MATRIX, MAS IS NEVER CALLED.
-             *                    IMAS=1: MASS-MATRIX  IS SUPPLIED.
              *
              *     IOUT        SWITCH FOR CALLING THE SUBROUTINE SOLOUT:
              *                    IOUT=0: SUBROUTINE IS NEVER CALLED
@@ -333,7 +327,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Computation of array entries
 
             // Implicit, banded or not ?
-            implct = imas != 0;
+            implct = mas != null;
 
             // Computation of the row-dimensions of the 2-arrays
             // Jacobian  and  matrices E1, E2
@@ -374,18 +368,17 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Entry points for integer workspace
             var ip1 = new int[n];
             var ip2 = new int[n];
-            var iph = new int[n];
+            //var iph = new int[n];
 
             // Call to core integrator
             int idid = radcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
-                jac, ijac, mas,
-                iout, nmax, uround, safe, thet, fnewt,
+                jac, ijac, mas, iout, nmax, uround, safe, thet, fnewt,
                 quot1, quot2, nit, ijob, startn, nind1, nind2, nind3,
                 pred, facl, facr, implct, ldjac,
                 lde1, ldmas2, z1, z2, z3, y0,
                  scal, f1, f2, f3,
                 _jac, e1, e2r, e2i, _mas,
-                ip1, ip2, iph, con);
+                ip1, ip2, con);
 
             // Restore tolerances
             expm = 1.0 / expm;
@@ -405,7 +398,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         int radcor_(int n, S_fp fcn, double x, double[]
             y, double xend, double hmax, double h, double rtol, double atol,
-            J_fp jac, int ijac, M_fp mas, int iout, int nmax,
+            J_fp jac, int ijac, DenseMatrix mas, int iout, int nmax,
             double uround, double safe, double thet, double
             fnewt, double quot1, double quot2, int nit, int
             ijob, bool startn, int nind1, int nind2, int nind3,
@@ -414,9 +407,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] z3, double[] y0, double[] scal, double[] f1,
             double[] f2, double[] f3, double[] fjac, double[] e1,
             double[] e2r, double[] e2i, double[] fmas, int[] ip1,
-            int[] ip2, int[] iphes, double[] cont)
+            int[] ip2, double[] cont)
         {
-            int i1, i2;
             double d1, d2, d3;
 
             int i, j;
@@ -443,7 +435,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double qnewt, xosol, acont3;
             bool index1, index2, index3, caljac;
             double faccon;
-            bool calhes;
             double erracc = 0;
             bool reject;
             double facgus;
@@ -468,7 +459,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Compute mass matrix for implicit case
             if (implct)
             {
-                mas(n, fmas, ldmas);
+                fmas = mas.ToColumnMajorArray();
             }
             // Constants
             sq6 = Math.Sqrt(6.0);
@@ -535,8 +526,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 nrsol = 1;
                 xosol = xold;
                 conra5_1.xsol = x;
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
+                for (i = 0; i < n; i++)
                 {
                     cont[i] = y[i];
                 }
@@ -551,9 +541,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             n2 = n << 1;
             n3 = n * 3;
-
-            i1 = n;
-            for (i = 1; i <= i1; ++i)
+            
+            for (i = 0; i < n; i++)
             {
                 scal[i] = atol + rtol * Math.Abs(y[i]);
             }
@@ -569,18 +558,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 // Compute Jacobian matrix numerically
 
                 // Jacobian is full
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
+                for (i = 0; i < n; i++)
                 {
                     ysafe = y[i];
                     delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
                     y[i] = ysafe + delt;
                     fcn(n, x, y, cont);
-                    i2 = n;
-                    for (j = 1; j <= i2; ++j)
+
+                    for (j = 0; j < n; j++)
                     {
-                        fjac[j - i * ldjac] = (cont[j] - y0[j]) /
-                            delt;
+                        fjac[j - i * ldjac] = (cont[j] - y0[j]) / delt;
                     }
                     y[i] = ysafe;
                 }
@@ -591,19 +578,18 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 jac(n, x, y, fjac, ldjac);
             }
             caljac = true;
-            calhes = true;
 
             L20:
             // Compute the matrices E1 and E2 and their decompositions
             fac1 = u1 / h;
             alphn = alph / h;
             betan = beta / h;
-            dc_decsol.decomr_(n, fjac, ldjac, fmas, ldmas, fac1, e1, lde1, ip1, ref ier, ijob, calhes, iphes);
+            decomr_(n, fjac, ldjac, fmas, ldmas, fac1, e1, lde1, ip1, ref ier, ijob);
             if (ier != 0)
             {
                 goto L78;
             }
-            dc_decsol.decomc_(n, fjac, ldjac, fmas, ldmas, alphn, betan, e2r, e2i, lde1, ip2, ref ier, ijob);
+            decomc_(n, fjac, ldjac, fmas, ldmas, alphn, betan, e2r, e2i, lde1, ip2, ref ier, ijob);
             if (ier != 0)
             {
                 goto L78;
@@ -621,16 +607,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             if (index2)
             {
-                i1 = nind1 + nind2;
-                for (i = nind1 + 1; i <= i1; ++i)
+                int end = nind1 + nind2;
+                for (i = nind1; i < end; i++)
                 {
                     scal[i] /= hhfac;
                 }
             }
             if (index3)
             {
-                i1 = nind1 + nind2 + nind3;
-                for (i = nind1 + nind2 + 1; i <= i1; ++i)
+                int end = nind1 + nind2 + nind3;
+                for (i = nind1 + nind2; i < end; i++)
                 {
                     scal[i] /= hhfac * hhfac;
                 }
@@ -640,8 +626,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Starting values for newton iteration
             if (first || startn)
             {
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
+                for (i = 0; i < n; i++)
                 {
                     z1[i] = 0.0;
                     z2[i] = 0.0;
@@ -656,18 +641,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 c3q = h / hold;
                 c1q = c1 * c3q;
                 c2q = c2 * c3q;
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
+
+                for (i = 0; i < n; i++)
                 {
                     ak1 = cont[i + n];
                     ak2 = cont[i + n2];
                     ak3 = cont[i + n3];
-                    z1i = c1q * (ak1 + (c1q - conra5_1.c2m1) * (ak2 + (c1q -
-                        conra5_1.c1m1) * ak3));
-                    z2i = c2q * (ak1 + (c2q - conra5_1.c2m1) * (ak2 + (c2q -
-                        conra5_1.c1m1) * ak3));
-                    z3i = c3q * (ak1 + (c3q - conra5_1.c2m1) * (ak2 + (c3q -
-                        conra5_1.c1m1) * ak3));
+                    z1i = c1q * (ak1 + (c1q - conra5_1.c2m1) * (ak2 + (c1q - conra5_1.c1m1) * ak3));
+                    z2i = c2q * (ak1 + (c2q - conra5_1.c2m1) * (ak2 + (c2q - conra5_1.c1m1) * ak3));
+                    z3i = c3q * (ak1 + (c3q - conra5_1.c2m1) * (ak2 + (c3q - conra5_1.c1m1) * ak3));
                     z1[i] = z1i;
                     z2[i] = z2i;
                     z3[i] = z3i;
@@ -687,28 +669,24 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L78;
             }
             // Compute the right-hand side
-            i1 = n;
-            for (i = 1; i <= i1; ++i)
+            for (i = 0; i < n; i++)
             {
                 cont[i] = y[i] + z1[i];
             }
             fcn(n, x + c1 * h, cont, z1);
-            i1 = n;
-            for (i = 1; i <= i1; ++i)
+            for (i = 0; i < n; i++)
             {
                 cont[i] = y[i] + z2[i];
             }
             fcn(n, x + c2 * h, cont, z2);
-            i1 = n;
-            for (i = 1; i <= i1; ++i)
+            for (i = 0; i < n; i++)
             {
                 cont[i] = y[i] + z3[i];
             }
             fcn(n, xph, cont, z3);
 
             // Solve the linear systems
-            i1 = n;
-            for (i = 1; i <= i1; ++i)
+            for (i = 0; i < n; i++)
             {
                 a1 = z1[i];
                 a2 = z2[i];
@@ -717,13 +695,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 z2[i] = ti21 * a1 + ti22 * a2 + ti23 * a3;
                 z3[i] = ti31 * a1 + ti32 * a2 + ti33 * a3;
             }
-            dc_decsol.slvrad_(n, fjac, ldjac, fmas, ldmas, fac1, alphn, betan, e1,
-                 e2r, e2i, lde1, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, iphes, ref ier, ijob);
+            slvrad_(n, fjac, ldjac, fmas, ldmas, fac1, alphn, betan, e1,
+                 e2r, e2i, lde1, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, ref ier, ijob);
             ++(nsol);
             ++newt;
             dyno = 0.0;
-            i1 = n;
-            for (i = 1; i <= i1; ++i)
+            for (i = 0; i < n; i++)
             {
                 denom = scal[i];
                 // Computing 2nd power
@@ -746,7 +723,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     theta = Math.Sqrt(thq * thqold);
                 }
                 thqold = thq;
-                if (theta < .99)
+                if (theta < 0.99)
                 {
                     faccon = theta / (1.0 - theta);
                     dyth = faccon * dyno * Math.Pow(theta, nit - 1 - newt) / fnewt; // TODO: pow_di
@@ -770,8 +747,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
             }
             dynold = Math.Max(dyno, uround);
-            i1 = n;
-            for (i = 1; i <= i1; ++i)
+            for (i = 0; i < n; i++)
             {
                 f1i = f1[i] + z1[i];
                 f2i = f2[i] + z2[i];
@@ -788,9 +764,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 goto L40;
             }
             // Error estimation
-            dc_decsol.estrad_(n, fjac, ldjac, fmas, ldmas, h, dd1, dd2, dd3, fcn, y0,
+            estrad_(n, fjac, ldjac, h, dd1, dd2, dd3, fcn, y0,
                 y, ijob, x, e1, lde1, z1, z2, z3,
-                cont, f1, f2, ip1, iphes, scal, ref err, first, reject, fac1);
+                cont, f1, f2, ip1, scal, ref err, first, reject);
 
             // Computation of HNEW
             // We require .2<=HNEW/H<=8.
@@ -820,8 +796,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 xold = x;
                 hold = h;
                 x = xph;
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
+                for (i = 0; i < n; i++)
                 {
                     y[i] += z3[i];
                     z2i = z2[i];
@@ -833,9 +808,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     cont[i + n2] = (ak - cont[i + n]) / conra5_1.c1m1;
                     cont[i + n3] = cont[i + n2] - acont3;
                 }
-
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
+                
+                for (i = 0; i < n; i++)
                 {
                     scal[i] = atol + rtol * Math.Abs(y[i]);
                 }
@@ -845,8 +819,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     nrsol = naccpt + 1;
                     conra5_1.xsol = x;
                     xosol = xold;
-                    i1 = n;
-                    for (i = 1; i <= i1; ++i)
+                    for (i = 0; i < n; i++)
                     {
                         cont[i] = y[i];
                     }
@@ -952,6 +925,246 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             return cont[i] + s * (cont[i + conra5_1.nn] + (s - conra5_1.c2m1)
                 * (cont[i + conra5_1.nn2] + (s - conra5_1.c1m1) * cont[i + conra5_1.nn3]));
+        }
+        
+        int decomr_(int n, double[] fjac, int ldjac,
+            double[] fmas, int ldmas, double fac1, double[] e,
+            int lde, int[] ip, ref int ier, int ijob)
+        {
+            switch (ijob)
+            {
+                case 1: goto L1;
+                case 5: goto L5;
+            }
+
+            L1:
+            /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
+            for (int j = 0; j < n; j++)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    e[i + j * lde] = -fjac[i + j * ldjac];
+                }
+                e[j + j * lde] += fac1;
+            }
+            decsol.dec_(n, lde, e, ip, ref ier);
+            return 0;
+
+            L5:
+            /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+            for (int j = 0; j < n; j++)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    e[i + j * lde] = fmas[i + j * ldmas] * fac1 - fjac[i + j * ldjac];
+                }
+            }
+            decsol.dec_(n, lde, e, ip, ref ier);
+            return 0;
+        }
+
+        int decomc_(int n, double[] fjac, int ldjac,
+            double[] fmas, int ldmas, double alphn, double betan,
+            double[] e2r, double[] e2i, int lde1, int[] ip2, ref int ier, int ijob)
+        {
+            switch (ijob)
+            {
+                case 1: goto L1;
+                case 5: goto L5;
+            }
+
+            L1:
+            /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
+            for (int j = 0; j < n; j++)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    e2r[i + j * lde1] = -fjac[i + j * ldjac];
+                    e2i[i + j * lde1] = 0.0;
+                }
+                e2r[j + j * lde1] += alphn;
+                e2i[j + j * lde1] = betan;
+            }
+            decsol.decc_(n, lde1, e2r, e2i, ip2, ref ier);
+            return 0;
+
+            L5:
+            /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+            for (int j = 0; j < n; j++)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    double bb = fmas[i + j * ldmas];
+                    e2r[i + j * lde1] = bb * alphn - fjac[i + j * ldjac];
+                    e2i[i + j * lde1] = bb * betan;
+                }
+            }
+            decsol.decc_(n, lde1, e2r, e2i, ip2, ref ier);
+            return 0;
+        }
+
+        int slvrad_(int n, double[] fjac, int ldjac,
+            double[] fmas, int ldmas,
+            double fac1, double alphn, double betan,
+            double[] e1, double[] e2r, double[] e2i, int lde1,
+            double[] z1, double[] z2, double[] z3, double[] f1,
+            double[] f2, double[] f3, double[] cont, int[] ip1,
+            int[] ip2, ref int ier, int ijob)
+        {
+            /* Local variables */
+            int i, j;
+            double s1, s2, s3, bb;
+
+            switch (ijob)
+            {
+                case 1: goto L1;
+                case 5: goto L5;
+            }
+
+            /* ----------------------------------------------------------- */
+
+            L1:
+            /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
+            for (i = 0; i < n; i++)
+            {
+                s2 = -f2[i];
+                s3 = -f3[i];
+                z1[i] -= f1[i] * fac1;
+                z2[i] = z2[i] + s2 * alphn - s3 * betan;
+                z3[i] = z3[i] + s3 * alphn + s2 * betan;
+            }
+            decsol.sol_(n, lde1, e1, z1, ip1);
+            decsol.solc_(n, lde1, e2r, e2i, z2, z3, ip2);
+            return 0;
+
+            /* ----------------------------------------------------------- */
+
+            L5:
+            /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+            for (i = 0; i < n; i++)
+            {
+                s1 = 0.0;
+                s2 = 0.0;
+                s3 = 0.0;
+                for (j = 0; j < n; j++)
+                {
+                    bb = fmas[i + j * ldmas];
+                    s1 -= bb * f1[j];
+                    s2 -= bb * f2[j];
+                    s3 -= bb * f3[j];
+                }
+                z1[i] += s1 * fac1;
+                z2[i] = z2[i] + s2 * alphn - s3 * betan;
+                z3[i] = z3[i] + s3 * alphn + s2 * betan;
+            }
+            decsol.sol_(n, lde1, e1, z1, ip1);
+            decsol.solc_(n, lde1, e2r, e2i, z2, z3, ip2);
+            return 0;
+        }
+
+        int estrad_(int n,
+            double[] fmas, int ldmas, double h, double dd1,
+            double dd2, double dd3, S_fp fcn, double[] y0,
+            double[] y, int ijob, double x, double[] e1, int lde1, double[] z1,
+            double[] z2, double[] z3, double[] cont, double[] f1,
+            double[] f2, int[] ip1, double[] scal,
+            ref double err, bool first, bool reject)
+        {
+            double d1;
+
+            double sum, hee1, hee2, hee3;
+
+            hee1 = dd1 / h;
+            hee2 = dd2 / h;
+            hee3 = dd3 / h;
+
+            switch (ijob)
+            {
+                case 1: goto L1;
+                case 5: goto L5;
+            }
+
+            L1:
+            /* ------  B=IDENTITY, JACOBIAN A FULL MATRIX */
+            for (int i = 0; i < n; i++)
+            {
+                f2[i] = hee1 * z1[i] + hee2 * z2[i] + hee3 * z3[i];
+                cont[i] = f2[i] + y0[i];
+            }
+            decsol.sol_(n, lde1, e1, cont, ip1);
+            goto L77;
+
+            L5:
+            /* ------  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+            for (int i = 0; i < n; i++)
+            {
+                f1[i] = hee1 * z1[i] + hee2 * z2[i] + hee3 * z3[i];
+            }
+            for (int i = 0; i < n; i++)
+            {
+                sum = 0.0;
+                for (int j = 0; j < n; j++)
+                {
+                    sum += fmas[i + j * ldmas] * f1[j];
+                }
+                f2[i] = sum;
+                cont[i] = sum + y0[i];
+            }
+            decsol.sol_(n, lde1, e1, cont, ip1);
+            goto L77;
+
+            L77:
+            err = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                /* Computing 2nd power */
+                d1 = cont[i] / scal[i];
+                err += d1 * d1;
+            }
+            /* Computing MAX */
+            d1 = Math.Sqrt(err / n);
+            err = Math.Max(d1, 1e-10);
+
+            if (err < 1.0)
+            {
+                return 0;
+            }
+            if (first || reject)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    cont[i] = y[i] + cont[i];
+                }
+                fcn(n, x, cont, f1);
+
+                for (int i = 0; i < n; i++)
+                {
+                    cont[i] = f1[i] + f2[i];
+                }
+                switch (ijob)
+                {
+                    case 1: goto L31;
+                    case 5: goto L31;
+                }
+                /* ------ FULL MATRIX OPTION */
+                L31:
+                decsol.sol_(n, lde1, e1, cont, ip1);
+                goto L88;
+
+                L88:
+                err = 0.0;
+
+                for (int i = 0; i < n; i++)
+                {
+                    /* Computing 2nd power */
+                    d1 = cont[i] / scal[i];
+                    err += d1 * d1;
+                }
+                /* Computing MAX */
+                d1 = Math.Sqrt(err / n);
+                err = Math.Max(d1, 1e-10);
+            }
+            return 0;
         }
     }
 }
