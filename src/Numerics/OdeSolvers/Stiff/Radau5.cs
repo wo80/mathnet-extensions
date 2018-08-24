@@ -53,8 +53,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         // Subroutine
         public int radau5_(int n, S_fp fcn, double x, double[] y,
             double xend, double h, double rtol, double atol,
-            J_fp jac, int ijac, M_fp mas, int imas, S_fp solout,
-            int iout, double[] work, int[] iwork)
+            J_fp jac, int ijac, M_fp mas, int imas, int iout)
         {
             // Local variables
             int nit, lde1;
@@ -157,200 +156,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                       MATRIX, MAS IS NEVER CALLED.
              *                    IMAS=1: MASS-MATRIX  IS SUPPLIED.
              *
-             *     MLMAS       SWITCH FOR THE BANDED STRUCTURE OF THE MASS-MATRIX:
-             *                    MLMAS=N: THE FULL MATRIX CASE. THE LINEAR
-             *                       ALGEBRA IS DONE BY FULL-MATRIX GAUSS-ELIMINATION.
-             *                    0<=MLMAS<N: MLMAS IS THE LOWER BANDWITH OF THE
-             *                       MATRIX (>= NUMBER OF NON-ZERO DIAGONALS BELOW
-             *                       THE MAIN DIAGONAL).
-             *                 MLMAS IS SUPPOSED TO BE .LE. MLJAC.
-             *
-             *     MUMAS       UPPER BANDWITH OF MASS-MATRIX (>= NUMBER OF NON-
-             *                 ZERO DIAGONALS ABOVE THE MAIN DIAGONAL).
-             *                 NEED NOT BE DEFINED IF MLMAS=N.
-             *                 MUMAS IS SUPPOSED TO BE .LE. MUJAC.
-             *
-             *     SOLOUT      NAME (EXTERNAL) OF SUBROUTINE PROVIDING THE
-             *                 NUMERICAL SOLUTION DURING INTEGRATION.
-             *                 IF IOUT=1, IT IS CALLED AFTER EVERY SUCCESSFUL STEP.
-             *                 SUPPLY A DUMMY SUBROUTINE IF IOUT=0.
-             *                 IT MUST HAVE THE FORM
-             *                    SUBROUTINE SOLOUT (NR,XOLD,X,Y,CONT,LRC,N,
-             *                                       RPAR,IPAR,IRTRN)
-             *                    DOUBLE PRECISION X,Y(N),CONT(LRC)
-             *                    ....
-             *                 SOLOUT FURNISHES THE SOLUTION "Y" AT THE NR-TH
-             *                    GRID-POINT "X" (THEREBY THE INITIAL VALUE IS
-             *                    THE FIRST GRID-POINT).
-             *                 "XOLD" IS THE PRECEEDING GRID-POINT.
-             *                 "IRTRN" SERVES TO INTERRUPT THE INTEGRATION. IF IRTRN
-             *                    IS SET <0, RADAU5 RETURNS TO THE CALLING PROGRAM.
-             *
-             *          -----  CONTINUOUS OUTPUT: -----
-             *                 DURING CALLS TO "SOLOUT", A CONTINUOUS SOLUTION
-             *                 FOR THE INTERVAL [XOLD,X] IS AVAILABLE THROUGH
-             *                 THE FUNCTION
-             *                        >>>   CONTR5(I,S,CONT,LRC)   <<<
-             *                 WHICH PROVIDES AN APPROXIMATION TO THE I-TH
-             *                 COMPONENT OF THE SOLUTION AT THE POINT S. THE VALUE
-             *                 S SHOULD LIE IN THE INTERVAL [XOLD,X].
-             *                 DO NOT CHANGE THE ENTRIES OF CONT(LRC), IF THE
-             *                 DENSE OUTPUT FUNCTION IS USED.
-             *
              *     IOUT        SWITCH FOR CALLING THE SUBROUTINE SOLOUT:
              *                    IOUT=0: SUBROUTINE IS NEVER CALLED
              *                    IOUT=1: SUBROUTINE IS AVAILABLE FOR OUTPUT.
              *
-             *     WORK        ARRAY OF WORKING SPACE OF LENGTH "LWORK".
-             *                 WORK(1), WORK(2),..0, WORK(20) SERVE AS PARAMETERS
-             *                 FOR THE CODE. FOR STANDARD USE OF THE CODE
-             *                 WORK(1),..0,WORK(20) MUST BE SET TO ZERO BEFORE
-             *                 CALLING. SEE BELOW FOR A MORE SOPHISTICATED USE.
-             *                 WORK(21),..0,WORK(LWORK) SERVE AS WORKING SPACE
-             *                 FOR ALL VECTORS AND MATRICES.
-             *                 "LWORK" MUST BE AT LEAST
-             *                             N*(LJAC+LMAS+3*LE+12)+20
-             *                 WHERE
-             *                    LJAC=N              IF MLJAC=N (FULL JACOBIAN)
-             *                    LJAC=MLJAC+MUJAC+1  IF MLJAC<N (BANDED JAC.0)
-             *                 AND
-             *                    LMAS=0              IF IMAS=0
-             *                    LMAS=N              IF IMAS=1 AND MLMAS=N (FULL)
-             *                    LMAS=MLMAS+MUMAS+1  IF MLMAS<N (BANDED MASS-M.0)
-             *                 AND
-             *                    LE=N               IF MLJAC=N (FULL JACOBIAN)
-             *                    LE=2*MLJAC+MUJAC+1 IF MLJAC<N (BANDED JAC.0)
-             *
-             *                 IN THE USUAL CASE WHERE THE JACOBIAN IS FULL AND THE
-             *                 MASS-MATRIX IS THE INDENTITY (IMAS=0), THE MINIMUM
-             *                 STORAGE REQUIREMENT IS
-             *                             LWORK = 4*N*N+12*N+20.
-             *                 IF IWORK(9)=M1>0 THEN "LWORK" MUST BE AT LEAST
-             *                          N*(LJAC+12)+(N-M1)*(LMAS+3*LE)+20
-             *                 WHERE IN THE DEFINITIONS OF LJAC, LMAS AND LE THE
-             *                 NUMBER N CAN BE REPLACED BY N-M1.
-             *
-             *     LWORK       DECLARED LENGTH OF ARRAY "WORK".
-             *
-             *     IWORK       INTEGER WORKING SPACE OF LENGTH "LIWORK".
-             *                 IWORK(1),IWORK(2),...0,IWORK(20) SERVE AS PARAMETERS
-             *                 FOR THE CODE. FOR STANDARD USE, SET IWORK(1),..0,
-             *                 IWORK(20) TO ZERO BEFORE CALLING.
-             *                 IWORK(21),...0,IWORK(LIWORK) SERVE AS WORKING AREA.
-             *                 "LIWORK" MUST BE AT LEAST 3*N+20.
-             *
-             *     LIWORK      DECLARED LENGTH OF ARRAY "IWORK".
-             *
              * ----------------------------------------------------------------------
-             *
-             *     SOPHISTICATED SETTING OF PARAMETERS
-             *     -----------------------------------
-             *              SEVERAL PARAMETERS OF THE CODE ARE TUNED TO MAKE IT WORK
-             *              WELL. THEY MAY BE DEFINED BY SETTING WORK(1),...
-             *              AS WELL AS IWORK(1),... DIFFERENT FROM ZERO.
-             *              FOR ZERO INPUT, THE CODE CHOOSES DEFAULT VALUES:
-             *
-             *    IWORK(1)  IF IWORK(1).NE.0, THE CODE TRANSFORMS THE JACOBIAN
-             *              MATRIX TO HESSENBERG FORM. THIS IS PARTICULARLY
-             *              ADVANTAGEOUS FOR LARGE SYSTEMS WITH FULL JACOBIAN.
-             *              IT DOES NOT WORK FOR BANDED JACOBIAN (MLJAC<N)
-             *              AND NOT FOR IMPLICIT SYSTEMS (IMAS=1).
-             *
-             *    IWORK(2)  THIS IS THE MAXIMAL NUMBER OF ALLOWED STEPS.
-             *              THE DEFAULT VALUE (FOR IWORK(2)=0) IS 100000.
-             *
-             *    IWORK(3)  THE MAXIMUM NUMBER OF NEWTON ITERATIONS FOR THE
-             *              SOLUTION OF THE IMPLICIT SYSTEM IN EACH STEP.
-             *              THE DEFAULT VALUE (FOR IWORK(3)=0) IS 7.
-             *
-             *    IWORK(4)  IF IWORK(4).EQ.0 THE EXTRAPOLATED COLLOCATION SOLUTION
-             *              IS TAKEN AS STARTING VALUE FOR NEWTON'S METHOD.
-             *              IF IWORK(4).NE.0 ZERO STARTING VALUES ARE USED.
-             *              THE LATTER IS RECOMMENDED IF NEWTON'S METHOD HAS
-             *              DIFFICULTIES WITH CONVERGENCE (THIS IS THE CASE WHEN
-             *              NSTEP IS LARGER THAN NACCPT + NREJCT; SEE OUTPUT PARAM.0).
-             *              DEFAULT IS IWORK(4)=0.
-             *
-             *       THE FOLLOWING 3 PARAMETERS ARE IMPORTANT FOR
-             *       DIFFERENTIAL-ALGEBRAIC SYSTEMS OF INDEX > 1.
-             *       THE FUNCTION-SUBROUTINE SHOULD BE WRITTEN SUCH THAT
-             *       THE INDEX 1,2,3 VARIABLES APPEAR IN THIS ORDER.
-             *       IN ESTIMATING THE ERROR THE INDEX 2 VARIABLES ARE
-             *       MULTIPLIED BY H, THE INDEX 3 VARIABLES BY H**2.
-             *
-             *    IWORK(5)  DIMENSION OF THE INDEX 1 VARIABLES (MUST BE > 0). FOR
-             *              ODE'S THIS EQUALS THE DIMENSION OF THE SYSTEM.
-             *              DEFAULT IWORK(5)=N.
-             *
-             *    IWORK(6)  DIMENSION OF THE INDEX 2 VARIABLES. DEFAULT IWORK(6)=0.
-             *
-             *    IWORK(7)  DIMENSION OF THE INDEX 3 VARIABLES. DEFAULT IWORK(7)=0.
-             *
-             *    IWORK(8)  SWITCH FOR STEP SIZE STRATEGY
-             *              IF IWORK(8).EQ.1  MOD. PREDICTIVE CONTROLLER (GUSTAFSSON)
-             *              IF IWORK(8).EQ.2  CLASSICAL STEP SIZE CONTROL
-             *              THE DEFAULT VALUE (FOR IWORK(8)=0) IS IWORK(8)=1.
-             *              THE CHOICE IWORK(8).EQ.1 SEEMS TO PRODUCE SAFER RESULTS;
-             *              FOR SIMPLE PROBLEMS, THE CHOICE IWORK(8).EQ.2 PRODUCES
-             *              OFTEN SLIGHTLY FASTER RUNS
-             *
-             *       IF THE DIFFERENTIAL SYSTEM HAS THE SPECIAL STRUCTURE THAT
-             *            Y(I)' = Y(I+M2)   FOR  I=1,...0,M1,
-             *       WITH M1 A MULTIPLE OF M2, A SUBSTANTIAL GAIN IN COMPUTERTIME
-             *       CAN BE ACHIEVED BY SETTING THE PARAMETERS IWORK(9) AND IWORK(10).
-             *       E.G.0, FOR SECOND ORDER SYSTEMS P'=V, V'=G(P,V), WHERE P AND V ARE
-             *       VECTORS OF DIMENSION N/2, ONE HAS TO PUT M1=M2=N/2.
-             *       FOR M1>0 SOME OF THE INPUT PARAMETERS HAVE DIFFERENT MEANINGS:
-             *       - JAC: ONLY THE ELEMENTS OF THE NON-TRIVIAL PART OF THE
-             *              JACOBIAN HAVE TO BE STORED
-             *              IF (MLJAC.EQ.N-M1) THE JACOBIAN IS SUPPOSED TO BE FULL
-             *                 DFY(I,J) = PARTIAL F(I+M1) / PARTIAL Y(J)
-             *                FOR I=1,N-M1 AND J=1,N.
-             *       - MAS: IF IMAS=0 THIS MATRIX IS ASSUMED TO BE THE IDENTITY AND
-             *              NEED NOT BE DEFINED. SUPPLY A DUMMY SUBROUTINE IN THIS CASE.
-             *              IT IS ASSUMED THAT ONLY THE ELEMENTS OF RIGHT LOWER BLOCK OF
-             *              DIMENSION N-M1 DIFFER FROM THAT OF THE IDENTITY MATRIX.
-             *              IF (MLMAS.EQ.N-M1) THIS SUBMATRIX IS SUPPOSED TO BE FULL
-             *                 AM(I,J) = M(I+M1,J+M1)     FOR I=1,N-M1 AND J=1,N-M1.
-             *
-             *    IWORK(9)  THE VALUE OF M1.  DEFAULT M1=0.
-             *
-             *    IWORK(10) THE VALUE OF M2.  DEFAULT M2=M1.
-             *
-             * ----------
-             *
-             *    WORK(1)   UROUND, THE ROUNDING UNIT, DEFAULT 1.D-16.
-             *
-             *    WORK(2)   THE SAFETY FACTOR IN STEP SIZE PREDICTION,
-             *              DEFAULT 0.9D0.
-             *
-             *    WORK(3)   DECIDES WHETHER THE JACOBIAN SHOULD BE RECOMPUTED;
-             *              INCREASE WORK(3), TO 0.1 SAY, WHEN JACOBIAN EVALUATIONS
-             *              ARE COSTLY. FOR SMALL SYSTEMS WORK(3) SHOULD BE SMALLER
-             *              (0.001D0, SAY). NEGATIV WORK(3) FORCES THE CODE TO
-             *              COMPUTE THE JACOBIAN AFTER EVERY ACCEPTED STEP.
-             *              DEFAULT 0.001D0.
-             *
-             *    WORK(4)   STOPPING CRITERION FOR NEWTON'S METHOD, USUALLY CHOSEN <1.
-             *              SMALLER VALUES OF WORK(4) MAKE THE CODE SLOWER, BUT SAFER.
-             *              DEFAULT MIN(0.03D0,RTOL(1)**0.5D0)
-             *
-             *    WORK(5) AND WORK(6) : IF WORK(5) < HNEW/HOLD < WORK(6), THEN THE
-             *              STEP SIZE IS NOT CHANGED. THIS SAVES, TOGETHER WITH A
-             *              LARGE WORK(3), LU-DECOMPOSITIONS AND COMPUTING TIME FOR
-             *              LARGE SYSTEMS. FOR SMALL SYSTEMS ONE MAY HAVE
-             *              WORK(5)=1.D0, WORK(6)=1.2D0, FOR LARGE FULL SYSTEMS
-             *              WORK(5)=0.99D0, WORK(6)=2.D0 MIGHT BE GOOD.
-             *              DEFAULTS WORK(5)=1.D0, WORK(6)=1.2D0 .
-             *
-             *    WORK(7)   MAXIMAL STEP SIZE, DEFAULT XEND-X.
-             *
-             *    WORK(8), WORK(9)   PARAMETERS FOR STEP SIZE SELECTION
-             *              THE NEW STEP SIZE IS CHOSEN SUBJECT TO THE RESTRICTION
-             *                 WORK(8) <= HNEW/HOLD <= WORK(9)
-             *              DEFAULT VALUES: WORK(8)=0.2D0, WORK(9)=8.D0
-             *
-             * -----------------------------------------------------------------------
              *
              *     OUTPUT PARAMETERS
              *     -----------------
@@ -368,19 +178,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                   IDID=-2  LARGER NMAX IS NEEDED,
              *                   IDID=-3  STEP SIZE BECOMES TOO SMALL,
              *                   IDID=-4  MATRIX IS REPEATEDLY SINGULAR.
-             *
-             *   IWORK(14)  NFCN    NUMBER OF FUNCTION EVALUATIONS (THOSE FOR NUMERICAL
-             *                      EVALUATION OF THE JACOBIAN ARE NOT COUNTED)
-             *   IWORK(15)  NJAC    NUMBER OF JACOBIAN EVALUATIONS (EITHER ANALYTICALLY
-             *                      OR NUMERICALLY)
-             *   IWORK(16)  NSTEP   NUMBER OF COMPUTED STEPS
-             *   IWORK(17)  NACCPT  NUMBER OF ACCEPTED STEPS
-             *   IWORK(18)  NREJCT  NUMBER OF REJECTED STEPS (DUE TO ERROR TEST),
-             *                      (STEP REJECTIONS IN THE FIRST STEP ARE NOT COUNTED)
-             *   IWORK(19)  NDEC    NUMBER OF LU-DECOMPOSITIONS OF BOTH MATRICES
-             *   IWORK(20)  NSOL    NUMBER OF FORWARD-BACKWARD SUBSTITUTIONS, OF BOTH
-             *                      SYSTEMS; THE NSTEP FORWARD-BACKWARD SUBSTITUTIONS,
-             *                      NEEDED FOR STEP SIZE SELECTION, ARE NOT COUNTED
              */
 
             nstep = 0;
@@ -389,21 +186,16 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ndec = 0;
             nsol = 0;
 
-            // UROUND   Smallest number satisfying 1.0D0+UROUND>1.0D0
-            if (work[1] == 0.0)
-            {
-                uround = 1e-16;
-            }
-            else
-            {
-                uround = work[1];
-                if (uround <= 1e-19 || uround >= 1.0)
-                {
+            // UROUND   Smallest number satisfying 1.0+UROUND>1.0
+            //          (the rounding unit, default = 1e-16).
+            uround = 1e-16;
 
-                    Console.WriteLine(" COEFFICIENTS HAVE 20 DIGITS, UROUND=", work[1]);
-                    return -1;
-                }
+            if (uround <= 1e-19 || uround >= 1.0)
+            {
+                Console.WriteLine(" COEFFICIENTS HAVE 20 DIGITS, UROUND=", uround);
+                return -1;
             }
+
             // Check and change the tolerances
             expm = 0.66666666666666663;
 
@@ -420,167 +212,121 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
 
             // NMAX , The maximal number of steps
-            if (iwork[2] == 0)
-            {
-                nmax = 100000;
-            }
-            else
-            {
-                nmax = iwork[2];
-                if (nmax <= 0)
-                {
+            nmax = 100000;
 
-                    Console.WriteLine(" WRONG INPUT IWORK(2)=", iwork[2]);
-                    return -1;
-                }
-            }
-            // NIT    Maximal number of Newton iterations
-            if (iwork[3] == 0)
-            {
-                nit = 7;
-            }
-            else
-            {
-                nit = iwork[3];
-                if (nit <= 0)
-                {
+            // NIT    The maximum number of Newton iterations for the solution of the implicit system in each step (default = 7).
+            nit = 7;
 
-                    Console.WriteLine(" CURIOUS INPUT IWORK(3)=", iwork[3]);
-                    return -1;
-                }
+            if (nit <= 0)
+            {
+                Console.WriteLine(" CURIOUS INPUT IWORK(3)=", nit);
+                return -1;
             }
+
             // STARTN  Switch for starting values of newton iterations
-            if (iwork[4] == 0)
-            {
-                startn = false;
-            }
-            else
-            {
-                startn = true;
-            }
-            // Parameter for differential-algebraic components
-            nind1 = iwork[5];
-            nind2 = iwork[6];
-            nind3 = iwork[7];
-            if (nind1 == 0)
-            {
-                nind1 = n;
-            }
+            //    If STARTN = true, the extrapolated collocation solution
+            //    is taken as starting value for Newton's method.
+            //    If STARTN = false, zero starting values are used.
+            //    The latter is recommended if Newton's method has
+            //    difficulties with convergence (this is the case when
+            //    NSTEP is larger than NACCPT + NREJCT; see output param 0).
+            //    default STARTN = false.
+            startn = false;
+
+            // The following 3 parameters are important for
+            // differential-algebraic systems of INDEX > 1.
+            // The function-subroutine should be written such that
+            // the index 1,2,3 variables appear in this order.
+            // In estimating the error the index 2 variables are
+            // multiplied by h, the index 3 variables by h**2.
+
+            // NIND1  dimension of the index 1 variables (must be > 0).
+            //        For ODE's this equals the dimension of the system. (default NIND1=N).
+            // NIND2  dimension of the index 2 variables. (default NIND2=0).
+            // NIND3  dimension of the index 3 variables. (default NIND3=0).
+            nind1 = n;
+            nind2 = 0;
+            nind3 = 0;
+
             if (nind1 + nind2 + nind3 != n)
             {
-
                 Console.WriteLine(" CURIOUS INPUT FOR IWORK(5,6,7)=", nind1, nind2, nind3);
                 return -1;
             }
-            // PRED   Step size control
-            if (iwork[8] <= 1)
+
+            // PRED   Switch for step size strategy (default = 1).
+            //   IF PRED = 1  mod. predictive controller (Gustafsson)
+            //   IF PRED = 2  CLASSICAL STEP SIZE CONTROL
+            //  
+            //   The choice PRED = 1 seems to produce safer results;
+            //   For simple problems, the choice PRED = 2 produces
+            //   often slightly faster runs.
+            pred = true;
+
+            // SAFE     The safety factor in step size prediction, default 0.9.
+            safe = 0.9;
+
+            if (safe <= 0.001 || safe >= 1.0)
             {
-                pred = true;
-            }
-            else
-            {
-                pred = false;
+                Console.WriteLine(" CURIOUS INPUT FOR WORK(2)=", safe);
+                return -1;
             }
 
-            // SAFE     Safety factor in step size prediction
-            if (work[2] == 0.0)
-            {
-                safe = 0.9;
-            }
-            else
-            {
-                safe = work[2];
-                if (safe <= 0.001 || safe >= 1.0)
-                {
+            // THET     Decides whether the Jacobian should be recomputed (default 0.001).
+            //    Increase THET, to 0.1 say, when Jacobian evaluations are costly. For
+            //    small systems THET should be smaller (0.001, say). Negativ THET forces
+            //    the code to compute the Jacobian after every accepted step.
+            thet = 0.001;
 
-                    Console.WriteLine(" CURIOUS INPUT FOR WORK(2)=", work[2]);
-                    return -1;
-                }
-            }
-            // THET     Decides whether the Jacobian should be recomputed;
-            if (work[3] == 0.0)
+            if (thet >= 1.0)
             {
-                thet = 0.001;
+                Console.WriteLine(" CURIOUS INPUT FOR WORK(3)=", thet);
+                return -1;
             }
-            else
-            {
-                thet = work[3];
-                if (thet >= 1.0)
-                {
 
-                    Console.WriteLine(" CURIOUS INPUT FOR WORK(3)=", work[3]);
-                    return -1;
-                }
-            }
-            // FNEWT   Stopping criterion for Newton's method, usually chosen <1.
+            // FNEWT   Stopping criterion for Newton's method, usually chosen < 1 (default min(0.03, RTOL^0.5)).
+            //    Smaller values of FNEWT make the code slower, but safer.
             tolst = rtol;
-            if (work[4] == 0.0)
-            {
-                fnewt = Math.Max(uround * 10 / tolst, Math.Min(0.03, Math.Pow(tolst, 0.5)));
-            }
-            else
-            {
-                fnewt = work[4];
-                if (fnewt <= uround / tolst)
-                {
 
-                    Console.WriteLine(" CURIOUS INPUT FOR WORK(4)=", work[4]);
-                    return -1;
-                }
-            }
-            // QUOT1 and QUOT2: if QUOT1 < HNEW/HOLD < QUOT2, step size = CONST.
-            if (work[5] == 0.0)
+            fnewt = Math.Max(uround * 10 / tolst, Math.Min(0.03, Math.Pow(tolst, 0.5)));
+
+            if (fnewt <= uround / tolst)
             {
-                quot1 = 1.0;
+                Console.WriteLine(" CURIOUS INPUT FOR WORK(4)=", fnewt);
+                return -1;
             }
-            else
-            {
-                quot1 = work[5];
-            }
-            if (work[6] == 0.0)
-            {
-                quot2 = 1.2;
-            }
-            else
-            {
-                quot2 = work[6];
-            }
+
+            // QUOT1 and QUOT2: if QUOT1 < HNEW/HOLD < QUOT2, then the step size is not changed (defaults QUOT1 = 1.0, QUOT2 = 1.2).
+            //    This saves, together with a large THET, LU-decompositions and computing time for
+            //    large systems.
+            //    For small systems one may have QUOT1 = 1.0, QUOT2 = 1.2.
+            //    For large full systems QUOT1 = 0.99, QUOT2 = 2.0 might be good.
+            quot1 = 1.0;
+            quot2 = 1.2;
+
             if (quot1 > 1.0 || quot2 < 1.0)
             {
-
                 Console.WriteLine(" CURIOUS INPUT FOR WORK(5,6)=", quot1, quot2);
                 return -1;
             }
+
             // Maximal step size
-            if (work[7] == 0.0)
-            {
-                hmax = xend - x;
-            }
-            else
-            {
-                hmax = work[7];
-            }
+            hmax = xend - x;
+
             // FACL,FACR     Parameters for step size selection
-            if (work[8] == 0.0)
-            {
-                facl = 5.0;
-            }
-            else
-            {
-                facl = 1.0 / work[8];
-            }
-            if (work[9] == 0.0)
-            {
-                facr = 0.125;
-            }
-            else
-            {
-                facr = 1.0 / work[9];
-            }
+
+            // THE NEW STEP SIZE IS CHOSEN SUBJECT TO THE RESTRICTION
+            // WORK(8) <= HNEW / HOLD <= WORK(9)
+            // DEFAULT VALUES: WORK(8) = 0.2, WORK(9) = 8.0
+
+            facl = 5.0;
+            facr = 0.125;
+            //facl = 1.0 / work[8];
+            //facr = 1.0 / work[9];
+
             if (facl < 1.0 || facr > 1.0)
             {
-
-                Console.WriteLine(" CURIOUS INPUT WORK(8,9)=", work[8], work[9]);
+                Console.WriteLine(" CURIOUS INPUT WORK(8,9)=", 1.0 / facl, 1.0 / facr);
                 return -1;
             }
 
@@ -606,18 +352,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 ldmas = 0;
 
                 ijob = 1;
-                if (n > 2 && iwork[1] != 0)
-                {
-                    ijob = 7;
-                }
             }
             ldmas2 = Math.Max(1, ldmas);
-            // Hessenberg option only for explicit equ. with full Jacobian
-            if ((implct) && ijob == 7)
-            {
-                Console.WriteLine(" HESSENBERG OPTION ONLY FOR EXPLICIT EQUATIONS WITH FULL JACOBIAN");
-                return -1;
-            }
 
             // Prepare the entry-points for the arrays in work
             var z1 = new double[n];
@@ -643,14 +379,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Call to core integrator
             int idid = radcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
                 jac, ijac, mas,
-                solout, iout, nmax, uround, safe, thet, fnewt,
+                iout, nmax, uround, safe, thet, fnewt,
                 quot1, quot2, nit, ijob, startn, nind1, nind2, nind3,
                 pred, facl, facr, implct, ldjac,
                 lde1, ldmas2, z1, z2, z3, y0,
                  scal, f1, f2, f3,
                 _jac, e1, e2r, e2i, _mas,
                 ip1, ip2, iph, con);
-            
+
             // Restore tolerances
             expm = 1.0 / expm;
 
@@ -669,7 +405,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         int radcor_(int n, S_fp fcn, double x, double[]
             y, double xend, double hmax, double h, double rtol, double atol,
-            J_fp jac, int ijac, M_fp mas, S_fp solout, int iout, int nmax,
+            J_fp jac, int ijac, M_fp mas, int iout, int nmax,
             double uround, double safe, double thet, double
             fnewt, double quot1, double quot2, int nit, int
             ijob, bool startn, int nind1, int nind2, int nind3,
@@ -716,9 +452,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             // Core integrator for RADAU5
             // Parameters same as in radau5 with workspace added
-            
+
             // Initialisations
-            
+
             conra5_1.nn = n;
             conra5_1.nn2 = n << 1;
             conra5_1.nn3 = n * 3;
