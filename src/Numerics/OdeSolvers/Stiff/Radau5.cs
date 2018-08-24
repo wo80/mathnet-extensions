@@ -375,7 +375,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Entry points for integer workspace
             ip1 = new int[n];
             ip2 = new int[n];
-            
+
             // Call to core integrator
             int idid = radcor_(n, x, y, xend, hmax, h,
                 mas, iout, nmax, uround, safe, thet, fnewt,
@@ -540,7 +540,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             n2 = n * 2;
             n3 = n * 3;
-            
+
             for (i = 0; i < n; i++)
             {
                 scal[i] = atol + rtol * Math.Abs(y[i]);
@@ -549,35 +549,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             hhfac = h;
             fcn(n, x, y, y0);
 
-            // Basic integration step
-            L10:
-            // Computation of the Jacobian
-            if (ijac == 0)
-            {
-                // Compute Jacobian matrix numerically
-
-                // Jacobian is full
-                for (i = 0; i < n; i++)
-                {
-                    ysafe = y[i];
-                    delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
-                    y[i] = ysafe + delt;
-                    fcn(n, x, y, cont);
-
-                    for (j = 0; j < n; j++)
-                    {
-                        fjac[j - i * n] = (cont[j] - y0[j]) / delt;
-                    }
-                    y[i] = ysafe;
-                }
-            }
-            else
-            {
-                // Compute Jacobian matrix analytically
-                jac(n, x, y, fjac);
-            }
+            ComputeJacobian(n, x, y, ijac, uround);
             caljac = true;
 
+            // Basic integration step
             L20:
             // Compute the matrices E1 and E2 and their decompositions
             fac1 = u1 / h;
@@ -733,11 +708,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         h = hhfac * h;
                         reject = true;
                         last = false;
-                        if (caljac)
+                        if (!caljac)
                         {
-                            goto L20;
+                            ComputeJacobian(n, x, y, ijac, uround);
+                            caljac = true;
                         }
-                        goto L10;
+                        goto L20;
                     }
                 }
                 else
@@ -807,7 +783,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     cont[i + n2] = (ak - cont[i + n]) / conra5_1.c1m1;
                     cont[i + n3] = cont[i + n2] - acont3;
                 }
-                
+
                 for (i = 0; i < n; i++)
                 {
                     scal[i] = atol + rtol * Math.Abs(y[i]);
@@ -862,11 +838,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     h = hnew;
                 }
                 hhfac = h;
-                if (theta <= thet)
+                if (theta > thet)
                 {
-                    goto L20;
+                    ComputeJacobian(n, x, y, ijac, uround);
+                    caljac = true;
                 }
-                goto L10;
+                goto L20;
             }
             else
             {
@@ -887,11 +864,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
                     ++(nrejct);
                 }
-                if (caljac)
+                if (!caljac)
                 {
-                    goto L20;
+                    ComputeJacobian(n, x, y, ijac, uround);
+                    caljac = true;
                 }
-                goto L10;
+                goto L20;
             }
             // Unexpected step-rejection
             L78:
@@ -907,11 +885,41 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             hhfac = 0.5;
             reject = true;
             last = false;
-            if (caljac)
+            if (!caljac)
             {
-                goto L20;
+                ComputeJacobian(n, x, y, ijac, uround);
+                caljac = true;
             }
-            goto L10;
+            goto L20;
+        }
+
+        private void ComputeJacobian(int n, double x, double[] y, int ijac, double uround)
+        {
+            // Computation of the Jacobian
+            if (ijac == 0)
+            {
+                // Compute Jacobian matrix numerically
+
+                // Jacobian is full
+                for (int i = 0; i < n; i++)
+                {
+                    var ysafe = y[i];
+                    var delt = Math.Sqrt(uround * Math.Max(1e-5, Math.Abs(ysafe)));
+                    y[i] = ysafe + delt;
+                    fcn(n, x, y, cont);
+
+                    for (int j = 0; j < n; j++)
+                    {
+                        fjac[j - i * n] = (cont[j] - y0[j]) / delt;
+                    }
+                    y[i] = ysafe;
+                }
+            }
+            else
+            {
+                // Compute Jacobian matrix analytically
+                jac(n, x, y, fjac);
+            }
         }
 
         // This function can be used for coninuous output. it provides an
@@ -925,7 +933,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return cont[i] + s * (cont[i + conra5_1.nn] + (s - conra5_1.c2m1)
                 * (cont[i + conra5_1.nn2] + (s - conra5_1.c1m1) * cont[i + conra5_1.nn3]));
         }
-        
+
         int decomr_(int n, double[] fjac,
             double[] fmas, double fac1, double[] e,
             int[] ip, ref int ier, int ijob)
