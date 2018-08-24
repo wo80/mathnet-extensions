@@ -49,10 +49,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         conra5 conra5_1;
 
         // Subroutine
-        int radau5_(int n, S_fp fcn, double x, double[] y,
-            double xend, double h, double[] rtol, double[] atol,
-            int itol, J_fp jac, int ijac,
-            M_fp mas, int imas, S_fp solout,
+        public int radau5_(int n, S_fp fcn, double x, double[] y,
+            double xend, double h, double rtol, double atol,
+            J_fp jac, int ijac, M_fp mas, int imas, S_fp solout,
             int iout, double[] work, int[] iwork)
         {
             // System generated locals
@@ -389,7 +388,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
              *                      SYSTEMS; THE NSTEP FORWARD-BACKWARD SUBSTITUTIONS,
              *                      NEEDED FOR STEP SIZE SELECTION, ARE NOT COUNTED
              */
-             
+
             nfcn = 0;
             njac = 0;
             nstep = 0;
@@ -415,40 +414,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
             // Check and change the tolerances
             expm = 0.66666666666666663;
-            if (itol == 0)
-            {
-                if (atol[1] <= 0.0 || rtol[1] <= uround * 10.0)
-                {
 
-                    Console.WriteLine(" TOLERANCES ARE TOO SMALL");
-                    return -1;
-                }
-                else
-                {
-                    quot = atol[1] / rtol[1];
-                    rtol[1] = Math.Pow(rtol[1], expm) * 0.1;
-                    atol[1] = rtol[1] * quot;
-                }
+            if (atol <= 0.0 || rtol <= uround * 10.0)
+            {
+                Console.WriteLine(" TOLERANCES ARE TOO SMALL");
+                return -1;
             }
             else
             {
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
-                {
-                    if (atol[i] <= 0.0 || rtol[i] <= uround * 10.0)
-                    {
-
-                        Console.WriteLine(" TOLERANCES() ARE TOO SMALL", i);
-                        return -1;
-                    }
-                    else
-                    {
-                        quot = atol[i] / rtol[i];
-                        rtol[i] = Math.Pow(rtol[i], expm) * 0.1;
-                        atol[i] = rtol[i] * quot;
-                    }
-                }
+                quot = atol / rtol;
+                rtol = Math.Pow(rtol, expm) * 0.1;
+                atol = rtol * quot;
             }
+
             // NMAX , The maximal number of steps
             if (iwork[2] == 0)
             {
@@ -543,7 +521,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
             }
             // FNEWT   Stopping criterion for Newton's method, usually chosen <1.
-            tolst = rtol[1];
+            tolst = rtol;
             if (work[4] == 0.0)
             {
                 fnewt = Math.Max(uround * 10 / tolst, Math.Min(0.03, Math.Pow(tolst, 0.5)));
@@ -664,15 +642,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             var e1 = new double[n * lde1];
             var e2r = new double[n * lde1];
             var e2i = new double[n * lde1];
-            
+
             // Entry points for integer workspace
             var ip1 = new int[n];
             var ip2 = new int[n];
             var iph = new int[n];
-            
+
             // Call to core integrator
             int idid = radcor_(n, fcn, x, y, xend, hmax, h, rtol, atol,
-                itol, jac, ijac, mas,
+                jac, ijac, mas,
                 solout, iout, nmax, uround, safe, thet, fnewt,
                 quot1, quot2, nit, ijob, startn, nind1, nind2, nind3,
                 pred, facl, facr, implct, ldjac,
@@ -692,30 +670,18 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             // Restore tolerances
             expm = 1.0 / expm;
-            if (itol == 0)
-            {
-                quot = atol[1] / rtol[1];
-                rtol[1] = Math.Pow(rtol[1] * 10.0, expm);
-                atol[1] = rtol[1] * quot;
-            }
-            else
-            {
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
-                {
-                    quot = atol[i] / rtol[i];
-                    rtol[i] = Math.Pow(rtol[i] * 10.0, expm);
-                    atol[i] = rtol[i] * quot;
-                }
-            }
+
+            quot = atol / rtol;
+            rtol = Math.Pow(rtol * 10.0, expm);
+            atol = rtol * quot;
+
 
             return idid;
         }
-        
+
         int radcor_(int n, S_fp fcn, double x, double[]
-            y, double xend, double hmax, double h, double[]
-            rtol, double[] atol, int itol, J_fp jac, int ijac,
-            M_fp mas, S_fp solout, int iout, int nmax,
+            y, double xend, double hmax, double h, double rtol, double atol,
+            J_fp jac, int ijac, M_fp mas, S_fp solout, int iout, int nmax,
             double uround, double safe, double thet, double
             fnewt, double quot1, double quot2, int nit, int
             ijob, bool startn, int nind1, int nind2, int nind3,
@@ -730,7 +696,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         {
             int i1, i2;
             double d1, d2, d3;
-            
+
             int i, j;
             double a1, a2, c1, c2, a3;
             int n2, n3;
@@ -761,7 +727,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double facgus;
             double dynold = 0, posneg;
             double thqold = 0;
-            
+
             // Core integrator for RADAU5
             // Parameters same as in radau5 with workspace added
 
@@ -801,7 +767,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             //fmas -= fmas_offset;
             //--rpar;
             //--ipar;
-            
+
             conra5_1.nn = n;
             conra5_1.nn2 = n << 1;
             conra5_1.nn3 = n * 3;
@@ -898,22 +864,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             n2 = n << 1;
             n3 = n * 3;
-            if (itol == 0)
+
+            i1 = n;
+            for (i = 1; i <= i1; ++i)
             {
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
-                {
-                    scal[i] = atol[1] + rtol[1] * Math.Abs(y[i]);
-                }
+                scal[i] = atol + rtol * Math.Abs(y[i]);
             }
-            else
-            {
-                i1 = n;
-                for (i = 1; i <= i1; ++i)
-                {
-                    scal[i] = atol[i] + rtol[i] * Math.Abs(y[i]);
-                }
-            }
+
             hhfac = h;
             fcn(n, x, y, y0);
             ++(nfcn);
@@ -1190,22 +1147,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     cont[i + n2] = (ak - cont[i + n]) / conra5_1.c1m1;
                     cont[i + n3] = cont[i + n2] - acont3;
                 }
-                if (itol == 0)
+
+                i1 = n;
+                for (i = 1; i <= i1; ++i)
                 {
-                    i1 = n;
-                    for (i = 1; i <= i1; ++i)
-                    {
-                        scal[i] = atol[1] + rtol[1] * Math.Abs(y[i]);
-                    }
+                    scal[i] = atol + rtol * Math.Abs(y[i]);
                 }
-                else
-                {
-                    i1 = n;
-                    for (i = 1; i <= i1; ++i)
-                    {
-                        scal[i] = atol[i] + rtol[i] * Math.Abs(y[i]);
-                    }
-                }
+
                 if (iout != 0)
                 {
                     nrsol = naccpt + 1;
