@@ -436,32 +436,28 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ijob, bool startn, int nind1, int nind2, int nind3,
             bool pred, double facl, double facr, bool implct)
         {
-            double d1, d2, d3;
-
             int i;
-            double a1, a2, a3;
             int n2, n3;
             double cno, qt;
-            double ak, ak1, ak2, ak3, f1i, f2i, f3i, c1q, c2q, c3q, z1i, z2i, z3i, fac;
+            double ak, ak1, ak2, ak3, c1q, c2q, c3q, z1i, z2i, z3i, fac;
             int lrc;
             int ier = 0;
-            double xph, thq, err = 0, fac1, cfac, hacc = 0;
+            double xph, err = 0, fac1, cfac, hacc = 0;
             double hnew, hold;
             bool last;
             double hopt, xold;
             int newt;
-            double dyno, dyth, quot, hhfac, betan, alphn, denom, theta, hmaxn;
+            double quot, hhfac, betan, alphn, theta = 0, hmaxn;
             int nsing;
             bool first;
             int irtrn = 0, nrsol, nsolu;
-            double qnewt, xosol, acont3;
+            double xosol, acont3;
             bool index1, index2, index3, caljac;
             double faccon;
             double erracc = 0;
             bool reject;
             double facgus;
-            double dynold = 0, posneg;
-            double thqold = 0;
+            double posneg;
 
             int ijac = jac == null ? 0 : 1;
 
@@ -664,146 +660,20 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
 
                 // Loop for the simplified newton iteration
-                newt = 0;
-                faccon = Math.Pow(Math.Max(faccon, uround), 0.8);
-                theta = Math.Abs(thet);
-                L40:
-                if (newt >= nit)
+                if (!Newton(n, nit, x, y, ref h, ref hhfac, alphn, betan, thet, uround, fnewt, ijac, ijob, ref faccon, ref theta, out newt))
                 {
-                    // Unexpected step-rejection
-                    if (ier != 0)
-                    {
-                        ++nsing;
-                        if (nsing >= 5)
-                        {
-                            throw new Exception(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
-                        }
-                    }
-                    h *= 0.5;
-                    hhfac = 0.5;
                     reject = true;
                     last = false;
+
                     if (!caljac)
                     {
                         ComputeJacobian(n, x, y, ijac, uround);
                         caljac = true;
                     }
+
                     continue;
                 }
-                // Compute the right-hand side
-                for (i = 0; i < n; i++)
-                {
-                    cont[i] = y[i] + z1[i];
-                }
-                fcn(n, x + c1 * h, cont, z1);
-                for (i = 0; i < n; i++)
-                {
-                    cont[i] = y[i] + z2[i];
-                }
-                fcn(n, x + c2 * h, cont, z2);
-                for (i = 0; i < n; i++)
-                {
-                    cont[i] = y[i] + z3[i];
-                }
-                fcn(n, xph, cont, z3);
 
-                // Solve the linear systems
-                for (i = 0; i < n; i++)
-                {
-                    a1 = z1[i];
-                    a2 = z2[i];
-                    a3 = z3[i];
-                    z1[i] = ti11 * a1 + ti12 * a2 + ti13 * a3;
-                    z2[i] = ti21 * a1 + ti22 * a2 + ti23 * a3;
-                    z3[i] = ti31 * a1 + ti32 * a2 + ti33 * a3;
-                }
-                slvrad_(n, fjac, fmas, fac1, alphn, betan, e1,
-                     e2r, e2i, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, ref ier, ijob);
-                ++(nsol);
-                ++newt;
-                dyno = 0.0;
-                for (i = 0; i < n; i++)
-                {
-                    denom = scal[i];
-                    // Computing 2nd power
-                    d1 = z1[i] / denom;
-                    d2 = z2[i] / denom;
-                    d3 = z3[i] / denom;
-                    dyno = dyno + d1 * d1 + d2 * d2 + d3 * d3;
-                }
-                dyno = Math.Sqrt(dyno / n3);
-                // Bad convergence or number of iterations to large
-                if (newt > 1 && newt < nit)
-                {
-                    thq = dyno / dynold;
-                    if (newt == 2)
-                    {
-                        theta = thq;
-                    }
-                    else
-                    {
-                        theta = Math.Sqrt(thq * thqold);
-                    }
-                    thqold = thq;
-                    if (theta < 0.99)
-                    {
-                        faccon = theta / (1.0 - theta);
-                        dyth = faccon * dyno * Math.Pow(theta, nit - 1 - newt) / fnewt; // TODO: pow_di
-                        if (dyth >= 1.0)
-                        {
-                            qnewt = Math.Max(1e-4, Math.Min(20.0, dyth));
-                            hhfac = Math.Pow(qnewt, -1.0 / (nit + 4.0 - 1 - newt)) * 0.8;
-                            h = hhfac * h;
-                            reject = true;
-                            last = false;
-                            if (!caljac)
-                            {
-                                ComputeJacobian(n, x, y, ijac, uround);
-                                caljac = true;
-                            }
-                            continue;
-                        }
-                    }
-                    else
-                    {
-                        // Unexpected step-rejection
-                        if (ier != 0)
-                        {
-                            ++nsing;
-                            if (nsing >= 5)
-                            {
-                                throw new Exception(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
-                            }
-                        }
-                        h *= 0.5;
-                        hhfac = 0.5;
-                        reject = true;
-                        last = false;
-                        if (!caljac)
-                        {
-                            ComputeJacobian(n, x, y, ijac, uround);
-                            caljac = true;
-                        }
-                        continue;
-                    }
-                }
-                dynold = Math.Max(dyno, uround);
-                for (i = 0; i < n; i++)
-                {
-                    f1i = f1[i] + z1[i];
-                    f2i = f2[i] + z2[i];
-                    f3i = f3[i] + z3[i];
-                    f1[i] = f1i;
-                    f2[i] = f2i;
-                    f3[i] = f3i;
-                    z1[i] = t11 * f1i + t12 * f2i + t13 * f3i;
-                    z2[i] = t21 * f1i + t22 * f2i + t23 * f3i;
-                    z3[i] = t31 * f1i + f2i;
-                }
-                if (faccon * dyno > fnewt)
-                {
-                    goto L40;
-                }
                 // Error estimation
                 estrad_(n, fjac, h, dd1, dd2, dd3, y0,
                     y, ijob, x, e1, z1, z2, z3,
@@ -938,6 +808,134 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             }
         }
 
+        private bool Newton(int n, int nit, double x, double[] y, ref double h, ref double hhfac, double alphn, double betan, double thet,
+            double uround, double fnewt, int ijac, int ijob, ref double faccon, ref double theta, out int newt)
+        {
+            double dynold = 0.0;
+            double thqold = 0.0;
+
+            double dyno, dyth, qnewt, thq, denom;
+            double d1, d2, d3;
+            double fac1 = u1 / h;
+            double xph = x + h;
+
+            int n3 = n * 3;
+
+            faccon = Math.Pow(Math.Max(faccon, uround), 0.8);
+            theta = Math.Abs(thet);
+
+            newt = 0;
+
+            while (newt < nit)
+            {
+                // Compute the right-hand side
+                for (int i = 0; i < n; i++)
+                {
+                    cont[i] = y[i] + z1[i];
+                }
+                fcn(n, x + c1 * h, cont, z1);
+                for (int i = 0; i < n; i++)
+                {
+                    cont[i] = y[i] + z2[i];
+                }
+                fcn(n, x + c2 * h, cont, z2);
+                for (int i = 0; i < n; i++)
+                {
+                    cont[i] = y[i] + z3[i];
+                }
+                fcn(n, xph, cont, z3);
+
+                // Solve the linear systems
+                for (int i = 0; i < n; i++)
+                {
+                    double a1 = z1[i];
+                    double a2 = z2[i];
+                    double a3 = z3[i];
+
+                    z1[i] = ti11 * a1 + ti12 * a2 + ti13 * a3;
+                    z2[i] = ti21 * a1 + ti22 * a2 + ti23 * a3;
+                    z3[i] = ti31 * a1 + ti32 * a2 + ti33 * a3;
+                }
+                slvrad_(n, fjac, fmas, fac1, alphn, betan, e1, e2r, e2i, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, ijob);
+                ++(nsol);
+                ++newt;
+                dyno = 0.0;
+                for (int i = 0; i < n; i++)
+                {
+                    denom = scal[i];
+                    // Computing 2nd power
+                    d1 = z1[i] / denom;
+                    d2 = z2[i] / denom;
+                    d3 = z3[i] / denom;
+                    dyno = dyno + d1 * d1 + d2 * d2 + d3 * d3;
+                }
+                dyno = Math.Sqrt(dyno / n3);
+
+                // Bad convergence or number of iterations to large
+                if (newt > 1 && newt < nit)
+                {
+                    thq = dyno / dynold;
+                    if (newt == 2)
+                    {
+                        theta = thq;
+                    }
+                    else
+                    {
+                        theta = Math.Sqrt(thq * thqold);
+                    }
+                    thqold = thq;
+                    if (theta < 0.99)
+                    {
+                        faccon = theta / (1.0 - theta);
+                        dyth = faccon * dyno * Math.Pow(theta, nit - 1 - newt) / fnewt; // TODO: pow_di
+                        if (dyth >= 1.0)
+                        {
+                            qnewt = Math.Max(1e-4, Math.Min(20.0, dyth));
+                            hhfac = Math.Pow(qnewt, -1.0 / (nit + 4.0 - 1 - newt)) * 0.8;
+                            h = hhfac * h;
+
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        // Unexpected step-rejection
+                        h *= 0.5;
+                        hhfac = 0.5;
+
+                        return false;
+                    }
+                }
+
+                dynold = Math.Max(dyno, uround);
+
+                for (int i = 0; i < n; i++)
+                {
+                    double f1i = f1[i] + z1[i];
+                    double f2i = f2[i] + z2[i];
+                    double f3i = f3[i] + z3[i];
+
+                    f1[i] = f1i;
+                    f2[i] = f2i;
+                    f3[i] = f3i;
+
+                    z1[i] = t11 * f1i + t12 * f2i + t13 * f3i;
+                    z2[i] = t21 * f1i + t22 * f2i + t23 * f3i;
+                    z3[i] = t31 * f1i + f2i;
+                }
+
+                if (faccon * dyno <= fnewt)
+                {
+                    return true;
+                }
+            }
+
+            h *= 0.5;
+            hhfac = 0.5;
+
+            return false;
+        }
+
         private void ComputeJacobian(int n, double x, double[] y, int ijac, double uround)
         {
             // Computation of the Jacobian
@@ -1060,7 +1058,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] e1, double[] e2r, double[] e2i,
             double[] z1, double[] z2, double[] z3, double[] f1,
             double[] f2, double[] f3, double[] cont, int[] ip1,
-            int[] ip2, ref int ier, int ijob)
+            int[] ip2, int ijob)
         {
             /* Local variables */
             int i, j;
