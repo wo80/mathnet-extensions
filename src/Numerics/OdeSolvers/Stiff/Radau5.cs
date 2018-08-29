@@ -49,7 +49,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         const double ti31 = -0.50287263494578687595;
         const double ti32 = 2.5719269498556054292;
         const double ti33 = -0.59603920482822492497;
-        
+
         const double SQRT6 = 2.449489742783178098197284;
 
         const double c1 = (4.0 - SQRT6) / 10.0;
@@ -72,7 +72,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         }
 
         double _xsol, _hsol;
-        
+
         S_fp fcn;
         J_fp jac;
 
@@ -90,6 +90,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         int[] ip1, ip2;
 
         public int nstep, ndec, nsol, nrejct, naccpt;
+
+        int nsing;
 
         // Subroutine
         public int radau5_(int n, S_fp fcn, double x, double[] y,
@@ -218,6 +220,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             nrejct = 0;
             ndec = 0;
             nsol = 0;
+
+            nsing = 0;
 
             this.n = n;
 
@@ -441,14 +445,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double cno, qt;
             double ak, ak1, ak2, ak3, c1q, c2q, c3q, z1i, z2i, z3i, fac;
             int lrc;
-            int ier = 0;
             double xph, err = 0, fac1, cfac, hacc = 0;
             double hnew, hold;
             bool last;
             double hopt, xold;
             int newt;
             double quot, hhfac, betan, alphn, theta = 0, hmaxn;
-            int nsing;
             bool first;
             int irtrn = 0, nrsol, nsolu;
             double xosol, acont3;
@@ -548,18 +550,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 fac1 = u1 / h;
                 alphn = alph / h;
                 betan = beta / h;
-                ier = decomr_(n, fjac, fmas, fac1, e1, ip1, ijob);
-                if (ier != 0)
+
+                if (!Factorize(fac1, alphn, betan, ijob))
                 {
-                    // Unexpected step-rejection
-                    if (ier != 0)
-                    {
-                        ++nsing;
-                        if (nsing >= 5)
-                        {
-                            throw new Exception(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
-                        }
-                    }
                     h *= 0.5;
                     hhfac = 0.5;
                     reject = true;
@@ -571,32 +564,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                     continue;
                 }
-                ier = decomc_(n, fjac, fmas, alphn, betan, e2r, e2i, ip2, ijob);
-                if (ier != 0)
-                {
-                    // Unexpected step-rejection
-                    if (ier != 0)
-                    {
-                        ++nsing;
-                        if (nsing >= 5)
-                        {
-                            throw new Exception(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
-                        }
-                    }
-                    h *= 0.5;
-                    hhfac = 0.5;
-                    reject = true;
-                    last = false;
-                    if (!caljac)
-                    {
-                        ComputeJacobian(n, x, y, ijac, uround);
-                        caljac = true;
-                    }
-                    continue;
-                }
-                ++(ndec);
+
+                ndec++;
+
                 L30:
-                ++(nstep);
+                nstep++;
                 if (nstep > nmax)
                 {
                     return -2;
@@ -804,6 +776,43 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                 }
             }
+        }
+
+        private bool Factorize(double fac1, double alphn, double betan, int ijob)
+        {
+            int ier = decomr_(n, fjac, fmas, fac1, e1, ip1, ijob);
+
+            if (ier != 0)
+            {
+                if (ier != 0)
+                {
+                    ++nsing;
+                    if (nsing >= 5)
+                    {
+                        throw new Exception(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
+                    }
+                }
+
+                return false;
+            }
+
+            ier = decomc_(n, fjac, fmas, alphn, betan, e2r, e2i, ip2, ijob);
+
+            if (ier != 0)
+            {
+                if (ier != 0)
+                {
+                    ++nsing;
+                    if (nsing >= 5)
+                    {
+                        throw new Exception(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
+                    }
+                }
+
+                return false;
+            }
+
+            return true;
         }
 
         private bool Newton(int n, int nit, double x, double[] y, ref double h, ref double hhfac, double alphn, double betan, double thet,
