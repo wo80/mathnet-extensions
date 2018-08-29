@@ -65,6 +65,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
         double alph, beta, u1;
 
+        bool caljac;
+
         double d_sign(double a, double b)
         {
             double x = Math.Abs(a);
@@ -411,7 +413,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ip2 = new int[n];
 
             // Call to core integrator
-            int idid = radcor_(n, x, y, xend, hmax, h,
+            int idid = Integrate(n, x, y, xend, hmax, h,
                 mas, iout, nmax, uround, safe, thet, fnewt,
                 quot1, quot2, nit, ijob, startn, nind1, nind2, nind3,
                 pred, facl, facr, implct);
@@ -432,7 +434,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return idid;
         }
 
-        int radcor_(int n, double x, double[]
+        int Integrate(int n, double x, double[]
             y, double xend, double hmax, double h,
             DenseMatrix mas, int iout, int nmax,
             double uround, double safe, double thet, double
@@ -445,24 +447,22 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double cno, qt;
             double ak, ak1, ak2, ak3, c1q, c2q, c3q, z1i, z2i, z3i, fac;
             int lrc;
-            double xph, err = 0, fac1, cfac, hacc = 0;
+            double xph, err = 0, cfac, hacc = 0;
             double hnew, hold;
             bool last;
             double hopt, xold;
             int newt;
-            double quot, hhfac, betan, alphn, theta = 0, hmaxn;
+            double quot, hhfac, theta = 0, hmaxn;
             bool first;
             int irtrn = 0, nrsol, nsolu;
             double xosol, acont3;
-            bool index1, index2, index3, caljac;
+            bool index1, index2, index3;
             double faccon;
             double erracc = 0;
             bool reject;
             double facgus;
             double posneg;
-
-            int ijac = jac == null ? 0 : 1;
-
+            
             // Core integrator for RADAU5
             // Parameters same as in radau5 with workspace added
 
@@ -540,18 +540,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             hhfac = h;
             fcn(n, x, y, y0);
 
-            ComputeJacobian(n, x, y, ijac, uround);
-            caljac = true;
+            ComputeJacobian(n, x, y);
 
             // Basic integration step
             while (true)
             {
                 // Compute the matrices E1 and E2 and their decompositions
-                fac1 = u1 / h;
-                alphn = alph / h;
-                betan = beta / h;
-
-                if (!Factorize(fac1, alphn, betan, ijob))
+                if (!Factorize(h, ijob))
                 {
                     h *= 0.5;
                     hhfac = 0.5;
@@ -559,24 +554,24 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     last = false;
                     if (!caljac)
                     {
-                        ComputeJacobian(n, x, y, ijac, uround);
-                        caljac = true;
+                        ComputeJacobian(n, x, y);
                     }
                     continue;
                 }
 
-                ndec++;
-
                 L30:
                 nstep++;
+
                 if (nstep > nmax)
                 {
                     return -2;
                 }
+
                 if (Math.Abs(h) * 0.1 <= Math.Abs(x) * uround)
                 {
                     throw new NumericalBreakdownException("Step size too small, h=" + h);
                 }
+
                 if (index2)
                 {
                     int end = nind1 + nind2;
@@ -585,6 +580,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         scal[i] /= hhfac;
                     }
                 }
+
                 if (index3)
                 {
                     int end = nind1 + nind2 + nind3;
@@ -593,6 +589,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         scal[i] /= hhfac * hhfac;
                     }
                 }
+
                 xph = x + h;
 
                 // Starting values for newton iteration
@@ -632,15 +629,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
 
                 // Loop for the simplified newton iteration
-                if (!Newton(n, nit, x, y, ref h, ref hhfac, alphn, betan, thet, uround, fnewt, ijac, ijob, ref faccon, ref theta, out newt))
+                if (!Newton(n, nit, x, y, ref h, ref hhfac, thet, uround, fnewt, ijob, ref faccon, ref theta, out newt))
                 {
                     reject = true;
                     last = false;
 
                     if (!caljac)
                     {
-                        ComputeJacobian(n, x, y, ijac, uround);
-                        caljac = true;
+                        ComputeJacobian(n, x, y);
                     }
 
                     continue;
@@ -650,7 +646,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 err = Error(n, fmas, h, y0, y, ijob, x, first, reject);
 
                 // Computation of HNEW
-                // We require .2<=HNEW/H<=8.
+                // We require 0.2 <= HNEW/H <= 8.0
                 fac = Math.Min(safe, cfac / (newt + (nit << 1)));
                 quot = Math.Max(facr, Math.Min(facl, Math.Pow(err, 0.25) / fac));
                 hnew = h / quot;
@@ -712,12 +708,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                             return 2; // Exit caused by solout
                         }
                     }
+
                     caljac = false;
+
                     if (last)
                     {
                         h = hopt;
                         return 1;
                     }
+
                     fcn(n, x, y, y0);
 
                     hnew = posneg * Math.Min(Math.Abs(hnew), hmaxn);
@@ -746,8 +745,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     hhfac = h;
                     if (theta > thet)
                     {
-                        ComputeJacobian(n, x, y, ijac, uround);
-                        caljac = true;
+                        ComputeJacobian(n, x, y);
                     }
                 }
                 else
@@ -771,42 +769,37 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                     if (!caljac)
                     {
-                        ComputeJacobian(n, x, y, ijac, uround);
-                        caljac = true;
+                        ComputeJacobian(n, x, y);
                     }
                 }
             }
         }
 
-        private bool Factorize(double fac1, double alphn, double betan, int ijob)
+        private bool Factorize(double h, int ijob)
         {
-            int ier = decomr_(n, fjac, fmas, fac1, e1, ip1, ijob);
+            ndec++;
+
+            int ier = decomr_(n, fjac, fmas, u1 / h, e1, ip1, ijob);
 
             if (ier != 0)
             {
-                if (ier != 0)
+                ++nsing;
+                if (nsing >= 5)
                 {
-                    ++nsing;
-                    if (nsing >= 5)
-                    {
-                        throw new Exception(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
-                    }
+                    throw new Exception("Matrix is repeatedly singular.");
                 }
 
                 return false;
             }
 
-            ier = decomc_(n, fjac, fmas, alphn, betan, e2r, e2i, ip2, ijob);
+            ier = decomc_(n, fjac, fmas, alph / h, beta / h, e2r, e2i, ip2, ijob);
 
             if (ier != 0)
             {
-                if (ier != 0)
+                ++nsing;
+                if (nsing >= 5)
                 {
-                    ++nsing;
-                    if (nsing >= 5)
-                    {
-                        throw new Exception(" MATRIX IS REPEATEDLY SINGULAR, IER=" + ier);
-                    }
+                    throw new Exception("Matrix is repeatedly singular.");
                 }
 
                 return false;
@@ -815,8 +808,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return true;
         }
 
-        private bool Newton(int n, int nit, double x, double[] y, ref double h, ref double hhfac, double alphn, double betan, double thet,
-            double uround, double fnewt, int ijac, int ijob, ref double faccon, ref double theta, out int newt)
+        private bool Newton(int n, int nit, double x, double[] y, ref double h, ref double hhfac, double thet,
+            double uround, double fnewt, int ijob, ref double faccon, ref double theta, out int newt)
         {
             double dynold = 0.0;
             double thqold = 0.0;
@@ -827,6 +820,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double xph = x + h;
 
             int n3 = n * 3;
+            
+            double alphn = alph / h;
+            double betan = beta / h;
 
             faccon = Math.Pow(Math.Max(faccon, uround), 0.8);
             theta = Math.Abs(thet);
@@ -863,19 +859,24 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     z2[i] = ti21 * a1 + ti22 * a2 + ti23 * a3;
                     z3[i] = ti31 * a1 + ti32 * a2 + ti33 * a3;
                 }
+
                 Solve(n, fjac, fmas, fac1, alphn, betan, e1, e2r, e2i, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, ijob);
-                ++(nsol);
-                ++newt;
+
+                newt++;
+
                 dyno = 0.0;
+
                 for (int i = 0; i < n; i++)
                 {
                     denom = scal[i];
-                    // Computing 2nd power
+
                     d1 = z1[i] / denom;
                     d2 = z2[i] / denom;
                     d3 = z3[i] / denom;
+
                     dyno = dyno + d1 * d1 + d2 * d2 + d3 * d3;
                 }
+
                 dyno = Math.Sqrt(dyno / n3);
 
                 // Bad convergence or number of iterations to large
@@ -943,12 +944,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return false;
         }
 
-        private void ComputeJacobian(int n, double x, double[] y, int ijac, double uround)
+        private void ComputeJacobian(int n, double x, double[] y)
         {
             // Computation of the Jacobian
-            if (ijac == 0)
+            if (jac == null)
             {
                 // Compute Jacobian matrix numerically
+                double uround = Precision.DoublePrecision;
 
                 // Jacobian is full
                 for (int i = 0; i < n; i++)
@@ -970,13 +972,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 // Compute Jacobian matrix analytically
                 jac(n, x, y, fjac);
             }
+
+            caljac = true;
         }
 
         // This function can be used for coninuous output. it provides an
         // approximation to the i-th component of the solution at X.
         // It gives the value of the collocation polynomial, defined for
         // the last successfully computed step (by RADAU5).
-        double contr5_(int i, double x)
+        public double Interpolate(int i, double x)
         {
             double s = (x - _xsol) / _hsol;
 
@@ -992,7 +996,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             if (!dae)
             {
-                /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
+                // B=identity, Jacobian a full matrix
                 for (int j = 0; j < n; j++)
                 {
                     for (int i = 0; i < n; i++)
@@ -1001,11 +1005,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                     e[j + j * n] += fac1;
                 }
-                decsol.dec_(n, n, e, ip, ref ier);
+                decsol.dec_(n, e, ip, ref ier);
             }
             else
             {
-                /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+                // B is a full matrix, Jacobian a full matrix
                 for (int j = 0; j < n; j++)
                 {
                     for (int i = 0; i < n; i++)
@@ -1013,7 +1017,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         e[i + j * n] = fmas[i + j * n] * fac1 - fjac[i + j * n];
                     }
                 }
-                decsol.dec_(n, n, e, ip, ref ier);
+                decsol.dec_(n, e, ip, ref ier);
             }
 
             return ier;
@@ -1028,7 +1032,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             if (!dae)
             {
-                /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
+                // B=identity, Jacobian a full matrix
                 for (int j = 0; j < n; j++)
                 {
                     for (int i = 0; i < n; i++)
@@ -1039,11 +1043,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     e2r[j + j * n] += alphn;
                     e2i[j + j * n] = betan;
                 }
-                decsol.decc_(n, n, e2r, e2i, ip2, ref ier);
+                decsol.decc_(n, e2r, e2i, ip2, ref ier);
             }
             else
             {
-                /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+                // B is a full matrix, Jacobian a full matrix
                 for (int j = 0; j < n; j++)
                 {
                     for (int i = 0; i < n; i++)
@@ -1053,7 +1057,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         e2i[i + j * n] = bb * betan;
                     }
                 }
-                decsol.decc_(n, n, e2r, e2i, ip2, ref ier);
+                decsol.decc_(n, e2r, e2i, ip2, ref ier);
             }
 
             return ier;
@@ -1067,47 +1071,50 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] f2, double[] f3, double[] cont, int[] ip1,
             int[] ip2, int ijob)
         {
-            /* Local variables */
-            int i, j;
-            double s1, s2, s3, bb;
-
+            nsol++;
+            
             bool dae = ijob == 5;
 
             if (!dae)
             {
-                /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
-                for (i = 0; i < n; i++)
+                // B=identity, Jacobian a full matrix
+                for (int i = 0; i < n; i++)
                 {
-                    s2 = -f2[i];
-                    s3 = -f3[i];
+                    double s2 = -f2[i];
+                    double s3 = -f3[i];
+
                     z1[i] -= f1[i] * fac1;
                     z2[i] += s2 * alphn - s3 * betan;
                     z3[i] += s3 * alphn + s2 * betan;
                 }
-                decsol.sol_(n, n, e1, z1, ip1);
-                decsol.solc_(n, n, e2r, e2i, z2, z3, ip2);
+
+                decsol.sol_(n, e1, z1, ip1);
+                decsol.solc_(n, e2r, e2i, z2, z3, ip2);
             }
             else
             {
-                /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
-                for (i = 0; i < n; i++)
+                // B is a full matrix, Jacobian a full matrix
+                for (int i = 0; i < n; i++)
                 {
-                    s1 = 0.0;
-                    s2 = 0.0;
-                    s3 = 0.0;
-                    for (j = 0; j < n; j++)
+                    double s1 = 0.0;
+                    double s2 = 0.0;
+                    double s3 = 0.0;
+
+                    for (int j = 0; j < n; j++)
                     {
-                        bb = fmas[i + j * n];
+                        double bb = fmas[i + j * n];
+
                         s1 -= bb * f1[j];
                         s2 -= bb * f2[j];
                         s3 -= bb * f3[j];
                     }
+
                     z1[i] += s1 * fac1;
                     z2[i] += s2 * alphn - s3 * betan;
                     z3[i] += s3 * alphn + s2 * betan;
                 }
-                decsol.sol_(n, n, e1, z1, ip1);
-                decsol.solc_(n, n, e2r, e2i, z2, z3, ip2);
+                decsol.sol_(n, e1, z1, ip1);
+                decsol.solc_(n, e2r, e2i, z2, z3, ip2);
             }
 
             return 0;
@@ -1128,17 +1135,17 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             if (!dae)
             {
-                /* ------  B=IDENTITY, JACOBIAN A FULL MATRIX */
+                // B=identity, Jacobian a full matrix
                 for (int i = 0; i < n; i++)
                 {
                     f2[i] = hee1 * z1[i] + hee2 * z2[i] + hee3 * z3[i];
                     cont[i] = f2[i] + y0[i];
                 }
-                decsol.sol_(n, n, e1, cont, ip1);
+                decsol.sol_(n, e1, cont, ip1);
             }
             else
             {
-                /* ------  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+                // B is a full matrix, Jacobian a full matrix
                 for (int i = 0; i < n; i++)
                 {
                     f1[i] = hee1 * z1[i] + hee2 * z2[i] + hee3 * z3[i];
@@ -1153,7 +1160,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     f2[i] = sum;
                     cont[i] = sum + y0[i];
                 }
-                decsol.sol_(n, n, e1, cont, ip1);
+                decsol.sol_(n, e1, cont, ip1);
             }
 
             double err = 0.0;
@@ -1185,8 +1192,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     cont[i] = f1[i] + f2[i];
                 }
 
-                /* ------ FULL MATRIX OPTION */
-                decsol.sol_(n, n, e1, cont, ip1);
+                // Full matrix option
+                decsol.sol_(n, e1, cont, ip1);
 
                 err = 0.0;
 
