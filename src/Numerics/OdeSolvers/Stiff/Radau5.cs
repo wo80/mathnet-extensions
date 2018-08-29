@@ -548,7 +548,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 fac1 = u1 / h;
                 alphn = alph / h;
                 betan = beta / h;
-                decomr_(n, fjac, fmas, fac1, e1, ip1, ref ier, ijob);
+                ier = decomr_(n, fjac, fmas, fac1, e1, ip1, ijob);
                 if (ier != 0)
                 {
                     // Unexpected step-rejection
@@ -571,7 +571,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                     continue;
                 }
-                decomc_(n, fjac, fmas, alphn, betan, e2r, e2i, ip2, ref ier, ijob);
+                ier = decomc_(n, fjac, fmas, alphn, betan, e2r, e2i, ip2, ijob);
                 if (ier != 0)
                 {
                     // Unexpected step-rejection
@@ -675,9 +675,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
 
                 // Error estimation
-                estrad_(n, fjac, h, dd1, dd2, dd3, y0,
-                    y, ijob, x, e1, z1, z2, z3,
-                    cont, f1, f2, ip1, scal, ref err, first, reject);
+                err = Error(n, fmas, h, y0, y, ijob, x, first, reject);
 
                 // Computation of HNEW
                 // We require .2<=HNEW/H<=8.
@@ -856,7 +854,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     z2[i] = ti21 * a1 + ti22 * a2 + ti23 * a3;
                     z3[i] = ti31 * a1 + ti32 * a2 + ti33 * a3;
                 }
-                slvrad_(n, fjac, fmas, fac1, alphn, betan, e1, e2r, e2i, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, ijob);
+                Solve(n, fjac, fmas, fac1, alphn, betan, e1, e2r, e2i, z1, z2, z3, f1, f2, f3, cont, ip1, ip2, ijob);
                 ++(nsol);
                 ++newt;
                 dyno = 0.0;
@@ -976,83 +974,83 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return cont[i] + s * (cont[i + n] + (s - c2m1) * (cont[i + n * 2] + (s - c1m1) * cont[i + n * 3]));
         }
 
-        int decomr_(int n, double[] fjac,
-            double[] fmas, double fac1, double[] e,
-            int[] ip, ref int ier, int ijob)
+        int decomr_(int n, double[] fjac, double[] fmas, double fac1,
+            double[] e, int[] ip, int ijob)
         {
-            switch (ijob)
+            bool dae = ijob == 5;
+
+            int ier = 0;
+
+            if (!dae)
             {
-                case 1: goto L1;
-                case 5: goto L5;
+                /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
+                for (int j = 0; j < n; j++)
+                {
+                    for (int i = 0; i < n; i++)
+                    {
+                        e[i + j * n] = -fjac[i + j * n];
+                    }
+                    e[j + j * n] += fac1;
+                }
+                decsol.dec_(n, n, e, ip, ref ier);
+            }
+            else
+            {
+                /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+                for (int j = 0; j < n; j++)
+                {
+                    for (int i = 0; i < n; i++)
+                    {
+                        e[i + j * n] = fmas[i + j * n] * fac1 - fjac[i + j * n];
+                    }
+                }
+                decsol.dec_(n, n, e, ip, ref ier);
             }
 
-            L1:
-            /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
-            for (int j = 0; j < n; j++)
-            {
-                for (int i = 0; i < n; i++)
-                {
-                    e[i + j * n] = -fjac[i + j * n];
-                }
-                e[j + j * n] += fac1;
-            }
-            decsol.dec_(n, n, e, ip, ref ier);
-            return 0;
-
-            L5:
-            /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
-            for (int j = 0; j < n; j++)
-            {
-                for (int i = 0; i < n; i++)
-                {
-                    e[i + j * n] = fmas[i + j * n] * fac1 - fjac[i + j * n];
-                }
-            }
-            decsol.dec_(n, n, e, ip, ref ier);
-            return 0;
+            return ier;
         }
 
-        int decomc_(int n, double[] fjac,
-            double[] fmas, double alphn, double betan,
-            double[] e2r, double[] e2i, int[] ip2, ref int ier, int ijob)
+        int decomc_(int n, double[] fjac, double[] fmas, double alphn, double betan,
+            double[] e2r, double[] e2i, int[] ip2, int ijob)
         {
-            switch (ijob)
+            bool dae = ijob == 5;
+
+            int ier = 0;
+
+            if (!dae)
             {
-                case 1: goto L1;
-                case 5: goto L5;
+                /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
+                for (int j = 0; j < n; j++)
+                {
+                    for (int i = 0; i < n; i++)
+                    {
+                        e2r[i + j * n] = -fjac[i + j * n];
+                        e2i[i + j * n] = 0.0;
+                    }
+                    e2r[j + j * n] += alphn;
+                    e2i[j + j * n] = betan;
+                }
+                decsol.decc_(n, n, e2r, e2i, ip2, ref ier);
+            }
+            else
+            {
+                /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+                for (int j = 0; j < n; j++)
+                {
+                    for (int i = 0; i < n; i++)
+                    {
+                        double bb = fmas[i + j * n];
+                        e2r[i + j * n] = bb * alphn - fjac[i + j * n];
+                        e2i[i + j * n] = bb * betan;
+                    }
+                }
+                decsol.decc_(n, n, e2r, e2i, ip2, ref ier);
             }
 
-            L1:
-            /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
-            for (int j = 0; j < n; j++)
-            {
-                for (int i = 0; i < n; i++)
-                {
-                    e2r[i + j * n] = -fjac[i + j * n];
-                    e2i[i + j * n] = 0.0;
-                }
-                e2r[j + j * n] += alphn;
-                e2i[j + j * n] = betan;
-            }
-            decsol.decc_(n, n, e2r, e2i, ip2, ref ier);
-            return 0;
-
-            L5:
-            /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
-            for (int j = 0; j < n; j++)
-            {
-                for (int i = 0; i < n; i++)
-                {
-                    double bb = fmas[i + j * n];
-                    e2r[i + j * n] = bb * alphn - fjac[i + j * n];
-                    e2i[i + j * n] = bb * betan;
-                }
-            }
-            decsol.decc_(n, n, e2r, e2i, ip2, ref ier);
-            return 0;
+            return ier;
         }
 
-        int slvrad_(int n, double[] fjac,
+        int Solve(int n, double[] fjac,
             double[] fmas,
             double fac1, double alphn, double betan,
             double[] e1, double[] e2r, double[] e2i,
@@ -1064,60 +1062,50 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             int i, j;
             double s1, s2, s3, bb;
 
-            switch (ijob)
+            bool dae = ijob == 5;
+
+            if (!dae)
             {
-                case 1: goto L1;
-                case 5: goto L5;
-            }
-
-            /* ----------------------------------------------------------- */
-
-            L1:
-            /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
-            for (i = 0; i < n; i++)
-            {
-                s2 = -f2[i];
-                s3 = -f3[i];
-                z1[i] -= f1[i] * fac1;
-                z2[i] = z2[i] + s2 * alphn - s3 * betan;
-                z3[i] = z3[i] + s3 * alphn + s2 * betan;
-            }
-            decsol.sol_(n, n, e1, z1, ip1);
-            decsol.solc_(n, n, e2r, e2i, z2, z3, ip2);
-            return 0;
-
-            /* ----------------------------------------------------------- */
-
-            L5:
-            /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
-            for (i = 0; i < n; i++)
-            {
-                s1 = 0.0;
-                s2 = 0.0;
-                s3 = 0.0;
-                for (j = 0; j < n; j++)
+                /* ---  B=IDENTITY, JACOBIAN A FULL MATRIX */
+                for (i = 0; i < n; i++)
                 {
-                    bb = fmas[i + j * n];
-                    s1 -= bb * f1[j];
-                    s2 -= bb * f2[j];
-                    s3 -= bb * f3[j];
+                    s2 = -f2[i];
+                    s3 = -f3[i];
+                    z1[i] -= f1[i] * fac1;
+                    z2[i] += s2 * alphn - s3 * betan;
+                    z3[i] += s3 * alphn + s2 * betan;
                 }
-                z1[i] += s1 * fac1;
-                z2[i] = z2[i] + s2 * alphn - s3 * betan;
-                z3[i] = z3[i] + s3 * alphn + s2 * betan;
+                decsol.sol_(n, n, e1, z1, ip1);
+                decsol.solc_(n, n, e2r, e2i, z2, z3, ip2);
             }
-            decsol.sol_(n, n, e1, z1, ip1);
-            decsol.solc_(n, n, e2r, e2i, z2, z3, ip2);
+            else
+            {
+                /* ---  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+                for (i = 0; i < n; i++)
+                {
+                    s1 = 0.0;
+                    s2 = 0.0;
+                    s3 = 0.0;
+                    for (j = 0; j < n; j++)
+                    {
+                        bb = fmas[i + j * n];
+                        s1 -= bb * f1[j];
+                        s2 -= bb * f2[j];
+                        s3 -= bb * f3[j];
+                    }
+                    z1[i] += s1 * fac1;
+                    z2[i] += s2 * alphn - s3 * betan;
+                    z3[i] += s3 * alphn + s2 * betan;
+                }
+                decsol.sol_(n, n, e1, z1, ip1);
+                decsol.solc_(n, n, e2r, e2i, z2, z3, ip2);
+            }
+
             return 0;
         }
 
-        int estrad_(int n,
-            double[] fmas, double h, double dd1,
-            double dd2, double dd3, double[] y0,
-            double[] y, int ijob, double x, double[] e1, double[] z1,
-            double[] z2, double[] z3, double[] cont, double[] f1,
-            double[] f2, int[] ip1, double[] scal,
-            ref double err, bool first, bool reject)
+        double Error(int n, double[] fmas, double h, double[] y0,
+            double[] y, int ijob, double x, bool first, bool reject)
         {
             double d1;
 
@@ -1127,57 +1115,54 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             hee2 = dd2 / h;
             hee3 = dd3 / h;
 
-            switch (ijob)
-            {
-                case 1: goto L1;
-                case 5: goto L5;
-            }
+            bool dae = ijob == 5;
 
-            L1:
-            /* ------  B=IDENTITY, JACOBIAN A FULL MATRIX */
-            for (int i = 0; i < n; i++)
+            if (!dae)
             {
-                f2[i] = hee1 * z1[i] + hee2 * z2[i] + hee3 * z3[i];
-                cont[i] = f2[i] + y0[i];
-            }
-            decsol.sol_(n, n, e1, cont, ip1);
-            goto L77;
-
-            L5:
-            /* ------  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
-            for (int i = 0; i < n; i++)
-            {
-                f1[i] = hee1 * z1[i] + hee2 * z2[i] + hee3 * z3[i];
-            }
-            for (int i = 0; i < n; i++)
-            {
-                sum = 0.0;
-                for (int j = 0; j < n; j++)
+                /* ------  B=IDENTITY, JACOBIAN A FULL MATRIX */
+                for (int i = 0; i < n; i++)
                 {
-                    sum += fmas[i + j * n] * f1[j];
+                    f2[i] = hee1 * z1[i] + hee2 * z2[i] + hee3 * z3[i];
+                    cont[i] = f2[i] + y0[i];
                 }
-                f2[i] = sum;
-                cont[i] = sum + y0[i];
+                decsol.sol_(n, n, e1, cont, ip1);
             }
-            decsol.sol_(n, n, e1, cont, ip1);
-            goto L77;
+            else
+            {
+                /* ------  B IS A FULL MATRIX, JACOBIAN A FULL MATRIX */
+                for (int i = 0; i < n; i++)
+                {
+                    f1[i] = hee1 * z1[i] + hee2 * z2[i] + hee3 * z3[i];
+                }
+                for (int i = 0; i < n; i++)
+                {
+                    sum = 0.0;
+                    for (int j = 0; j < n; j++)
+                    {
+                        sum += fmas[i + j * n] * f1[j];
+                    }
+                    f2[i] = sum;
+                    cont[i] = sum + y0[i];
+                }
+                decsol.sol_(n, n, e1, cont, ip1);
+            }
 
-            L77:
-            err = 0.0;
+            double err = 0.0;
+
             for (int i = 0; i < n; i++)
             {
                 /* Computing 2nd power */
                 d1 = cont[i] / scal[i];
                 err += d1 * d1;
             }
-            /* Computing MAX */
-            d1 = Math.Sqrt(err / n);
-            err = Math.Max(d1, 1e-10);
+
+            err = Math.Max(Math.Sqrt(err / n), 1e-10);
 
             if (err < 1.0)
             {
-                return 0;
+                return err;
             }
+
             if (first || reject)
             {
                 for (int i = 0; i < n; i++)
@@ -1190,17 +1175,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
                     cont[i] = f1[i] + f2[i];
                 }
-                switch (ijob)
-                {
-                    case 1: goto L31;
-                    case 5: goto L31;
-                }
-                /* ------ FULL MATRIX OPTION */
-                L31:
-                decsol.sol_(n, n, e1, cont, ip1);
-                goto L88;
 
-                L88:
+                /* ------ FULL MATRIX OPTION */
+                decsol.sol_(n, n, e1, cont, ip1);
+
                 err = 0.0;
 
                 for (int i = 0; i < n; i++)
@@ -1209,11 +1187,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     d1 = cont[i] / scal[i];
                     err += d1 * d1;
                 }
-                /* Computing MAX */
-                d1 = Math.Sqrt(err / n);
-                err = Math.Max(d1, 1e-10);
+
+                err = Math.Max(Math.Sqrt(err / n), 1e-10);
             }
-            return 0;
+
+            return err;
         }
     }
 }
