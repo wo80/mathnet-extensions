@@ -32,6 +32,38 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
     /// </summary>
     public class Radau5
     {
+        const double t11 = 0.091232394870892942792;
+        const double t12 = -0.14125529502095420843;
+        const double t13 = -0.030029194105147424492;
+        const double t21 = 0.24171793270710701896;
+        const double t22 = 0.20412935229379993199;
+        const double t23 = 0.38294211275726193779;
+        const double t31 = 0.96604818261509293619;
+
+        const double ti11 = 4.325579890063155351;
+        const double ti12 = 0.33919925181580986954;
+        const double ti13 = 0.54177053993587487119;
+        const double ti21 = -4.1787185915519047273;
+        const double ti22 = -0.32768282076106238708;
+        const double ti23 = 0.47662355450055045196;
+        const double ti31 = -0.50287263494578687595;
+        const double ti32 = 2.5719269498556054292;
+        const double ti33 = -0.59603920482822492497;
+        
+        const double SQRT6 = 2.449489742783178098197284;
+
+        const double c1 = (4.0 - SQRT6) / 10.0;
+        const double c2 = (SQRT6 + 4.0) / 10.0;
+
+        const double dd1 = -(SQRT6 * 7.0 + 13.0) / 3.0;
+        const double dd2 = (SQRT6 * 7.0 - 13.0) / 3.0;
+        const double dd3 = -1.0 / 3.0;
+
+        const double c1m1 = c1 - 1.0;
+        const double c2m1 = c2 - 1.0;
+        const double c1mc2 = c1 - c2;
+
+        double alph, beta, u1;
 
         double d_sign(double a, double b)
         {
@@ -39,18 +71,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return b >= 0 ? x : -x;
         }
 
-        struct conra5
-        {
-            public int nn, nn2, nn3;
-            public double xsol, hsol, c2m1, c1m1;
-        }
-
-        conra5 conra5_1;
-
+        double _xsol, _hsol;
+        
         S_fp fcn;
         J_fp jac;
 
         double rtol, atol;
+
+        int n;
 
         // Workspace
         double[] z1, z2, z3;
@@ -190,6 +218,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             nrejct = 0;
             ndec = 0;
             nsol = 0;
+
+            this.n = n;
 
             this.fcn = fcn;
             this.jac = jac;
@@ -408,24 +438,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         {
             double d1, d2, d3;
 
-            int i, j;
-            double a1, a2, c1, c2, a3;
+            int i;
+            double a1, a2, a3;
             int n2, n3;
-            double u1, ak;
-            double t11, t12, t13, t21, t22, t23, t31;
-            double qt, dd1, dd2, dd3, ak1, ak2, ak3, f1i, f2i, f3i, c1q, c2q, c3q,
-                 z1i, z2i, z3i, sq6, fac, ti11, cno;
+            double cno, qt;
+            double ak, ak1, ak2, ak3, f1i, f2i, f3i, c1q, c2q, c3q, z1i, z2i, z3i, fac;
             int lrc;
-            double ti12, ti13, ti21, ti22, ti23, ti31, ti32, ti33;
             int ier = 0;
-            double xph, thq, err = 0, fac1, cfac, hacc = 0, c1mc2, beta;
-            double alph, hold;
-            double delt, hnew;
+            double xph, thq, err = 0, fac1, cfac, hacc = 0;
+            double hnew, hold;
             bool last;
             double hopt, xold;
             int newt;
-            double dyno, dyth, quot, hhfac, betan, alphn, denom, theta, ysafe,
-                hmaxn;
+            double dyno, dyth, quot, hhfac, betan, alphn, denom, theta, hmaxn;
             int nsing;
             bool first;
             int irtrn = 0, nrsol, nsolu;
@@ -444,10 +469,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             // Parameters same as in radau5 with workspace added
 
             // Initialisations
-
-            conra5_1.nn = n;
-            conra5_1.nn2 = n * 2;
-            conra5_1.nn3 = n * 3;
             lrc = n * 4;
 
             // Check the index of the problem
@@ -461,41 +482,12 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 fmas = mas.ToColumnMajorArray();
             }
             // Constants
-            sq6 = Math.Sqrt(6.0);
-            c1 = (4.0 - sq6) / 10.0;
-            c2 = (sq6 + 4.0) / 10.0;
-            conra5_1.c1m1 = c1 - 1.0;
-            conra5_1.c2m1 = c2 - 1.0;
-            c1mc2 = c1 - c2;
-            dd1 = -(sq6 * 7.0 + 13.0) / 3.0;
-            dd2 = (sq6 * 7.0 - 13.0) / 3.0;
-            dd3 = -0.33333333333333331;
-            u1 = (Math.Pow(81.0, 0.33333333333333331) + 6.0 - Math.Pow(9.0, 0.33333333333333331)) / 30.0;
             alph = (12.0 - Math.Pow(81.0, 0.33333333333333331) + Math.Pow(9.0, 0.33333333333333331)) / 60.0;
             beta = (Math.Pow(81.0, 0.33333333333333331) + Math.Pow(9.0, 0.33333333333333331)) * Math.Sqrt(3.0) / 60.0;
-            // Computing 2nd power
-            d1 = alph;
-            d2 = beta;
-            cno = d1 * d1 + d2 * d2;
-            u1 = 1.0 / u1;
+            cno = alph * alph + beta * beta;
+            u1 = 30.0 / (Math.Pow(81.0, 0.33333333333333331) + 6.0 - Math.Pow(9.0, 0.33333333333333331));
             alph /= cno;
             beta /= cno;
-            t11 = 0.091232394870892942792;
-            t12 = -0.14125529502095420843;
-            t13 = -0.030029194105147424492;
-            t21 = 0.24171793270710701896;
-            t22 = 0.20412935229379993199;
-            t23 = 0.38294211275726193779;
-            t31 = 0.96604818261509293619;
-            ti11 = 4.325579890063155351;
-            ti12 = 0.33919925181580986954;
-            ti13 = 0.54177053993587487119;
-            ti21 = -4.1787185915519047273;
-            ti22 = -0.32768282076106238708;
-            ti23 = 0.47662355450055045196;
-            ti31 = -0.50287263494578687595;
-            ti32 = 2.5719269498556054292;
-            ti33 = -0.59603920482822492497;
 
             posneg = d_sign(1.0, xend - x);
             hmaxn = Math.Min(Math.Abs(hmax), Math.Abs(xend - x));
@@ -524,14 +516,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 irtrn = 1;
                 nrsol = 1;
                 xosol = xold;
-                conra5_1.xsol = x;
+                _xsol = x;
                 for (i = 0; i < n; i++)
                 {
                     cont[i] = y[i];
                 }
                 nsolu = n;
-                conra5_1.hsol = hold;
-                //solout(&nrsol, &xosol, &conra5_1.xsol, y, cont, &lrc, &nsolu, &irtrn);
+                _hsol = hold;
+                //solout(&nrsol, &xosol, &xsol, y, cont, &lrc, &nsolu, &irtrn);
                 if (irtrn < 0)
                 {
                     return 2; // Exit caused by solout
@@ -621,9 +613,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     ak1 = cont[i + n];
                     ak2 = cont[i + n2];
                     ak3 = cont[i + n3];
-                    z1i = c1q * (ak1 + (c1q - conra5_1.c2m1) * (ak2 + (c1q - conra5_1.c1m1) * ak3));
-                    z2i = c2q * (ak1 + (c2q - conra5_1.c2m1) * (ak2 + (c2q - conra5_1.c1m1) * ak3));
-                    z3i = c3q * (ak1 + (c3q - conra5_1.c2m1) * (ak2 + (c3q - conra5_1.c1m1) * ak3));
+                    z1i = c1q * (ak1 + (c1q - c2m1) * (ak2 + (c1q - c1m1) * ak3));
+                    z2i = c2q * (ak1 + (c2q - c2m1) * (ak2 + (c2q - c1m1) * ak3));
+                    z3i = c3q * (ak1 + (c3q - c2m1) * (ak2 + (c3q - c1m1) * ak3));
                     z1[i] = z1i;
                     z2[i] = z2i;
                     z3[i] = z3i;
@@ -776,11 +768,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     y[i] += z3[i];
                     z2i = z2[i];
                     z1i = z1[i];
-                    cont[i + n] = (z2i - z3[i]) / conra5_1.c2m1;
+                    cont[i + n] = (z2i - z3[i]) / c2m1;
                     ak = (z1i - z2i) / c1mc2;
                     acont3 = z1i / c1;
                     acont3 = (ak - acont3) / c2;
-                    cont[i + n2] = (ak - cont[i + n]) / conra5_1.c1m1;
+                    cont[i + n2] = (ak - cont[i + n]) / c1m1;
                     cont[i + n3] = cont[i + n2] - acont3;
                 }
 
@@ -792,15 +784,15 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 if (iout != 0)
                 {
                     nrsol = naccpt + 1;
-                    conra5_1.xsol = x;
+                    _xsol = x;
                     xosol = xold;
                     for (i = 0; i < n; i++)
                     {
                         cont[i] = y[i];
                     }
                     nsolu = n;
-                    conra5_1.hsol = hold;
-                    //solout(&nrsol, &xosol, &conra5_1.xsol, y, cont, &lrc, &nsolu, &irtrn);
+                    _hsol = hold;
+                    //solout(&nrsol, &xosol, &xsol, y, cont, &lrc, &nsolu, &irtrn);
                     if (irtrn < 0)
                     {
                         return 2; // Exit caused by solout
@@ -928,10 +920,9 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         // the last successfully computed step (by RADAU5).
         double contr5_(int i, double x)
         {
-            double s = (x - conra5_1.xsol) / conra5_1.hsol;
+            double s = (x - _xsol) / _hsol;
 
-            return cont[i] + s * (cont[i + conra5_1.nn] + (s - conra5_1.c2m1)
-                * (cont[i + conra5_1.nn2] + (s - conra5_1.c1m1) * cont[i + conra5_1.nn3]));
+            return cont[i] + s * (cont[i + n] + (s - c2m1) * (cont[i + n * 2] + (s - c1m1) * cont[i + n * 3]));
         }
 
         int decomr_(int n, double[] fjac,
