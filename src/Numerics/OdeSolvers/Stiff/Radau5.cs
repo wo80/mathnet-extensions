@@ -104,7 +104,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         // Subroutine
         public int radau5_(int n, S_fp fcn, double x, double[] y,
             double xend, double h, double rtol, double atol,
-            J_fp jac, DenseMatrix mas, int iout)
+            J_fp jac, DenseMatrix mas, bool dense)
         {
             // Local variables
             int nit;
@@ -420,7 +420,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             // Call to core integrator
             int idid = Integrate(n, x, y, xend, hmax, h,
-                mas, iout, nmax, uround, safe, thet, fnewt,
+                mas, dense, nmax, uround, safe, thet, fnewt,
                 quot1, quot2, nit, ijob, startn, nind1, nind2, nind3,
                 pred, facl, facr, implct);
 
@@ -440,28 +440,25 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return idid;
         }
 
+        // Core integrator for RADAU5
         int Integrate(int n, double x, double[]
             y, double xend, double hmax, double h,
-            DenseMatrix mas, int iout, int nmax,
+            DenseMatrix mas, bool dense, int nmax,
             double uround, double safe, double thet, double
             fnewt, double quot1, double quot2, int nit, int
             ijob, bool startn, int nind1, int nind2, int nind3,
             bool pred, double facl, double facr, bool implct)
         {
             int i;
-            int n2, n3;
-            double cno, qt;
+            int n2, n3, n4;
             double ak, ak1, ak2, ak3, c1q, c2q, c3q, z1i, z2i, z3i, fac;
-            int lrc;
             double xph, err = 0, cfac, hacc = 0;
             double hnew, hold;
             bool last;
             double hopt, xold;
-            int newt;
             double quot, hhfac, theta = 0, hmaxn;
             bool first;
-            int irtrn = 0, nrsol, nsolu;
-            double xosol, acont3;
+            double acont3;
             bool index1, index2, index3;
             double faccon;
             double erracc = 0;
@@ -469,12 +466,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double facgus;
             double posneg;
             
-            // Core integrator for RADAU5
-            // Parameters same as in radau5 with workspace added
-
-            // Initialisations
-            lrc = n * 4;
-
             // Check the index of the problem
             index1 = nind1 != 0;
             index2 = nind2 != 0;
@@ -508,27 +499,19 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             cfac = safe * ((nit * 2) + 1);
             nsing = 0;
             xold = x;
-            if (iout != 0)
+            if (dense)
             {
-                irtrn = 1;
-                nrsol = 1;
-                xosol = xold;
                 _xsol = x;
+                _hsol = hold;
                 for (i = 0; i < n; i++)
                 {
                     cont[i] = y[i];
-                }
-                nsolu = n;
-                _hsol = hold;
-                //solout(&nrsol, &xosol, &xsol, y, cont, &lrc, &nsolu, &irtrn);
-                if (irtrn < 0)
-                {
-                    return 2; // Exit caused by solout
                 }
             }
 
             n2 = n * 2;
             n3 = n * 3;
+            n4 = n * 4;
 
             for (i = 0; i < n; i++)
             {
@@ -541,19 +524,22 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             ComputeJacobian(n, x, y);
 
             // Basic integration step
-            while (true)
+            while (nstep < nmax)
             {
                 // Compute the matrices E1 and E2 and their decompositions
                 if (!Factorize(h, ijob))
                 {
                     h *= 0.5;
                     hhfac = 0.5;
+
                     reject = true;
                     last = false;
+
                     if (!caljac)
                     {
                         ComputeJacobian(n, x, y);
                     }
+
                     continue;
                 }
 
@@ -626,8 +612,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                 }
 
-                // Loop for the simplified newton iteration
-                if (!Newton(n, nit, x, y, ref h, ref hhfac, thet, uround, fnewt, ijob, ref faccon, ref theta, out newt))
+                // Simplified newton iteration.
+                int newt = Newton(n, nit, x, y, ref h, ref hhfac, thet, uround, fnewt, ijob, ref faccon, ref theta);
+
+                if (newt < 0)
                 {
                     reject = true;
                     last = false;
@@ -643,8 +631,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 // Error estimation
                 err = Error(n, fmas, h, y0, y, ijob, x, first, reject);
 
-                // Computation of HNEW
-                // We require 0.2 <= HNEW/H <= 8.0
+                // Computation of HNEW (we require 0.2 <= HNEW/H <= 8.0)
                 fac = Math.Min(safe, cfac / (newt + (nit << 1)));
                 quot = Math.Max(facr, Math.Min(facl, Math.Pow(err, 0.25) / fac));
                 hnew = h / quot;
@@ -654,7 +641,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 {
                     // Step is accepted
                     first = false;
-                    ++(naccpt);
+                    naccpt++;
+
                     if (pred)
                     {
                         // Predictive controller of gustafsson
@@ -668,9 +656,11 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         hacc = h;
                         erracc = Math.Max(.01, err);
                     }
+
                     xold = x;
                     hold = h;
                     x = xph;
+
                     for (i = 0; i < n; i++)
                     {
                         y[i] += z3[i];
@@ -689,21 +679,13 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         scal[i] = atol + rtol * Math.Abs(y[i]);
                     }
 
-                    if (iout != 0)
+                    if (dense)
                     {
-                        nrsol = naccpt + 1;
                         _xsol = x;
-                        xosol = xold;
+                        _hsol = hold;
                         for (i = 0; i < n; i++)
                         {
                             cont[i] = y[i];
-                        }
-                        nsolu = n;
-                        _hsol = hold;
-                        //solout(&nrsol, &xosol, &xsol, y, cont, &lrc, &nsolu, &irtrn);
-                        if (irtrn < 0)
-                        {
-                            return 2; // Exit caused by solout
                         }
                     }
 
@@ -720,11 +702,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     hnew = posneg * Math.Min(Math.Abs(hnew), hmaxn);
                     hopt = hnew;
                     hopt = Math.Min(h, hnew);
+
                     if (reject)
                     {
                         hnew = posneg * Math.Min(Math.Abs(hnew), Math.Abs(h));
                     }
+
                     reject = false;
+
                     if ((x + hnew / quot1 - xend) * posneg >= 0.0)
                     {
                         h = xend - x;
@@ -732,15 +717,18 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                     else
                     {
-                        qt = hnew / h;
+                        double qt = hnew / h;
                         hhfac = h;
                         if (theta <= thet && qt >= quot1 && qt <= quot2)
                         {
+                            // No need to change step size (keep Jacobian).
                             goto L30;
                         }
                         h = hnew;
                     }
+
                     hhfac = h;
+
                     if (theta > thet)
                     {
                         ComputeJacobian(n, x, y);
@@ -771,6 +759,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     }
                 }
             }
+
+            return -2;
         }
 
         private bool Factorize(double h, int ijob)
@@ -806,8 +796,8 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return true;
         }
 
-        private bool Newton(int n, int nit, double x, double[] y, ref double h, ref double hhfac, double thet,
-            double uround, double fnewt, int ijob, ref double faccon, ref double theta, out int newt)
+        private int Newton(int n, int nit, double x, double[] y, ref double h, ref double hhfac, double thet,
+            double uround, double fnewt, int ijob, ref double faccon, ref double theta)
         {
             double dynold = 0.0;
             double thqold = 0.0;
@@ -825,7 +815,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             faccon = Math.Pow(Math.Max(faccon, uround), 0.8);
             theta = Math.Abs(thet);
 
-            newt = 0;
+            int newt = 0;
 
             while (newt < nit)
             {
@@ -893,14 +883,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     if (theta < 0.99)
                     {
                         faccon = theta / (1.0 - theta);
-                        dyth = faccon * dyno * Math.Pow(theta, nit - 1 - newt) / fnewt; // TODO: pow_di
+                        dyth = faccon * dyno * Math.Pow(theta, nit - 1 - newt) / fnewt;
                         if (dyth >= 1.0)
                         {
                             qnewt = Math.Max(1e-4, Math.Min(20.0, dyth));
                             hhfac = Math.Pow(qnewt, -1.0 / (nit + 4.0 - 1 - newt)) * 0.8;
                             h = hhfac * h;
 
-                            return false;
+                            return -1;
                         }
                     }
                     else
@@ -909,7 +899,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                         h *= 0.5;
                         hhfac = 0.5;
 
-                        return false;
+                        return -1;
                     }
                 }
 
@@ -932,14 +922,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
                 if (faccon * dyno <= fnewt)
                 {
-                    return true;
+                    return newt;
                 }
             }
 
             h *= 0.5;
             hhfac = 0.5;
 
-            return false;
+            return -1;
         }
 
         private void ComputeJacobian(int n, double x, double[] y)
@@ -974,7 +964,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             caljac = true;
         }
 
-        // This function can be used for coninuous output. it provides an
+        // This function can be used for coninuous output. It provides an
         // approximation to the i-th component of the solution at X.
         // It gives the value of the collocation polynomial, defined for
         // the last successfully computed step (by RADAU5).
@@ -1061,8 +1051,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             return ier;
         }
 
-        int Solve(int n, double[] fjac,
-            double[] fmas,
+        int Solve(int n, double[] fjac, double[] fmas,
             double fac1, double alphn, double betan,
             double[] e1, double[] e2r, double[] e2i,
             double[] z1, double[] z2, double[] z3, double[] f1,
@@ -1122,12 +1111,10 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             double[] y, int ijob, double x, bool first, bool reject)
         {
             double d1;
-
-            double sum, hee1, hee2, hee3;
-
-            hee1 = dd1 / h;
-            hee2 = dd2 / h;
-            hee3 = dd3 / h;
+            
+            double hee1 = dd1 / h;
+            double hee2 = dd2 / h;
+            double hee3 = dd3 / h;
 
             bool dae = ijob == 5;
 
@@ -1150,7 +1137,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                 }
                 for (int i = 0; i < n; i++)
                 {
-                    sum = 0.0;
+                    double sum = 0.0;
                     for (int j = 0; j < n; j++)
                     {
                         sum += fmas[i + j * n] * f1[j];
@@ -1165,7 +1152,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
             for (int i = 0; i < n; i++)
             {
-                /* Computing 2nd power */
                 d1 = cont[i] / scal[i];
                 err += d1 * d1;
             }
@@ -1197,7 +1183,6 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
 
                 for (int i = 0; i < n; i++)
                 {
-                    /* Computing 2nd power */
                     d1 = cont[i] / scal[i];
                     err += d1 * d1;
                 }
