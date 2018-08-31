@@ -62,8 +62,14 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
         const double c1m1 = c1 - 1.0;
         const double c2m1 = c2 - 1.0;
         const double c1mc2 = c1 - c2;
-
-        double alph, beta, u1;
+        
+        // a = (12 - cbrt(81) + cbrt(9)) / 60 = 0.16255558520216131612608569820029
+        // b = (cbrt(81) + cbrt(9)) * sqrt(3) / 60 = 0.1849493244071407842750912237438
+        // c = a * a + b * b = 0.0606305708790749288701403085596
+        
+        const double alph = 2.68108287362775213389579074321111; // a / c
+        const double beta = 3.0504301992474105694263776247876; // b / c
+        const double u1 = 3.6378342527444957322084185135778; // 30 / (cbrt(81) + 6 - cbrt(9))
 
         bool caljac;
 
@@ -479,15 +485,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             {
                 fmas = mas.ToColumnMajorArray();
             }
-
-            // Constants
-            alph = (12.0 - Math.Pow(81.0, 0.33333333333333331) + Math.Pow(9.0, 0.33333333333333331)) / 60.0;
-            beta = (Math.Pow(81.0, 0.33333333333333331) + Math.Pow(9.0, 0.33333333333333331)) * Math.Sqrt(3.0) / 60.0;
-            cno = alph * alph + beta * beta;
-            u1 = 30.0 / (Math.Pow(81.0, 0.33333333333333331) + 6.0 - Math.Pow(9.0, 0.33333333333333331));
-            alph /= cno;
-            beta /= cno;
-
+            
             posneg = d_sign(1.0, xend - x);
             hmaxn = Math.Min(Math.Abs(hmax), Math.Abs(xend - x));
             if (Math.Abs(h) <= uround * 10.0)
