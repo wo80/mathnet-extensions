@@ -543,220 +543,220 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
                     continue;
                 }
 
-                L30:
-                nstep++;
-
-                if (nstep > nmax)
+                while (nstep < nmax)
                 {
-                    return -2;
-                }
+                    nstep++;
 
-                if (Math.Abs(h) * 0.1 <= Math.Abs(x) * uround)
-                {
-                    throw new NumericalBreakdownException("Step size too small, h=" + h);
-                }
-
-                if (index2)
-                {
-                    int end = nind1 + nind2;
-                    for (i = nind1; i < end; i++)
+                    if (Math.Abs(h) * 0.1 <= Math.Abs(x) * uround)
                     {
-                        scal[i] /= hhfac;
-                    }
-                }
-
-                if (index3)
-                {
-                    int end = nind1 + nind2 + nind3;
-                    for (i = nind1 + nind2; i < end; i++)
-                    {
-                        scal[i] /= hhfac * hhfac;
-                    }
-                }
-
-                xph = x + h;
-
-                // Starting values for newton iteration
-                if (first || startn)
-                {
-                    for (i = 0; i < n; i++)
-                    {
-                        z1[i] = 0.0;
-                        z2[i] = 0.0;
-                        z3[i] = 0.0;
-                        f1[i] = 0.0;
-                        f2[i] = 0.0;
-                        f3[i] = 0.0;
-                    }
-                }
-                else
-                {
-                    c3q = h / hold;
-                    c1q = c1 * c3q;
-                    c2q = c2 * c3q;
-
-                    for (i = 0; i < n; i++)
-                    {
-                        ak1 = cont[i + n];
-                        ak2 = cont[i + n2];
-                        ak3 = cont[i + n3];
-                        z1i = c1q * (ak1 + (c1q - c2m1) * (ak2 + (c1q - c1m1) * ak3));
-                        z2i = c2q * (ak1 + (c2q - c2m1) * (ak2 + (c2q - c1m1) * ak3));
-                        z3i = c3q * (ak1 + (c3q - c2m1) * (ak2 + (c3q - c1m1) * ak3));
-                        z1[i] = z1i;
-                        z2[i] = z2i;
-                        z3[i] = z3i;
-                        f1[i] = ti11 * z1i + ti12 * z2i + ti13 * z3i;
-                        f2[i] = ti21 * z1i + ti22 * z2i + ti23 * z3i;
-                        f3[i] = ti31 * z1i + ti32 * z2i + ti33 * z3i;
-                    }
-                }
-
-                // Simplified newton iteration.
-                int newt = Newton(n, nit, x, y, ref h, ref hhfac, thet, uround, fnewt, ijob, ref faccon, ref theta);
-
-                if (newt < 0)
-                {
-                    reject = true;
-                    last = false;
-
-                    if (!caljac)
-                    {
-                        ComputeJacobian(n, x, y);
+                        throw new NumericalBreakdownException("Step size too small, h=" + h);
                     }
 
-                    continue;
-                }
-
-                // Error estimation
-                err = Error(n, fmas, h, y0, y, ijob, x, first, reject);
-
-                // Computation of HNEW (we require 0.2 <= HNEW/H <= 8.0)
-                fac = Math.Min(safe, cfac / (newt + (nit << 1)));
-                quot = Math.Max(facr, Math.Min(facl, Math.Pow(err, 0.25) / fac));
-                hnew = h / quot;
-
-                // Is the error small enough ?
-                if (err < 1.0)
-                {
-                    // Step is accepted
-                    first = false;
-                    naccpt++;
-
-                    if (pred)
+                    if (index2)
                     {
-                        // Predictive controller of gustafsson
-                        if (naccpt > 1)
+                        int end = nind1 + nind2;
+                        for (i = nind1; i < end; i++)
                         {
-                            facgus = hacc / h * Math.Pow(err * err / erracc, 0.25) / safe;
-                            facgus = Math.Max(facr, Math.Min(facl, facgus));
-                            quot = Math.Max(quot, facgus);
-                            hnew = h / quot;
+                            scal[i] /= hhfac;
                         }
-                        hacc = h;
-                        erracc = Math.Max(.01, err);
                     }
 
-                    xold = x;
-                    hold = h;
-                    x = xph;
-
-                    for (i = 0; i < n; i++)
+                    if (index3)
                     {
-                        y[i] += z3[i];
-                        z2i = z2[i];
-                        z1i = z1[i];
-                        cont[i + n] = (z2i - z3[i]) / c2m1;
-                        ak = (z1i - z2i) / c1mc2;
-                        acont3 = z1i / c1;
-                        acont3 = (ak - acont3) / c2;
-                        cont[i + n2] = (ak - cont[i + n]) / c1m1;
-                        cont[i + n3] = cont[i + n2] - acont3;
+                        int end = nind1 + nind2 + nind3;
+                        for (i = nind1 + nind2; i < end; i++)
+                        {
+                            scal[i] /= hhfac * hhfac;
+                        }
                     }
 
-                    for (i = 0; i < n; i++)
-                    {
-                        scal[i] = atol + rtol * Math.Abs(y[i]);
-                    }
+                    xph = x + h;
 
-                    if (dense)
+                    // Starting values for newton iteration
+                    if (first || startn)
                     {
-                        _xsol = x;
-                        _hsol = hold;
                         for (i = 0; i < n; i++)
                         {
-                            cont[i] = y[i];
+                            z1[i] = 0.0;
+                            z2[i] = 0.0;
+                            z3[i] = 0.0;
+                            f1[i] = 0.0;
+                            f2[i] = 0.0;
+                            f3[i] = 0.0;
                         }
-                    }
-
-                    caljac = false;
-
-                    if (last)
-                    {
-                        h = hopt;
-                        return 1;
-                    }
-
-                    fcn(n, x, y, y0);
-
-                    hnew = posneg * Math.Min(Math.Abs(hnew), hmaxn);
-                    hopt = hnew;
-                    hopt = Math.Min(h, hnew);
-
-                    if (reject)
-                    {
-                        hnew = posneg * Math.Min(Math.Abs(hnew), Math.Abs(h));
-                    }
-
-                    reject = false;
-
-                    if ((x + hnew / quot1 - xend) * posneg >= 0.0)
-                    {
-                        h = xend - x;
-                        last = true;
                     }
                     else
                     {
-                        double qt = hnew / h;
-                        hhfac = h;
-                        if (theta <= thet && qt >= quot1 && qt <= quot2)
+                        c3q = h / hold;
+                        c1q = c1 * c3q;
+                        c2q = c2 * c3q;
+
+                        for (i = 0; i < n; i++)
                         {
-                            // No need to change step size (keep Jacobian).
-                            goto L30;
+                            ak1 = cont[i + n];
+                            ak2 = cont[i + n2];
+                            ak3 = cont[i + n3];
+                            z1i = c1q * (ak1 + (c1q - c2m1) * (ak2 + (c1q - c1m1) * ak3));
+                            z2i = c2q * (ak1 + (c2q - c2m1) * (ak2 + (c2q - c1m1) * ak3));
+                            z3i = c3q * (ak1 + (c3q - c2m1) * (ak2 + (c3q - c1m1) * ak3));
+                            z1[i] = z1i;
+                            z2[i] = z2i;
+                            z3[i] = z3i;
+                            f1[i] = ti11 * z1i + ti12 * z2i + ti13 * z3i;
+                            f2[i] = ti21 * z1i + ti22 * z2i + ti23 * z3i;
+                            f3[i] = ti31 * z1i + ti32 * z2i + ti33 * z3i;
                         }
-                        h = hnew;
                     }
 
-                    hhfac = h;
+                    // Simplified newton iteration.
+                    int newt = Newton(n, nit, x, y, ref h, ref hhfac, thet, uround, fnewt, ijob, ref faccon, ref theta);
 
-                    if (theta > thet)
+                    if (newt < 0)
                     {
-                        ComputeJacobian(n, x, y);
+                        reject = true;
+                        last = false;
+
+                        if (!caljac)
+                        {
+                            ComputeJacobian(n, x, y);
+                        }
+
+                        break;
                     }
-                }
-                else
-                {
-                    // Step is rejected
-                    reject = true;
-                    last = false;
-                    if (first)
+
+                    // Error estimation
+                    err = Error(n, fmas, h, y0, y, ijob, x, first, reject);
+
+                    // Computation of HNEW (we require 0.2 <= HNEW/H <= 8.0)
+                    fac = Math.Min(safe, cfac / (newt + (nit << 1)));
+                    quot = Math.Max(facr, Math.Min(facl, Math.Pow(err, 0.25) / fac));
+                    hnew = h / quot;
+
+                    // Is the error small enough ?
+                    if (err < 1.0)
                     {
-                        h *= 0.1;
-                        hhfac = 0.1;
+                        // Step is accepted
+                        first = false;
+                        naccpt++;
+
+                        if (pred)
+                        {
+                            // Predictive controller of gustafsson
+                            if (naccpt > 1)
+                            {
+                                facgus = hacc / h * Math.Pow(err * err / erracc, 0.25) / safe;
+                                facgus = Math.Max(facr, Math.Min(facl, facgus));
+                                quot = Math.Max(quot, facgus);
+                                hnew = h / quot;
+                            }
+                            hacc = h;
+                            erracc = Math.Max(.01, err);
+                        }
+
+                        xold = x;
+                        hold = h;
+                        x = xph;
+
+                        for (i = 0; i < n; i++)
+                        {
+                            y[i] += z3[i];
+                            z2i = z2[i];
+                            z1i = z1[i];
+                            cont[i + n] = (z2i - z3[i]) / c2m1;
+                            ak = (z1i - z2i) / c1mc2;
+                            acont3 = z1i / c1;
+                            acont3 = (ak - acont3) / c2;
+                            cont[i + n2] = (ak - cont[i + n]) / c1m1;
+                            cont[i + n3] = cont[i + n2] - acont3;
+                        }
+
+                        for (i = 0; i < n; i++)
+                        {
+                            scal[i] = atol + rtol * Math.Abs(y[i]);
+                        }
+
+                        if (dense)
+                        {
+                            _xsol = x;
+                            _hsol = hold;
+                            for (i = 0; i < n; i++)
+                            {
+                                cont[i] = y[i];
+                            }
+                        }
+
+                        caljac = false;
+
+                        if (last)
+                        {
+                            h = hopt;
+                            return 1;
+                        }
+
+                        fcn(n, x, y, y0);
+
+                        hnew = posneg * Math.Min(Math.Abs(hnew), hmaxn);
+                        hopt = hnew;
+                        hopt = Math.Min(h, hnew);
+
+                        if (reject)
+                        {
+                            hnew = posneg * Math.Min(Math.Abs(hnew), Math.Abs(h));
+                        }
+
+                        reject = false;
+
+                        if ((x + hnew / quot1 - xend) * posneg >= 0.0)
+                        {
+                            h = xend - x;
+                            last = true;
+                        }
+                        else
+                        {
+                            double qt = hnew / h;
+                            hhfac = h;
+                            if (theta <= thet && qt >= quot1 && qt <= quot2)
+                            {
+                                // No need to change step size (keep Jacobian).
+                                continue;
+                            }
+                            h = hnew;
+                        }
+
+                        hhfac = h;
+
+                        if (theta > thet)
+                        {
+                            ComputeJacobian(n, x, y);
+                        }
                     }
                     else
                     {
-                        hhfac = hnew / h;
-                        h = hnew;
+                        // Step is rejected
+                        reject = true;
+                        last = false;
+                        if (first)
+                        {
+                            h *= 0.1;
+                            hhfac = 0.1;
+                        }
+                        else
+                        {
+                            hhfac = hnew / h;
+                            h = hnew;
+                        }
+                        if (naccpt >= 1)
+                        {
+                            ++(nrejct);
+                        }
+                        if (!caljac)
+                        {
+                            ComputeJacobian(n, x, y);
+                        }
                     }
-                    if (naccpt >= 1)
-                    {
-                        ++(nrejct);
-                    }
-                    if (!caljac)
-                    {
-                        ComputeJacobian(n, x, y);
-                    }
+
+                    // Step size was changed, recompute Jacobian.
+                    break;
                 }
             }
 
