@@ -16,7 +16,7 @@ namespace QuadratureTest.Tests
 
         public long FunctionCalls { get; set; }
 
-        public long Time { get; set; }
+        public double Time { get; set; }
 
         public List<TestResult> Results { get; private set; }
 

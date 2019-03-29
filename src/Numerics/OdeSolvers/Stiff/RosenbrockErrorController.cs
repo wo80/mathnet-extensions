@@ -87,7 +87,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
             if (err <= 1.0)
             {
                 // Step is accepted
-                naccepted++; // TODO: move down? (see 'if (naccepted > 1)' below)
+                naccepted++;
 
                 if (predictive)
                 {

@@ -9,7 +9,7 @@ namespace MathNet.Numerics.OdeSolvers.Stiff
     using System;
 
     /// <summary>
-    /// Numerical solution of a stiff(or differential algebraic) system of first
+    /// Numerical solution of a stiff (or differential algebraic) system of first
     /// order ordinary differential equations. This is an embedded Rosenbrock
     /// method of order (3)4 with step size control and dense output.
     /// 

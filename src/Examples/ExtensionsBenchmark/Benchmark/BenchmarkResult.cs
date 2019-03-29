@@ -11,12 +11,12 @@ namespace ExtensionsBenchmark.Benchmark
         /// <summary>
         /// Execution time of the original MathNet code.
         /// </summary>
-        public long Time1;
+        public double Time1;
 
         /// <summary>
         /// Execution time of the extension code.
         /// </summary>
-        public long Time2;
+        public double Time2;
 
         /// <summary>
         /// MathNet and extension produced the same result.

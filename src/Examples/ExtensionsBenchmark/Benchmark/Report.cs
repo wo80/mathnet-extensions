@@ -27,8 +27,8 @@ namespace ExtensionsBenchmark.Benchmark
                 var time = context.TotalTime();
 
                 sb.AppendFormat("| {0,40} ", context.Name);
-                sb.AppendFormat("| {0,10} ms ", time.Item1);
-                sb.AppendFormat("| {0,10} ms ", time.Item2);
+                sb.AppendFormat("| {0,10:0} ms ", time.Item1);
+                sb.AppendFormat("| {0,10:0} ms ", time.Item2);
                 sb.AppendFormat("| {0,-5} ", Report.CompareResult((double)time.Item1 / time.Item2));
                 sb.AppendLine("|");
             }

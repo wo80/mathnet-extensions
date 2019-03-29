@@ -64,7 +64,7 @@ namespace SolverBenchmark
         {
             ignoreCheckedEvent = true;
 
-            var time = context.TotalTime();
+            //var time = context.TotalTime();
 
             var config = context.Configuration;
             var result = config.Result;
@@ -82,7 +82,7 @@ namespace SolverBenchmark
                     "{0:0.00}%", (double)config.NonZeros / (m * n)),
                 config.Symmetric ? "Yes" : "No",
                 result.IterationCount.ToString(),
-                result.Time.ToString() + "ms",
+                result.Time.ToString("0.0") + "ms",
                 result.Status.ToString(),
                 result.Error.ToString("0.0E00")
             });

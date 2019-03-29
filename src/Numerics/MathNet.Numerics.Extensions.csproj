@@ -38,8 +38,8 @@
     <DocumentationFile>..\..\out\Release\MathNet.Numerics.Extensions.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MathNet.Numerics, Version=4.5.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\MathNet.Numerics.4.5.1\lib\net40\MathNet.Numerics.dll</HintPath>
+    <Reference Include="MathNet.Numerics, Version=4.7.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\MathNet.Numerics.4.7.0\lib\net40\MathNet.Numerics.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -50,6 +50,7 @@
     <Compile Include="Integration\AdaptiveGaussLobatto.cs" />
     <Compile Include="Integration\AdaptiveMixedDasDash.cs" />
     <Compile Include="LinearAlgebra\Complex\CreateSparse.cs" />
+    <Compile Include="LinearAlgebra\Complex\Factorization\ReusableLU.cs" />
     <Compile Include="LinearAlgebra\Complex\VectorHelper.cs" />
     <Compile Include="LinearAlgebra\Double\CreateSparse.cs" />
     <Compile Include="LinearAlgebra\Double\Factorization\ReusableLU.cs" />

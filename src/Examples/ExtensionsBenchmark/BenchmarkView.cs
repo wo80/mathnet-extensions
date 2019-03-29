@@ -96,8 +96,8 @@ namespace ExtensionsBenchmark
                 context.Name,
                 symmetric ? "Yes" : "No",
                 success ? "Yes" : "No",
-                time.Item1.ToString() + "ms",
-                time.Item2.ToString() + "ms",
+                time.Item1.ToString("0") + "ms",
+                time.Item2.ToString("0") + "ms",
                 Report.CompareResult((double)time.Item1 / time.Item2)
             });
 

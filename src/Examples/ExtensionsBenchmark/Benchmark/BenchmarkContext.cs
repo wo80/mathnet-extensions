@@ -49,11 +49,11 @@ namespace ExtensionsBenchmark.Benchmark
             });
         }
 
-        public Tuple<long, long> TotalTime()
+        public Tuple<double, double> TotalTime()
         {
-            return new Tuple<long, long>(
-                Configurations.Aggregate(0L, (i, s) => i + (s.Result == null ? 0 : s.Result.Time1)),
-                Configurations.Aggregate(0L, (i, s) => i + (s.Result == null ? 0 : s.Result.Time2))
+            return new Tuple<double, double>(
+                Configurations.Aggregate(0.0, (i, s) => i + (s.Result == null ? 0.0 : s.Result.Time1)),
+                Configurations.Aggregate(0.0, (i, s) => i + (s.Result == null ? 0.0 : s.Result.Time2))
             );
         }
 

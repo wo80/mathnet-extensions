@@ -69,7 +69,7 @@ namespace QuadratureTest
                 summary.TargetError.ToString("0.0e00"),
                 summary.TotalCount.ToString(),
                 summary.FailedCount.ToString(),
-                summary.Time.ToString(),
+                summary.Time.ToString("0"),
                 summary.FunctionCalls.ToString()
             });
 

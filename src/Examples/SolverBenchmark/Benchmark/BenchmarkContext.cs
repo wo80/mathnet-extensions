@@ -39,7 +39,7 @@ namespace SolverBenchmark.Benchmark
             });
         }
 
-        public long TotalTime()
+        public double TotalTime()
         {
             return Configuration.Result.Time;
         }

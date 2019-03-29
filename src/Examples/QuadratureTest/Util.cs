@@ -13,11 +13,11 @@ namespace QuadratureTest
             timer.Restart();
         }
 
-        public static long Toc()
+        public static double Toc()
         {
             timer.Stop();
 
-            return timer.ElapsedMilliseconds;
+            return TimeSpan.FromTicks(timer.ElapsedTicks).TotalMilliseconds;
         }
     }
 }

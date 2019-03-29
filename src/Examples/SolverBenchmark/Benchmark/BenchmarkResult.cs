@@ -11,9 +11,9 @@ namespace SolverBenchmark.Benchmark
         public int Size;
 
         /// <summary>
-        /// Execution time of the iterative solver.
+        /// Execution time of the iterative solver (milliseconds).
         /// </summary>
-        public long Time;
+        public double Time;
 
         /// <summary>
         /// Total number of the iterations.

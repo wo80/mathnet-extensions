@@ -28,12 +28,13 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
-using System;
-using MathNet.Numerics.Properties;
-using MathNet.Numerics.Providers.LinearAlgebra;
-
-namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
+namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
 {
+    using System;
+    using System.Numerics;
+    using MathNet.Numerics.Properties;
+    using MathNet.Numerics.Providers.LinearAlgebra;
+
     /// <summary>
     /// <para>A class which encapsulates the functionality of an LU factorization.</para>
     /// <para>For a matrix A, the LU factorization is a pair of lower triangular matrix L and
@@ -51,7 +52,6 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
         /// <summary>
         /// Initializes a new instance of the <see cref="ReusableLU"/> class.
         /// </summary>
-        /// <param name="n"></param>
         public ReusableLU(int n)
         {
             factors = new DenseMatrix(n);
@@ -61,12 +61,12 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
         /// <summary>
         /// Gets the determinant of the matrix for which the LU factorization was computed.
         /// </summary>
-        public double Determinant
+        public Complex Determinant
         {
             get
             {
                 int n = factors.RowCount;
-                var det = 1.0;
+                var det = Complex.One;
                 for (var i = 0; i < n; i++)
                 {
                     if (pivots[i] != i)
@@ -116,7 +116,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
         /// </summary>
         /// <param name="input">The right hand side vector, <c>b</c>.</param>
         /// <param name="result">The left hand side <see cref="Matrix{T}"/>, <c>x</c>.</param>
-        public void Solve(double[] input, double[] result)
+        public void Solve(Complex[] input, Complex[] result)
         {
             // Check for proper arguments.
             if (input == null)
