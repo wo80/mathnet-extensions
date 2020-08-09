@@ -24,73 +24,55 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         /// <summary>
         /// Row indices (size = NonZerosCount)
         /// </summary>
-        public int[] RowIndices
-        {
-            get { return rowind; }
-        }
+        public int[] RowIndices => rowind;
 
         /// <summary>
         /// Column indices (size = NonZerosCount)
         /// </summary>
-        public int[] ColumnIndices
-        {
-            get { return colind; }
-        }
+        public int[] ColumnIndices => colind;
 
         /// <summary>
         /// Numerical values (size = NonZerosCount)
         /// </summary>
-        public T[] Values
-        {
-            get { return values; }
-        }
+        public T[] Values => values;
 
         /// <summary>
         /// Gets the number of rows.
         /// </summary>
-        public int RowCount
-        {
-            get { return nrows; }
-        }
+        public int RowCount => nrows;
 
         /// <summary>
         /// Gets the number of columns.
         /// </summary>
-        public int ColumnCount
-        {
-            get { return ncols; }
-        }
+        public int ColumnCount => ncols;
 
         /// <summary>
         /// Gets the number of non-zero entries.
         /// </summary>
-        public int NonZerosCount
-        {
-            get { return nz; }
-        }
+        public int NonZerosCount => nz;
 
-        public CoordinateStorage(int rowCount, int columnCount, bool alloc = true)
-            : this(rowCount, columnCount, 4, true)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CoordinateStorage{T}"/> class.
+        /// </summary>
+        public CoordinateStorage(int rowCount, int columnCount)
+            : this(rowCount, columnCount, 4)
         {
         }
 
         /// <summary>
-        /// Initializes a new instance of the CoordinateStorage class.
+        /// Initializes a new instance of the <see cref="CoordinateStorage{T}"/> class.
         /// </summary>
-        public CoordinateStorage(int rowCount, int columnCount, int nzmax, bool alloc = true)
+        public CoordinateStorage(int rowCount, int columnCount, int nzmax)
         {
-            this.nrows = rowCount;
-            this.ncols = columnCount;
+            nrows = rowCount;
+            ncols = columnCount;
 
-            if (alloc)
-            {
-                this.nzmax = (nzmax = Math.Max(nzmax, 1));
-                this.nz = 0;
+            this.nzmax = (nzmax = Math.Max(nzmax, 1));
+            this.nz = 0;
 
-                this.rowind = new int[nzmax];
-                this.colind = new int[nzmax];
-                this.values = new T[nzmax];
-            }
+            rowind = new int[nzmax];
+            colind = new int[nzmax];
+            values = new T[nzmax];
         }
 
         /// <summary>
@@ -114,7 +96,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
             if (nz >= nzmax)
             {
-                this.Resize(2 * nzmax);
+                Resize(2 * nzmax);
             }
 
             if (i < 0 || i >= nrows)
@@ -134,6 +116,11 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             nz += 1;
         }
 
+        /// <summary>
+        /// Convert the coordinate storage to a sparse matrix using <see cref="SparseCompressedRowMatrixStorage{T}"/>.
+        /// </summary>
+        /// <param name="cleanup">Remove and sum duplicate entries.</param>
+        /// <returns></returns>
         public Matrix<T> ToSparseMatrix(bool cleanup = true)
         {
             if (typeof(T) == typeof(double))
