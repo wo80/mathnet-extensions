@@ -275,7 +275,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
 
             if (rowCount != target.ColumnCount || columnCount != target.RowCount)
             {
-                throw new ArgumentException(Properties.Resources.ArgumentMatrixDimensions);
+                throw new ArgumentException(Resources.ArgumentMatrixDimensions);
             }
 
             int i, j, p;

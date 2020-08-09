@@ -29,7 +29,6 @@
 // </copyright>
 
 using System;
-using MathNet.Numerics.Properties;
 using MathNet.Numerics.Providers.LinearAlgebra;
 
 namespace MathNet.Numerics.LinearAlgebra.Double.Factorization

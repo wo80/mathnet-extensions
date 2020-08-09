@@ -4,7 +4,7 @@ namespace MathNet.Numerics.Extensions.UnitTests.LinearAlgebraTests.Complex
     using MathNet.Numerics.LinearAlgebra;
     using MathNet.Numerics.LinearAlgebra.Complex;
     using NUnit.Framework;
-    using System.Numerics;
+    using Complex = System.Numerics.Complex;
 
     public class SparseMatrixTests
     {

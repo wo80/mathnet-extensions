@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <OutputType>Library</OutputType>
     <AssemblyName>MathNet.MatrixDebuggerVisualizer</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Platform)' == 'AnyCPU' ">
@@ -32,14 +32,14 @@
     <RootNamespace>MathNet.MatrixDebuggerVisualizer</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MathNet.Numerics, Version=4.9.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\MathNet.Numerics.4.9.0\lib\net40\MathNet.Numerics.dll</HintPath>
+    <Reference Include="MathNet.Numerics, Version=4.12.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\MathNet.Numerics.4.12.0\lib\netstandard2.0\MathNet.Numerics.dll</HintPath>
     </Reference>
     <Reference Include="MathNet.Numerics.Data.Matlab, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\MathNet.Numerics.Data.Matlab.4.0.0\lib\net40\MathNet.Numerics.Data.Matlab.dll</HintPath>
+      <HintPath>..\..\packages\MathNet.Numerics.Data.Matlab.4.0.0\lib\netstandard2.0\MathNet.Numerics.Data.Matlab.dll</HintPath>
     </Reference>
     <Reference Include="MathNet.Numerics.Data.Text, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\MathNet.Numerics.Data.Text.4.0.0\lib\net40\MathNet.Numerics.Data.Text.dll</HintPath>
+      <HintPath>..\..\packages\MathNet.Numerics.Data.Text.4.0.0\lib\netstandard2.0\MathNet.Numerics.Data.Text.dll</HintPath>
     </Reference>
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Windows.Forms" />

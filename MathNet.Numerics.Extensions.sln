@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28917.181
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MathNet.Numerics.Extensions", "src\Numerics\MathNet.Numerics.Extensions.csproj", "{2018F73F-E26C-459C-98BB-B0F443C54F59}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MathNet.Numerics.Extensions.UnitTests", "src\UnitTests\MathNet.Numerics.Extensions.UnitTests.csproj", "{DAF07AA8-C5C9-4963-98F7-2C3285064DAD}"

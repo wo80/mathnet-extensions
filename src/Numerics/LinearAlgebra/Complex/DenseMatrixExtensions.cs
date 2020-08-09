@@ -4,8 +4,6 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
     using System;
     using System.Numerics;
     using MathNet.Numerics.LinearAlgebra.Storage;
-    using MathNet.Numerics.LinearAlgebra.Factorization;
-    using MathNet.Numerics.Properties;
 
     public static class DenseMatrixExtensions
     {
@@ -209,7 +207,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
 
             if (matrix.ColumnCount != n)
             {
-                throw new ArgumentException(Properties.Resources.ArgumentMatrixSquare);
+                throw new ArgumentException(Resources.ArgumentMatrixSquare);
             }
 
             return n;

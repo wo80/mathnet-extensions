@@ -12,7 +12,6 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
 {
     using MathNet.Numerics.LinearAlgebra.Solvers;
     using MathNet.Numerics.LinearAlgebra.Storage;
-    using MathNet.Numerics.Properties;
     using System;
 
     /// <summary>
