@@ -64,6 +64,21 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         /// </summary>
         public CoordinateStorage(int rowCount, int columnCount, int nzmax)
         {
+            if (rowCount < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(rowCount), Resources.MatrixDimensionNonNegative);
+            }
+
+            if (columnCount < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(columnCount), Resources.MatrixDimensionNonNegative);
+            }
+
+            if (nzmax < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(nzmax), Resources.ValueNonNegative);
+            }
+
             nrows = rowCount;
             ncols = columnCount;
 
@@ -76,22 +91,26 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         }
 
         /// <summary>
-        /// Adds an entry. Memory and dimension of the matrix are increased if necessary.
+        /// Adds an entry to the storage.
         /// </summary>
         /// <param name="i">Row index of new entry</param>
         /// <param name="j">Column index of new entry</param>
         /// <param name="value">Numerical value of new entry</param>
-        /// <returns>True if successful, false otherwise</returns>
         public void At(int i, int j, T value)
         {
-            if (i < 0 || j < 0)
+            if (value.Equals(Zero))
             {
                 return;
             }
 
-            if (value.Equals(Zero))
+            if (i < 0 || i >= nrows)
             {
-                return;
+                throw new ArgumentOutOfRangeException(nameof(i));
+            }
+
+            if (j < 0 || j >= ncols)
+            {
+                throw new ArgumentOutOfRangeException(nameof(j));
             }
 
             if (nz >= nzmax)
@@ -99,21 +118,72 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
                 Resize(2 * nzmax);
             }
 
-            if (i < 0 || i >= nrows)
-            {
-                throw new ArgumentOutOfRangeException("i");
-            }
-
-            if (j < 0 || j >= ncols)
-            {
-                throw new ArgumentOutOfRangeException("j");
-            }
-
             rowind[nz] = i;
             colind[nz] = j;
             values[nz] = value;
 
             nz += 1;
+        }
+
+        /// <summary>
+        /// Filter matrix values.
+        /// </summary>
+        /// <param name="func">Filter function returning true if value should be kept,
+        /// false if value should be discarded.</param>
+        /// <returns>New number of non-zeros.</returns>
+        /// <remarks>
+        /// Filter function arguments:
+        /// 
+        /// 1 = Row index i
+        /// 2 = Column index j
+        /// 3 = Value of entry (i,j)
+        /// 
+        /// Element a_{i,j} is dropped, if func(i, j, aij) returns false.
+        /// </remarks>
+        public int Keep(Func<int, int, T, bool> func)
+        {
+            int k = 0;
+
+            for (int i = 0; i < nz; i++)
+            {
+                int ai = rowind[i];
+                int aj = colind[i];
+                var ax = values[i];
+
+                if (func(ai, aj, ax))
+                {
+                    // Keep A(i,j).
+                    rowind[k] = ai;
+                    colind[k] = aj;
+                    values[k] = ax;
+                    k++;
+                }
+            }
+
+            return nz = k;
+        }
+
+        /// <summary>
+        /// Remove all values from the storage (without freeing the memory).
+        /// </summary>
+        public void Clear()
+        {
+            Array.Clear(rowind, 0, nzmax);
+            Array.Clear(colind, 0, nzmax);
+            Array.Clear(values, 0, nzmax);
+
+            nz = 0;
+        }
+
+        /// <summary>
+        /// Transpose the coordinate storage inline.
+        /// </summary>
+        public void TransposeInline()
+        {
+            // Transposing is just a matter of switching row and column indices.
+            var temp = colind;
+            colind = rowind;
+            rowind = temp;
         }
 
         /// <summary>
@@ -125,13 +195,13 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         {
             if (typeof(T) == typeof(double))
             {
-                return MathNet.Numerics.LinearAlgebra.Double.StorageConverter
+                return LinearAlgebra.Double.StorageConverter
                     .ToSparseMatrix(this as CoordinateStorage<double>, cleanup) as Matrix<T>;
             }
 
             if (typeof(T) == typeof(Complex))
             {
-                return MathNet.Numerics.LinearAlgebra.Complex.StorageConverter
+                return LinearAlgebra.Complex.StorageConverter
                     .ToSparseMatrix(this as CoordinateStorage<Complex>, cleanup) as Matrix<T>;
             }
 
@@ -141,7 +211,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         /// <summary>
         /// Resize the storage arrays of the sparse matrix.
         /// </summary>
-        /// <param name="size">The new size of Values and ColumnIndices arrays.</param>
+        /// <param name="size">The new size of the storage arrays.</param>
         /// <remarks>
         /// Use size = 0 to automatically resize to non-zeros count.
         /// </remarks>
@@ -149,12 +219,12 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         {
             if (size <= 0)
             {
-                size = this.nz;
+                size = nz;
             }
 
-            Array.Resize<int>(ref this.rowind, size);
-            Array.Resize<int>(ref this.colind, size);
-            Array.Resize<T>(ref this.values, size);
+            Array.Resize(ref rowind, size);
+            Array.Resize(ref colind, size);
+            Array.Resize(ref values, size);
 
             this.nzmax = size;
         }
