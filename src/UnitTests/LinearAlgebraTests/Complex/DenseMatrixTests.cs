@@ -108,7 +108,7 @@ namespace MathNet.Numerics.Extensions.UnitTests.LinearAlgebraTests.Complex
         }
 
         [Test]
-        public void TestSymEigs()
+        public void TestGenEigs()
         {
             var A = DenseMatrix.OfColumnMajor(3, 3, new Complex[]
             {
@@ -136,6 +136,34 @@ namespace MathNet.Numerics.Extensions.UnitTests.LinearAlgebraTests.Complex
                 Assert.IsTrue(Math.Abs(v2.Imaginary) < EPS);
 
                 Assert.IsTrue(Math.Abs(v1.Real - v2.Real) < EPS);
+            }
+        }
+
+        [Test]
+        public void TestGenEigsVec()
+        {
+            int n = 3;
+
+            var A = DenseMatrix.OfColumnMajor(n, n, new Complex[]
+            {
+                4, 4, 8, 4, 0, 4, 8, 4, 4
+            });
+
+            var B = DenseMatrix.OfColumnMajor(n, n, new Complex[]
+            {
+                2, -1, 0, -1, 2, -1, 0, -1, 2
+            });
+
+            var E = new DenseMatrix(n, n);
+
+            var e = A.GeneralizedEigenvalues(B, E);
+
+            for (int i = 0; i < n; i++)
+            {
+                var x = E.Column(i);
+                var v = A * x - e[i] * B * x;
+
+                Assert.IsTrue(v.L1Norm() < EPS);
             }
         }
     }

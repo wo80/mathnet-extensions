@@ -12,27 +12,15 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
         /// </summary>
         /// <param name="A">Symmetric matrix.</param>
         /// <param name="B">Symmetric, positive definite matrix.</param>
-        /// <param name="flag">A flag indicating if the input matrix A should be overwritten with the eigenvectors (default = false).</param>
         /// <returns>A vector of eigenvalues.</returns>
         /// <remarks>
         /// See http://www.cmth.ph.ic.ac.uk/people/a.mackinnon/Lectures/compphys/node72.html
         /// and http://www.netlib.org/lapack/lug/node54.html
         /// </remarks>
-        public static Vector<Complex> GeneralizedEigenvalues(this DenseMatrix A, DenseMatrix B, bool flag = false)
+        public static Vector<Complex> GeneralizedEigenvalues(this DenseMatrix A, DenseMatrix B)
         {
             // Cholesky factor of B.
-            Matrix<Complex> L = null;
-
-            try
-            {
-                var cholesky = B.Cholesky();
-
-                L = cholesky.Factor;
-            }
-            catch (Exception)
-            {
-                throw new ArgumentException("Matrix B must be symmetric positive definite.");
-            }
+            var L = B.Cholesky().Factor;
 
             // Compute L^-1.
             InvertLowerTriangle((DenseMatrix)L);
@@ -40,13 +28,39 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
             // Compute L^-t = (L^-1)^t.
             var Lt = L.Transpose();
 
-            Matrix<Complex> copy = null;
+            // Build L^-1 * A * L^-t
+            A.Multiply(Lt, Lt);
+            L.Multiply(Lt, Lt);
 
-            if (flag)
-            {
-                // Save L^-t for recovery of eigenvectors.
-                copy = Lt.Clone();
-            }
+            var evd = Lt.Evd(Symmetricity.Hermitian);
+
+            return evd.EigenValues;
+        }
+
+        /// <summary>
+        /// Compute the eigenvalues for a symmetric, generalized eigenvalue problem A*x = lambda*B*x.
+        /// </summary>
+        /// <param name="A">Symmetric matrix.</param>
+        /// <param name="B">Symmetric, positive definite matrix.</param>
+        /// <param name="E">Matrix containing the eigenvectors on return.</param>
+        /// <returns>A vector of eigenvalues.</returns>
+        /// <remarks>
+        /// See http://www.cmth.ph.ic.ac.uk/people/a.mackinnon/Lectures/compphys/node72.html
+        /// and http://www.netlib.org/lapack/lug/node54.html
+        /// </remarks>
+        public static Vector<Complex> GeneralizedEigenvalues(this DenseMatrix A, DenseMatrix B, DenseMatrix E)
+        {
+            // Cholesky factor of B.
+            var L = B.Cholesky().Factor;
+
+            // Compute L^-1.
+            InvertLowerTriangle((DenseMatrix)L);
+
+            // Compute L^-t = (L^-1)^t.
+            var Lt = L.Transpose();
+
+            // Save L^-t for recovery of eigenvectors.
+            var copy = (DenseMatrix)Lt.Clone();
 
             // Build L^-1 * A * L^-t
             A.Multiply(Lt, Lt);
@@ -54,11 +68,8 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
 
             var evd = Lt.Evd(Symmetricity.Hermitian);
 
-            if (flag)
-            {
-                // Recover eigenvectors.
-                copy.Multiply(evd.EigenVectors, A);
-            }
+            // Recover eigenvectors.
+            copy.Multiply(evd.EigenVectors, E);
 
             return evd.EigenValues;
         }
