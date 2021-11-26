@@ -2,11 +2,12 @@
 namespace ExtensionsBenchmark.Benchmark.Complex
 {
     using MathNet.Numerics;
-    using MathNet.Numerics.LinearAlgebra;
     using MathNet.Numerics.LinearAlgebra.Complex;
     using System;
     using System.Collections.Generic;
     using System.Numerics;
+
+    using DVector = MathNet.Numerics.LinearAlgebra.Vector<double>;
 
     class SparseMatrixTest : IBenchmarkCollection
     {
@@ -979,7 +980,7 @@ namespace ExtensionsBenchmark.Benchmark.Complex
 
                 var A = Create.SparseMatrix(rows, cols, density, symmetric);
 
-                Vector<double> b;
+                DVector b;
                 var a = new double[A.RowCount];
 
                 var result = new BenchmarkResult();
@@ -1040,7 +1041,7 @@ namespace ExtensionsBenchmark.Benchmark.Complex
 
                 var A = Create.SparseMatrix(rows, cols, density, symmetric);
 
-                Vector<double> b;
+                DVector b;
                 var a = new double[A.ColumnCount];
 
                 var result = new BenchmarkResult();

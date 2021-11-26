@@ -13,17 +13,13 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <OutputPath>..\..\out\Debug\</OutputPath>
-    <IntermediateOutputPath>..\..\out\obj\Debug\</IntermediateOutputPath>
-    <BaseIntermediateOutputPath>..\..\out\obj\Debug\</BaseIntermediateOutputPath>
+    <OutputPath>..\..\bin\Debug\</OutputPath>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <OutputPath>..\..\out\Release\</OutputPath>
-    <IntermediateOutputPath>..\..\out\obj\Release\</IntermediateOutputPath>
-    <BaseIntermediateOutputPath>..\..\out\obj\Release\</BaseIntermediateOutputPath>
+    <OutputPath>..\..\bin\Release\</OutputPath>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>

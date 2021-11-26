@@ -9,10 +9,10 @@
     <Description>Extensions to the Math.NET Numerics software package.</Description>
     <Product>MathNet.Numerics.Extensions</Product>
     <Authors>Christian Woltering</Authors>
-    <AssemblyVersion>4.12.0.0</AssemblyVersion>
-    <FileVersion>4.12.0.0</FileVersion>
+    <AssemblyVersion>4.15.0.0</AssemblyVersion>
+    <FileVersion>4.15.0.0</FileVersion>
     <PackageTags>mathnet numerics</PackageTags>
-    <Version>4.12.0</Version>
+    <Version>4.15.0</Version>
     <AssemblyName>MathNet.Numerics.Extensions</AssemblyName>
     <RootNamespace>MathNet.Numerics</RootNamespace>
     <PackageLicenseExpression>LGPL-2.1-only</PackageLicenseExpression>
