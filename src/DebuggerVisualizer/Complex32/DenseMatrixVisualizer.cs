@@ -5,8 +5,8 @@ using System;
 
 namespace MathNet.MatrixDebuggerVisualizer.Complex32
 {
-	public class DenseMatrixVisualizer : DialogDebuggerVisualizer
-	{
+    public class DenseMatrixVisualizer : DialogDebuggerVisualizer
+    {
 		protected override void Show(IDialogVisualizerService windowService, IVisualizerObjectProvider objectProvider)
 		{
 			if (windowService == null)

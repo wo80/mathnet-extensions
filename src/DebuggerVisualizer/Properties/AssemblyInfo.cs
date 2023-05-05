@@ -18,7 +18,7 @@ using System.Runtime.Versioning;
 [assembly: System.Diagnostics.DebuggerVisualizer(typeof(MathNet.MatrixDebuggerVisualizer.Single.SparseMatrixVisualizer), Target = typeof(MathNet.Numerics.LinearAlgebra.Single.SparseMatrix), Description = "Matrix Visualizer")]
 [assembly: System.Reflection.AssemblyCompany("")]
 [assembly: System.Reflection.AssemblyConfiguration("")]
-[assembly: System.Reflection.AssemblyCopyright("Copyright © Christian Woltering 2016")]
+[assembly: System.Reflection.AssemblyCopyright("Copyright © Christian Woltering 2016-2023")]
 [assembly: System.Reflection.AssemblyDescription("")]
 [assembly: System.Reflection.AssemblyFileVersion("1.0.0.0")]
 [assembly: System.Reflection.AssemblyProduct("MathNet.MatrixDebuggerVisualizer")]

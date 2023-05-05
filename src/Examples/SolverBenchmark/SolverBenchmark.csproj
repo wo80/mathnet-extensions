@@ -17,10 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MathNet.Numerics" Version="4.15.0" />
-    <PackageReference Include="MathNet.Numerics.Data.Text" Version="4.1.0" />
-    <PackageReference Include="OxyPlot.Core" Version="2.1.0" />
-    <PackageReference Include="OxyPlot.WindowsForms" Version="2.1.0" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+    <PackageReference Include="MathNet.Numerics.Data.Text" Version="5.0.0" />
+    <PackageReference Include="OxyPlot.Core" Version="2.1.2" />
+    <PackageReference Include="OxyPlot.WindowsForms" Version="2.1.2" />
   </ItemGroup>
 
   <ItemGroup>

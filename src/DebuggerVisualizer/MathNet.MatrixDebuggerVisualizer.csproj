@@ -1,219 +1,51 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <ProjectGuid>{85E5D1AA-EEA0-4C86-81E4-83B06A346793}</ProjectGuid>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <TargetFramework>net48</TargetFramework>
     <OutputType>Library</OutputType>
-    <AssemblyName>MathNet.MatrixDebuggerVisualizer</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Platform)' == 'AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <OutputPath>..\..\bin\Debug\</OutputPath>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <OutputPath>..\..\bin\Release\</OutputPath>
     <DebugSymbols>true</DebugSymbols>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-  </PropertyGroup>
-  <PropertyGroup>
-    <RootNamespace>MathNet.MatrixDebuggerVisualizer</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MathNet.Numerics, Version=4.15.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\MathNet.Numerics.4.15.0\lib\net461\MathNet.Numerics.dll</HintPath>
-    </Reference>
-    <Reference Include="MathNet.Numerics.Data.Matlab, Version=4.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\MathNet.Numerics.Data.Matlab.4.1.0\lib\net461\MathNet.Numerics.Data.Matlab.dll</HintPath>
-    </Reference>
-    <Reference Include="MathNet.Numerics.Data.Text, Version=4.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\MathNet.Numerics.Data.Text.4.1.0\lib\net461\MathNet.Numerics.Data.Text.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Runtime.Serialization" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="Microsoft.VisualStudio.DebuggerVisualizers" />
-    <Reference Include="System" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Numerics" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Complex32\DenseMatrixVisualizer.cs" />
-    <Compile Include="Complex32\DenseStorageAdapter.cs" />
-    <Compile Include="Complex32\MathService.cs" />
-    <Compile Include="Complex32\SparseMatrixVisualizer.cs" />
-    <Compile Include="Complex32\SparseStorageAdapter.cs" />
-    <Compile Include="Complex\DenseMatrixVisualizer.cs" />
-    <Compile Include="Complex\DenseStorageAdapter.cs" />
-    <Compile Include="Complex\MathService.cs" />
-    <Compile Include="Complex\SparseMatrixVisualizer.cs" />
-    <Compile Include="Complex\SparseStorageAdapter.cs" />
-    <Compile Include="Services\DenseStorageInfoService.cs" />
-    <Compile Include="Helper.cs" />
-    <Compile Include="Services\IMathService.cs" />
-    <Compile Include="Services\IStorageInfoService.cs" />
-    <Compile Include="Services\MatrixEntry.cs" />
-    <Compile Include="Services\StorageInfo.cs" />
-    <Compile Include="Single\DenseMatrixVisualizer.cs" />
-    <Compile Include="Single\DenseStorageAdapter.cs" />
-    <Compile Include="Single\MathService.cs" />
-    <Compile Include="Single\SparseMatrixVisualizer.cs" />
-    <Compile Include="Single\SparseStorageAdapter.cs" />
-    <Compile Include="UI\Controls\CustomTabControl.cs">
+    <Compile Update="UI\Controls\CustomTabControl.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="UI\Controls\CustomToolStripRenderer.cs" />
-    <Compile Include="UI\Controls\GraphicsHelper.cs" />
-    <Compile Include="UI\Controls\MatrixSpyControl.cs">
+    <Compile Update="UI\Controls\MatrixSpyControl.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="UI\Controls\Zoom.cs" />
-    <Compile Include="Double\DenseStorageAdapter.cs" />
-    <Compile Include="Double\DenseMatrixVisualizer.cs" />
-    <Compile Include="UI\DenseMatrixVisualizerForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="UI\DenseMatrixVisualizerForm.Designer.cs">
-      <DependentUpon>DenseMatrixVisualizerForm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Double\SparseMatrixVisualizer.cs" />
-    <Compile Include="Double\SparseStorageAdapter.cs" />
-    <Compile Include="Double\MathService.cs" />
-    <Compile Include="Services\IStorageAdapter.cs" />
-    <Compile Include="UI\ListViewHelper.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Properties\Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
-    <Compile Include="UI\SparseMatrixVisualizerForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="UI\SparseMatrixVisualizerForm.Designer.cs">
-      <DependentUpon>SparseMatrixVisualizerForm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Services\SparseStorageInfoService.cs" />
-    <Compile Include="UI\Themes\BlueTheme.cs" />
-    <Compile Include="UI\Views\DenseInfoView.cs">
+    <Compile Update="UI\Views\DenseInfoView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\Views\DenseInfoView.Designer.cs">
-      <DependentUpon>DenseInfoView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="UI\Views\DenseStorageView.cs">
+    <Compile Update="UI\Views\DenseStorageView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\Views\DenseStorageView.Designer.cs">
-      <DependentUpon>DenseStorageView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="UI\Views\IView.cs" />
-    <Compile Include="UI\Views\SparseInfoView.cs">
+    <Compile Update="UI\Views\SparseInfoView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\Views\SparseInfoView.Designer.cs">
-      <DependentUpon>SparseInfoView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="UI\Views\SparseSpyView.cs">
+    <Compile Update="UI\Views\SparseSpyView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\Views\SparseSpyView.Designer.cs">
-      <DependentUpon>SparseSpyView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="UI\Views\SparseStorageView.cs">
+    <Compile Update="UI\Views\SparseStorageView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\Views\SparseStorageView.Designer.cs">
-      <DependentUpon>SparseStorageView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="UI\Views\SparseSubMatrixView.cs">
+    <Compile Update="UI\Views\SparseSubMatrixView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\Views\SparseSubMatrixView.Designer.cs">
-      <DependentUpon>SparseSubMatrixView.cs</DependentUpon>
-    </Compile>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="UI\DenseMatrixVisualizerForm.resx">
-      <DependentUpon>DenseMatrixVisualizerForm.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\SparseMatrixVisualizerForm.resx">
-      <DependentUpon>SparseMatrixVisualizerForm.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\Views\DenseInfoView.resx">
-      <DependentUpon>DenseInfoView.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\Views\DenseStorageView.resx">
-      <DependentUpon>DenseStorageView.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\Views\SparseInfoView.resx">
-      <DependentUpon>SparseInfoView.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\Views\SparseSpyView.resx">
-      <DependentUpon>SparseSpyView.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\Views\SparseStorageView.resx">
-      <DependentUpon>SparseStorageView.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\Views\SparseSubMatrixView.resx">
-      <DependentUpon>SparseSubMatrixView.cs</DependentUpon>
-    </EmbeddedResource>
+    <ProjectReference Include="..\Numerics\MathNet.Numerics.Extensions.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
-    <None Include="Resources\first.png" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+    <PackageReference Include="MathNet.Numerics.Data.Matlab" Version="5.0.0" />
+    <PackageReference Include="MathNet.Numerics.Data.Text" Version="5.0.0" />
+    <PackageReference Include="Microsoft.VisualStudio.DebuggerVisualizers" Version="17.6.1032901" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\last.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\next.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\previous.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\arrow_in.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\arrow_out.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\zoom_in.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\zoom_out.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\refresh.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\save.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\refresh_small.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\warning.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Numerics\MathNet.Numerics.Extensions.csproj">
-      <Project>{2018f73f-e26c-459c-98bb-b0f443c54f59}</Project>
-      <Name>MathNet.Numerics.Extensions</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup />
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
